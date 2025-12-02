@@ -1,0 +1,21 @@
+{
+  "IT": {
+    "B0BY9Q4KTT": [
+      { "id": "r1", "stelle": 5, "titolo": "Fantastico", "testo": "Prodotto eccezionale!" },
+      { "id": "r2", "stelle": 4, "titolo": "Buono", "testo": "Soddisfatto, ma migliorabile" },
+      { "id": "r3", "stelle": 3, "titolo": "Normale", "testo": "Mi aspettavo di più" },
+      { "id": "r4", "stelle": 2, "titolo": "Deluso", "testo": "Non lo ricomprerei" },
+      { "id": "r5", "stelle": 1, "titolo": "Terribile", "testo": "Esperienza pessima" }
+    ]
+  },
+  "FR": {
+    "B0BY9Q4KTT": [
+      { "id": "r6", "stelle": 5, "titolo": "Excellent", "testo": "Je suis très satisfait !" }
+    ]
+  },
+  "DE": {
+    "B0BY9Q4KTT": [
+      { "id": "r6", "stelle": 5, "titolo": "Excellent", "testo": "Je suis très satisfait !" }
+    ]
+  }
+}

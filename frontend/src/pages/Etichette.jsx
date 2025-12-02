@@ -1,0 +1,386 @@
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { 
+  ArrowLeft, 
+  Tag, 
+  Edit3,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle,
+  Truck
+} from "lucide-react";
+
+const initialData = [
+  { id: 1, nome: "Primer no acido", quantita: 25000 },
+  { id: 2, nome: "Primer Acido", quantita: 1170 },
+  { id: 3, nome: "Nail Prep", quantita: 4500 },
+  { id: 4, nome: "Olio Vaniglia", quantita: 2300 },
+  { id: 5, nome: "olio fragola", quantita: 3000 },
+  { id: 6, nome: "olio cocco", quantita: 3600 },
+  { id: 7, nome: "olio generico", quantita: 5300 },
+  { id: 8, nome: "acrygel", quantita: 1300 },
+  { id: 9, nome: "cilindri", quantita: "2000+" },
+  { id: 10, nome: "antifungo", quantita: 0 },
+  { id: 11, nome: "cutiway", quantita: 3400 },
+  { id: 12, nome: "olio 3 fasico", quantita: 3400 },
+  { id: 13, nome: "Rinforzante", quantita: 4800 },
+  { id: 14, nome: "Smalto Amaro", quantita: 7000 },
+  { id: 15, nome: "Rimuovi Cuticole", quantita: 9300 },
+  { id: 16, nome: "top coat manicure", quantita: 2000 },
+  { id: 17, nome: "top coat Ultra shine", quantita: 1300 },
+  { id: 18, nome: "top coat no wipe", quantita: 2340 },
+  { id: 19, nome: "top coat matt", quantita: 2000 },
+  { id: 20, nome: "base + top", quantita: 4700 },
+  { id: 21, nome: "base coat", quantita: 2000 },
+  { id: 22, nome: "olio cbd 5%", quantita: 2500 },
+  { id: 23, nome: "olio cbd 15%", quantita: 2500 },
+  { id: 24, nome: "olio cbd 25%", quantita: 2500 },
+  { id: 25, nome: "Rubber base", quantita: 4700 },
+  { id: 26, nome: "generica", quantita: 4700 },
+];
+
+const Etichette = () => {
+  const [rows, setRows] = useState(initialData);
+  const [expandedCards, setExpandedCards] = useState({});
+  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
+
+  const toggleCardExpansion = (id) => {
+    setExpandedCards(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const handleChange = (id, field, value) => {
+    setRows(prevRows =>
+      prevRows.map(row =>
+        row.id === id ? { ...row, [field]: value } : row
+      )
+    );
+  };
+
+  const handleRettifica = (row) => {
+    const nuovaQuantita = prompt(
+      `Rettifica quantità per "${row.nome}".\nQuantità attuale: ${row.quantita}`,
+      row.quantita
+    );
+    
+    if (nuovaQuantita !== null) {
+      handleChange(row.id, "quantita", nuovaQuantita);
+      alert(`✅ Quantità aggiornata per "${row.nome}": ${nuovaQuantita}`);
+    }
+  };
+
+  // Filtro ricerca
+  const filteredRows = rows.filter(row =>
+    row.nome.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Calcola statistiche
+  const totalEtichette = filteredRows.reduce((acc, row) => {
+    const qty = typeof row.quantita === 'string' ? 0 : row.quantita;
+    return acc + qty;
+  }, 0);
+
+  const etichetteBasse = filteredRows.filter(row => 
+    typeof row.quantita === 'number' && row.quantita > 0 && row.quantita < 2000
+  ).length;
+
+  const etichetteEsaurite = filteredRows.filter(row => 
+    row.quantita === 0
+  ).length;
+
+  const getQuantitaColor = (quantita) => {
+    if (quantita === 0) return "text-red-400 bg-red-500/10 border-red-500/30";
+    if (typeof quantita === 'number' && quantita < 2000) return "text-yellow-400 bg-yellow-500/10 border-yellow-500/30";
+    return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
+  };
+
+  const getQuantitaIcon = (quantita) => {
+    if (quantita === 0) return <AlertCircle className="w-4 h-4" />;
+    if (typeof quantita === 'number' && quantita < 2000) return <TrendingUp className="w-4 h-4" />;
+    return <CheckCircle className="w-4 h-4" />;
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
+      <div className="max-w-8xl mx-auto space-y-6">
+        
+        {/* ========== HEADER ========== */}
+        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <Tag className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-white">Gestione Etichette</h1>
+                <p className="text-zinc-400 mt-1">Inventario etichette prodotti</p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate("/magazzino")}
+              className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Magazzino
+            </button>
+          </div>
+        </div>
+
+        {/* ========== BARRA RICERCA ========== */}
+        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <label className="text-sm font-medium text-zinc-400 block mb-2">
+            🔍 Cerca Etichetta
+          </label>
+          <input
+            type="text"
+            placeholder="Cerca per nome..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+          />
+        </div>
+
+        {/* ========== STATISTICHE ========== */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gradient-to-br from-emerald-500/10 to-green-600/10 border border-emerald-500/30 rounded-xl p-6">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-8 h-8 text-emerald-400" />
+              <div>
+                <p className="text-sm text-zinc-400">Totale Etichette</p>
+                <p className="text-2xl font-bold text-emerald-400">{totalEtichette.toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-yellow-500/10 to-amber-600/10 border border-yellow-500/30 rounded-xl p-6">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-8 h-8 text-yellow-400" />
+              <div>
+                <p className="text-sm text-zinc-400">Scorte Basse (&lt;2000)</p>
+                <p className="text-2xl font-bold text-yellow-400">{etichetteBasse}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-red-500/10 to-rose-600/10 border border-red-500/30 rounded-xl p-6">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-8 h-8 text-red-400" />
+              <div>
+                <p className="text-sm text-zinc-400">Esaurite</p>
+                <p className="text-2xl font-bold text-red-400">{etichetteEsaurite}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========== CONTATORE ========== */}
+        <div className="bg-gradient-to-r from-cyan-600 to-blue-600 rounded-xl border border-cyan-500/30 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-4xl">🏷️</span>
+              <div>
+                <h2 className="text-2xl font-bold text-white">Etichette in Inventario</h2>
+                <p className="text-cyan-100 text-sm mt-1">
+                  {filteredRows.length} tipo{filteredRows.length === 1 ? "" : "logie"} di etichett{filteredRows.length === 1 ? "a" : "e"}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========== CARD ETICHETTE ========== */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          {filteredRows.map((row) => {
+            const isExpanded = expandedCards[row.id];
+            
+            return (
+              <div
+                key={row.id}
+                className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-cyan-500/50 transition-all"
+              >
+                {/* Header sempre visibile */}
+                <div 
+                  className="p-4 cursor-pointer hover:bg-zinc-800/50 transition-colors"
+                  onClick={() => toggleCardExpansion(row.id)}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Icona */}
+                    <div className="flex-shrink-0">
+                      <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+                        <Tag className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-white truncate capitalize">
+                        {row.nome}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 ${getQuantitaColor(row.quantita)}`}>
+                          {getQuantitaIcon(row.quantita)}
+                          {row.quantita} pz
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Pulsante espandi */}
+                    <button
+                      className="flex-shrink-0 p-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCardExpansion(row.id);
+                      }}
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="w-5 h-5 text-white" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-white" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Contenuto espandibile */}
+                {isExpanded && (
+                  <div className="px-4 pb-4 space-y-4 border-t border-zinc-800 pt-4">
+                    {/* Quantità Principale */}
+                    <div className="bg-zinc-800/50 rounded-lg p-4 border border-zinc-700">
+                      <h4 className="text-sm font-semibold text-cyan-400 mb-3">Quantità Disponibile</h4>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          value={row.quantita}
+                          onChange={(e) => handleChange(row.id, "quantita", e.target.value)}
+                          className="flex-1 px-4 py-3 bg-zinc-700 border border-zinc-600 rounded-lg text-white font-bold text-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                        />
+                        <button
+                          onClick={() => handleRettifica(row)}
+                          className="flex items-center gap-2 px-4 py-3 bg-orange-600 hover:bg-orange-700 rounded-lg font-medium transition-all"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                          Rettifica
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Campi Aggiuntivi */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs text-zinc-400 block mb-2">Colonna 1</label>
+                        <input
+                          type="text"
+                          value={row.colonna1 || ""}
+                          onChange={(e) => handleChange(row.id, "colonna1", e.target.value)}
+                          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                          placeholder="Valore..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-zinc-400 block mb-2">6 Mesi</label>
+                        <input
+                          type="text"
+                          value={row.mesi8 || ""}
+                          onChange={(e) => handleChange(row.id, "mesi8", e.target.value)}
+                          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                          placeholder="Valore..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-zinc-400 block mb-2 flex items-center gap-1">
+                          <Truck className="w-3 h-3" />
+                          Ordine Packly
+                        </label>
+                        <input
+                          type="text"
+                          value={row.ordinePackly || ""}
+                          onChange={(e) => handleChange(row.id, "ordinePackly", e.target.value)}
+                          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                          placeholder="N. Ordine Packly..."
+                        />
+                      </div>
+                    </div>
+
+                    {/* Data Ordine e 6 mesi new */}
+                    <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar className="w-4 h-4 text-blue-400" />
+                        <h4 className="text-sm font-semibold text-blue-400">Info Ordine</h4>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-zinc-400 block mb-2">Data Ordine</label>
+                          <input
+                            type="date"
+                            value={row.dataOrdine || ""}
+                            onChange={(e) => handleChange(row.id, "dataOrdine", e.target.value)}
+                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-zinc-400 block mb-2">6 Mesi (New)</label>
+                          <input
+                            type="text"
+                            value={row.mesi8new || ""}
+                            onChange={(e) => handleChange(row.id, "mesi8new", e.target.value)}
+                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Valore..."
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Alert se quantità bassa o esaurita */}
+                    {row.quantita === 0 && (
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-red-400" />
+                        <p className="text-red-400 text-sm font-medium">
+                          ⚠️ Etichette esaurite - Riordinare urgentemente
+                        </p>
+                      </div>
+                    )}
+
+                    {typeof row.quantita === 'number' && row.quantita > 0 && row.quantita < 2000 && (
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 flex items-center gap-2">
+                        <TrendingUp className="w-5 h-5 text-yellow-400" />
+                        <p className="text-yellow-400 text-sm font-medium">
+                          ⚡ Scorte in esaurimento - Considera un riordino
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ========== EMPTY STATE ========== */}
+        {filteredRows.length === 0 && (
+          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-12 text-center">
+            <div className="w-20 h-20 rounded-2xl bg-zinc-800 flex items-center justify-center mx-auto mb-4">
+              <Tag className="w-10 h-10 text-zinc-600" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">
+              Nessuna etichetta trovata
+            </h3>
+            <p className="text-zinc-400 text-sm">
+              Prova a modificare i termini di ricerca
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Etichette;

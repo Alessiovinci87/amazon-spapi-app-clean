@@ -1,0 +1,172 @@
+{
+  "Italia": [
+    {
+      "sigla": "XITD",
+      "indirizzo": "Viale Maestri del Lavoro 990, 45031 Arquà Polesine"
+    },
+    {
+      "sigla": "MXP 5",
+      "indirizzo": "Strada Dogana Po 2U, 29015 Castel San Giovanni"
+    },
+    {
+      "sigla": "XITC",
+      "indirizzo": "Via Aldo Moro, 4, 20080 Francolino di Carpiano"
+    },
+    {
+      "sigla": "FCO1",
+      "indirizzo": "Via della Meccanica, 4, 02032 Passo Corese"
+    },
+    {
+      "sigla": "TRN1",
+      "indirizzo": "Strada Provinciale per Rondissone 90, 10037 Torrazza Piemonte"
+    },
+    {
+      "sigla": "MXP 3",
+      "indirizzo": "Via Rita Levi Montalcini, 2, 13100 Vercelli"
+    },
+    {
+      "sigla": "FCO5",
+      "indirizzo": "MHRW+38, Ardea, Città Metropolitana di Roma"
+    },
+    {
+      "sigla": "BGY1",
+      "indirizzo": "SP98, 24050 Cividate al piano BG"
+    },
+    {
+      "sigla": "LIN8",
+      "indirizzo": "Via Gioacchino Rossini, 24040 Casirate D'adda BG"
+    },
+    {
+      "sigla": "BLQ1",
+      "indirizzo": "45020 Castelguglielmo, Provincia di Rovigo"
+    },
+    {
+      "sigla": "FCO2",
+      "indirizzo": "00034 Colleferro, Città Metropolitana di Roma Capitale"
+    },
+    {
+      "sigla": "MXP 6",
+      "indirizzo": "Via Luigi Einaudi, 28100 Novara NO"
+    },
+    {
+      "sigla": "BLQ8",
+      "indirizzo": "Via S. Vito, 1369, 41057 Spilamberto MO"
+    }
+  ],
+  "UK": [
+    {
+      "sigla": "LTN1",
+      "indirizzo": "Marston Gate, MK43 0ZA Ridgmont, Bedfordshire"
+    },
+    {
+      "sigla": "XUKK",
+      "indirizzo": "Kuehne & Nagel, Merlin Park II, Wood Lane, B249QJ Birmingham"
+    },
+    {
+      "sigla": "XUKA",
+      "indirizzo": "Aston Lane North, Whitehouse Industrial Estate, WA7 3BN Runcorn"
+    },
+    {
+      "sigla": "BHX2",
+      "indirizzo": "Robson Way, LE67 1GQ Ellistown, Coalville"
+    },
+    {
+      "sigla": "XUKD",
+      "indirizzo": "Unità A, Royal Oak Way North, NN11 8LR Daventry"
+    },
+    {
+      "sigla": "LBA1",
+      "indirizzo": "Balby Carr Bank, DN4 5JS Doncaster"
+    },
+    {
+      "sigla": "LBA2",
+      "indirizzo": "Iport Avenue, DN11 0BG New Rossington"
+    },
+    {
+      "sigla": "EDI4",
+      "indirizzo": "Amazon Way, KY11 8XT Dunfermline"
+    },
+    {
+      "sigla": "LTN4",
+      "indirizzo": "Boscombe Road, LU5 4FE Dunstable"
+    },
+    {
+      "sigla": "LTN2",
+      "indirizzo": "Boundary Way, HP2 7LF Hemel Hempstead"
+    },
+    {
+      "sigla": "GLA1",
+      "indirizzo": "2 Cloch Road, PA19 1BQ Gourock"
+    },
+    {
+      "sigla": "MAN1",
+      "indirizzo": "6 Sunbank Lane, Airport City, M90 5AA Manchester"
+    },
+    {
+      "sigla": "BHX3",
+      "indirizzo": "Royal Oak Way North, NN118QL Daventry"
+    },
+    {
+      "sigla": "EUK5",
+      "indirizzo": "Kingston Park, Flaxley Road, PE2 9EN Peterborough"
+    },
+    {
+      "sigla": "BHX1",
+      "indirizzo": "Power Station Road, WS15 1NZ Rugeley"
+    },
+    {
+      "sigla": "CWL1",
+      "indirizzo": "Ffordd Amazon, SA1 8QX, Crymlyn Burrows, Swansea"
+    },
+    {
+      "sigla": "LCY2",
+      "indirizzo": "Unit 2, Windrush Road, RM18 7AN Tilbury"
+    },
+    {
+      "sigla": "MAN2",
+      "indirizzo": "Omega Plot 7c, Orion Boulevard, WA5 3XA Warrington"
+    },
+    {
+      "sigla": "XUKC",
+      "indirizzo": "Rutherford Drive, Park Farm South, NN8 6AQ Wellingborough"
+    },
+    {
+      "sigla": "BHX4",
+      "indirizzo": "Lyons Park, Coundon Wedge Drive, CV5 9FA Coventry"
+    }
+  ],
+  "Francia": [
+    {
+      "sigla": "XFR",
+      "indirizzo": "91-135 Rue du Brisson, 38290 Satolas-et-Bonce"
+    },
+    {
+      "sigla": "LYS1",
+      "indirizzo": "ZAC du Parc d'Activité du Val de Bourgogne, Sevrey"
+    },
+    {
+      "sigla": "XFRG",
+      "indirizzo": "101 Le Chemin de Poupry, 45410 Artenay"
+    },
+    {
+      "sigla": "MRS1",
+      "indirizzo": "Rue Joseph Garde, 26200 Montélimar"
+    },
+    {
+      "sigla": "BVA1",
+      "indirizzo": "7 Rue des Indes Noirs, 80440 Boves"
+    },
+    {
+      "sigla": "XFRH",
+      "indirizzo": "900 Rue Denis Papin, 77550 Moissy-Cramayel"
+    },
+    {
+      "sigla": "ORI1",
+      "indirizzo": "1401 Rue du Champ Rouge, 45770 Saran"
+    },
+    {
+      "sigla": "LIL1",
+      "indirizzo": "Rue Amazon Douai, 59553 Lauwin-Planque"
+    }
+  ]
+}

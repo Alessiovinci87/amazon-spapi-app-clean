@@ -1,0 +1,15 @@
+{
+  "root": "C:\\Users\\aless\\amazon-spapi-app\\tools",
+  "entries": [
+    "audit-project.mjs"
+  ],
+  "totals": {
+    "codeFiles": 2,
+    "reachable": 1,
+    "orphans": 1
+  },
+  "orphans": [
+    "export-tree.mjs"
+  ],
+  "generatedAt": "2025-08-12T08:43:55.595Z"
+}

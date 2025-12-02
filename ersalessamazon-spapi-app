@@ -1,0 +1,37 @@
+[33mff7a55e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{0}: reset: moving to ff7a55e
+[33m54835fe[m HEAD@{1}: commit: fix: calcolo corretto prodotti producibili OLD/NEW e normalizzazione formato sfuso
+[33maa74653[m HEAD@{2}: commit: fix: corretto calcolo distinti prodotti producibili OLD e NEW in Sfuso.jsx
+[33ma11f651[m HEAD@{3}: commit: fix: dotenv only in dev
+[33mff7a55e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{4}: commit: Aggiornamento progetto per deploy
+[33m0bc850c[m HEAD@{5}: commit: Update DDT components and backend schema - test API integrazione
+[33mc70abec[m HEAD@{6}: commit: Ignorati node_modules e rimossi file pesanti dal repo
+[33md913de8[m HEAD@{7}: commit: Aggiunto dotenv alle dipendenze per Render
+[33m1984cca[m HEAD@{8}: commit: Implementazione DDT generico:
+[33m4ac8513[m HEAD@{9}: commit: chore: aggiunto .gitignore per escludere node_modules e database locali
+[33m04cb6a9[m HEAD@{10}: commit: feat: aggiornamenti multipli backend e frontend (aggiunta rotta /update-all-images con delay e retry, fix immagini prodotti, aggiornamenti vari su inventario, listing e DDT)
+[33meab8abd[m HEAD@{11}: commit: ✨ Creata e testata la sezione DDT: implementato DDT generico e storico completo
+[33m6a53846[m HEAD@{12}: commit: Fix: rimosso vecchio mount del DDT generico da ddtIndex.js, ora usa solo routes/ddtGenerico.js con template corretto
+[33mb4a2490[m[33m ([m[1;31morigin/main[m[33m)[m HEAD@{13}: commit: chore: punto di ripristino prima del cleanup backend
+[33mcd6fb6f[m HEAD@{14}: commit: Aggiunta sezione Produzione al Magazzino e centrato tasto Gestione Produzione
+[33m7ff6b48[m HEAD@{15}: commit: Fix GestioneSpedizioni: aggiunta funzione eliminaSpedizione + gestione multiprodotto
+[33m980767e[m HEAD@{16}: commit: Commit generale: fix rotte storico spedizioni, aggiornamenti DDT e template
+[33m35ea5b3[m HEAD@{17}: commit: Gestione spedizioni: aggiunta modifica bozza, export CSV con data e paese, calcolo impegni per prodotto con visualizzazione multi-riga
+[33mdc736aa[m HEAD@{18}: commit: Fix: backend avviato da backend_v2, ripristinate rotte inventario/storico e rettifiche funzionanti
+[33m73173a9[m HEAD@{19}: commit: Fix storico: unificata logica arricchimento movimenti per globale e specifico (inclusi accessori, note e operatore)
+[33m6844c5a[m HEAD@{20}: Branch: renamed refs/heads/main to refs/heads/main
+[33m6844c5a[m HEAD@{22}: commit: Commit iniziale - salvo l’intero progetto amazon-spapi-app
+[33ma4d1e8e[m HEAD@{23}: commit: Storico globale aggiornato: filtri con suggerimenti, card prodotto con immagine, fix rettifiche e produzione
+[33me9c308c[m[33m ([m[1;33mtag: [m[1;33mv1.0-stabile[m[33m)[m HEAD@{24}: checkout: moving from df52e56653933a9035bc750cecf16c476a579688 to main
+[33mdf52e56[m[33m ([m[1;33mtag: [m[1;33mv1.1-storico[m[33m, [m[1;32mfix-rettifica[m[33m)[m HEAD@{25}: checkout: moving from fix-rettifica to v1.1-storico
+[33mdf52e56[m[33m ([m[1;33mtag: [m[1;33mv1.1-storico[m[33m, [m[1;32mfix-rettifica[m[33m)[m HEAD@{26}: commit: StoricoGlobale: aggiunto filtro con suggerimenti, reset X e visualizzazione immagine/nome prodotto
+[33me9c308c[m[33m ([m[1;33mtag: [m[1;33mv1.0-stabile[m[33m)[m HEAD@{27}: reset: moving to v1.0-stabile
+[33me9c308c[m[33m ([m[1;33mtag: [m[1;33mv1.0-stabile[m[33m)[m HEAD@{28}: checkout: moving from main to fix-rettifica
+[33me9c308c[m[33m ([m[1;33mtag: [m[1;33mv1.0-stabile[m[33m)[m HEAD@{29}: commit: ✅ Fix inventario: nuovo schema con ricette_accessori, asin reali e gestione kit
+[33m1076f27[m HEAD@{30}: Branch: renamed refs/heads/main to refs/heads/main
+[33m1076f27[m HEAD@{32}: commit: Fix gestione accessori + endpoint backup funzionante
+[33m57e20d2[m HEAD@{33}: reset: moving to 57e20d2
+[33m57e20d2[m HEAD@{34}: commit: Sistemazione struttura progetto
+[33mfe20609[m HEAD@{35}: commit: Aggiornamento progetto
+[33me879825[m HEAD@{36}: checkout: moving from main to main
+[33me879825[m HEAD@{37}: commit: Initial commit
+[33mb39de8b[m HEAD@{38}: commit: Aggiunta gestione DDT e aggiornamento inventario

@@ -1,0 +1,144 @@
+<!-- backend_v2/ddt/templates/ddtGenericoTemplate.html -->
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Documento di Trasporto</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      margin: 30px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      border-bottom: 2px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .header img {
+      max-height: 70px;
+      margin-right: 20px;
+    }
+
+    .intestazione {
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 15px 0;
+      text-align: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th,
+    td {
+      border: 1px solid #000;
+      padding: 6px;
+      font-size: 11px;
+    }
+
+    th {
+      background: #eee;
+    }
+
+    .totali {
+      margin-top: 20px;
+      width: 100%;
+      border: none;
+    }
+
+    .totali td {
+      font-weight: bold;
+      border: none;
+    }
+
+    .info {
+      margin-top: 10px;
+    }
+
+    .info p {
+      margin: 4px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Logo + intestazione -->
+  <div class="header">
+    <img src="[[LOGO_PATH]]" alt="Logo" />
+
+    <div class="intestazione">
+      [[INTESTAZIONE]]
+    </div>
+  </div>
+
+  <h1>DOCUMENTO DI TRASPORTO</h1>
+
+  <!-- Info documento -->
+  <section class="info">
+    <p><b>Numero DDT:</b> [[NUMERO_DDT]]</p>
+    <p><b>N° Riferimento Amazon:</b> [[NUMERO_AMAZON]]</p>
+    <p><b>Data:</b> [[DATA]]</p>
+
+    <!-- Importatore Registrato + Centro logistico -->
+    <table style="width: 100%; border: 1px solid #000; margin-top: 10px;">
+      <tr>
+        <td style="width: 100%; padding: 6px;">
+          <b>Importatore Registrato:</b><br />
+          [[IMPORTATORE_REGISTRATO]]<br />
+          [[INDIRIZZO_DESTINATARIO]]
+        </td>
+      </tr>
+    </table>
+
+    <!-- Centro logistico (sezione separata) -->
+    <table style="width: 100%; border: 1px solid #000; margin-top: 10px;">
+      <tr>
+        <td style="width: 100%; padding: 6px;">
+          <b>Centro logistico:</b><br />
+          [[CENTRO_LOGISTICO]]
+        </td>
+      </tr>
+    </table>
+  </section>
+
+  <!-- Tabella prodotti -->
+  <table>
+    <thead>
+      <tr>
+        <th>Unità</th>
+        <th>Descrizione prodotto</th>
+        <th>ASIN + SKU</th>
+        <th>N° Cartoni</th>
+        <th>N° Pacco</th>
+      </tr>
+    </thead>
+    <tbody>
+      [[RIGHE]]
+    </tbody>
+  </table>
+
+  <!-- Totali -->
+  <table class="totali">
+    <tr>
+      <td>Tot unità: [[TOT_UNITA]]</td>
+      <td>Quantità Colli: [[TOT_COLLI]]</td>
+      <td>Trasportatore: [[TRASPORTATORE]]</td>
+      <td>Tracking: [[TRACKING]]</td>
+    </tr>
+  </table>
+</body>
+
+</html>

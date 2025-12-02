@@ -1,0 +1,84 @@
+
+DOCUMENTAZIONE_PROGETTO.txt — Gestione Inventario + Accessori
+
+1. Obiettivo del progetto
+Creare un gestionale Amazon SP-API in grado di:
+- Gestire lo stock dei prodotti (campo `pronto` in tabella `inventario`)
+- Aggiornare il database sia in valore assoluto che in delta
+- Scalare automaticamente le quantità degli accessori correlati quando aumenta la produzione di un prodotto
+- Integrare uno storico movimenti per tracciabilità
+
+2. Struttura backend
+- Tabella `inventario`: contiene tutti i prodotti, con ASIN e campo `pronto`
+- Tabella `accessori`: contiene gli accessori, con campo `quantita` e `asin_accessorio`
+- Servizi (`services/`):
+  - `inventarioFixService.js` → aggiorna `pronto` in valore assoluto (`aggiornaPronto`) o in delta (`incrementaPronto`)
+  - `accessoriFixService.js` → recupera tutti gli accessori, aggiorna quantità o la decrementa (`decrementaQuantitaAccessorio`)
+- Controller (`controllers/`):
+  - `patchProntoAssoluto` → aggiorna `pronto` con un numero esatto
+  - `patchProntoEDeltaAccessori` → incrementa `pronto` e scala gli accessori associati
+- Router (`routes/`):
+  - `/pronto/:asin` → PATCH valore assoluto
+  - `/delta/:asin` → PATCH delta + accessori
+
+3. Struttura frontend
+- Funzione `confermaUtilizzo` in `inventario.jsx`:
+  - Calcola il nuovo valore `pronto` in base all’incremento
+  - Esegue `PATCH /api/inventario/delta/:asin` inviando:
+    {
+      "delta": incremento,
+      "accessoriDaScalare": ["ASIN1", "ASIN2"]
+    }
+  - Aggiorna stato locale React (`setProdotti`)
+  - Aggiorna accessori (`fetchAccessori()`)
+  - Salva nel storico movimenti
+
+4. Principali criticità affrontate e risolte
+1. Errore X2 al refresh
+   - Causa: uso improprio di valore assoluto/delta nel frontend
+   - Soluzione: mantenere due patch distinte (`/pronto` e `/delta`) ed evitare che il frontend invii due volte l’aggiornamento
+2. Valore accessori non persistente
+   - Causa: aggiornamento solo locale in React
+   - Soluzione: ogni scalatura deve passare dal backend (`accessoriFixService.updateQuantitaAccessorio`)
+3. 404 su `/api/inventario`
+   - Causa: rotta mancante o errata nel router
+   - Soluzione: assicurarsi che `app.use('/api/inventario', inventarioFixRouter)` sia presente in `index.js`
+4. 400 Bad Request su PATCH
+   - Causa: nome variabile sbagliato (`delta` non definito)
+   - Soluzione: passare `incremento` → `{ delta: incremento }` nel body
+
+5. Come gestire future criticità
+- Se il backend non risponde:
+  1. Testare la rotta con Postman
+  2. Controllare il log server (`console.log`) per capire se entra nel controller
+  3. Verificare che i nomi delle tabelle siano coerenti (`inventario`, `accessori`)
+- Se il frontend raddoppia i valori:
+  - Controllare che si usi `/delta` e non `/pronto` per gli incrementi
+- Se gli accessori non scalano:
+  - Verificare che `accessoriDaScalare` arrivi correttamente dal frontend
+  - Controllare `accessoriFixService.decrementaQuantitaAccessorio`
+- Se lo storico non salva:
+  - Temporaneamente rimuovere lo storico per testare il flusso base
+  - Reintegrarlo solo a sistema stabile
+
+6. Best practices per sviluppo
+- Testare prima il backend in isolamento
+- Usare Postman per confermare i dati nel DB
+- Commit frequenti e commentati, con tag delle versioni funzionanti
+- Tenere questo file aggiornato con ogni modifica importante
+
+7. Schemi tabelle DB
+Tabella inventario:
+  asin TEXT PRIMARY KEY,
+  nome TEXT,
+  pronto INTEGER,
+  altri_campi...
+
+Tabella accessori:
+  asin_accessorio TEXT PRIMARY KEY,
+  nome TEXT,
+  quantita INTEGER,
+  altri_campi...
+
+Nota finale:
+Questo documento non è un manuale tecnico riga per riga, ma un quadro di riferimento per ricordare la logica e sapere dove intervenire quando qualcosa si rompe.

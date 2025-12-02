@@ -1,0 +1,250 @@
+amazon-spapi-app
+├── app-amz
+├── backend
+│   ├── alerts
+│   │   ├── checkNegativeReviews.js
+│   │   ├── checkPriceChange.js
+│   │   ├── checkStockThreshold.js
+│   │   └── compareListingData.js
+│   ├── backend
+│   │   ├── .env2
+│   │   ├── package-lock.json
+│   │   └── package.json
+│   ├── controllers
+│   │   ├── accessoriController.js
+│   │   ├── accessoriFixController.js
+│   │   ├── inventarioController.js
+│   │   └── inventarioFixController.js
+│   ├── data
+│   │   ├── hash_snapshot.json
+│   │   ├── inventario.json
+│   │   ├── listings_snapshot.json
+│   │   ├── magazzino.sqlite
+│   │   ├── stock_levels.json
+│   │   └── stock_thresholds.json
+│   ├── db
+│   │   ├── database.js
+│   │   ├── index.js
+│   │   ├── inventario.db
+│   │   ├── inventario.db-shm
+│   │   ├── inventario.db-wal
+│   │   ├── inventario.sqbpro
+│   │   ├── magazzino.sqbpro
+│   │   └── magazzino.sqlite
+│   ├── mailer
+│   │   └── sendAlertEmail.js
+│   ├── routes
+│   │   ├── accessori.js
+│   │   ├── accessoriFix.js
+│   │   ├── inventario.js
+│   │   ├── inventarioFixRouter.js
+│   │   ├── routeFix.js
+│   │   └── storico.js
+│   ├── scripts
+│   │   ├── importaAccessoriIndipendenti.js
+│   │   └── popolaDB.js
+│   ├── server
+│   │   ├── fornitori.db
+│   │   └── index-fornitori.js
+│   ├── services
+│   │   ├── accessoriFixService.js
+│   │   ├── accessoriService.js
+│   │   ├── inventarioFixService.js
+│   │   ├── inventarioService.js
+│   │   ├── inventarioServiceFix.js
+│   │   ├── storicoService.js
+│   │   └── updateQuantity.js
+│   ├── .env
+│   ├── accessori_test.js
+│   ├── db-check.js
+│   ├── dev-mini.js
+│   ├── fornitori.db
+│   ├── hello.js
+│   ├── index-vecchio.js
+│   ├── index.js
+│   ├── initDB.js
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── patch-test.js
+│   ├── server.js
+│   ├── struttura_progetto.txt
+│   ├── struttura.txt
+│   ├── test-all.js
+│   ├── test-email.js
+│   ├── test.js
+│   ├── testCheckReviews.js
+│   ├── testCheckStock.js
+│   ├── testCompare.js
+│   └── testpatch.js
+├── frontend
+│   ├── public
+│   │   ├── data
+│   │   │   ├── excel
+│   │   │   │   ├── DDT_pics_exportato_MODIFICATO.xlsx
+│   │   │   │   ├── DDT_pics_exportato.xlsx
+│   │   │   │   └── DDT_pics.xlsx
+│   │   │   ├── accessori.json
+│   │   │   └── reviews_snapshot.json
+│   │   ├── images
+│   │   │   ├── Aplus
+│   │   │   │   ├── FR - Antifungo
+│   │   │   │   │   ├── 1.jpg
+│   │   │   │   │   ├── 2.jpg
+│   │   │   │   │   ├── 3.jpg
+│   │   │   │   │   └── 4.jpg
+│   │   │   │   └── IT - Antifungo
+│   │   │   │       ├── 1.jpg
+│   │   │   │       ├── 2.jpg
+│   │   │   │       ├── 3.jpg
+│   │   │   │       └── 4.jpg
+│   │   │   ├── inventario
+│   │   │   │   ├── B0D6NZV9D0.MAIN.jpg
+│   │   │   │   ├── B0D6NZV9GC.MAIN.jpg
+│   │   │   │   ├── B0D6PM6GBY.MAIN.jpg
+│   │   │   │   ├── B0D6VRJ6S5.MAIN.jpg
+│   │   │   │   ├── B0DENM8QJN.MAIN.jpg
+│   │   │   │   └── B0DSMHD1R8.MAIN.jpg
+│   │   │   ├── listing
+│   │   │   │   ├── FR - Antifungo
+│   │   │   │   │   ├── B0BY9Q4KTT.MAIN.jpg
+│   │   │   │   │   ├── B0BY9Q4KTT.PT01.jpg
+│   │   │   │   │   ├── B0BY9Q4KTT.PT02.jpg
+│   │   │   │   │   ├── B0BY9Q4KTT.PT03.jpg
+│   │   │   │   │   ├── B0BY9Q4KTT.PT04.jpg
+│   │   │   │   │   └── B0BY9Q4KTT.PT05.jpg
+│   │   │   │   └── IT - Antifungo
+│   │   │   │       ├── B0BY9Q4KTT.MAIN.jpg
+│   │   │   │       ├── B0BY9Q4KTT.PT01.jpg
+│   │   │   │       ├── B0BY9Q4KTT.PT02.jpg
+│   │   │   │       ├── B0BY9Q4KTT.PT04.jpg
+│   │   │   │       ├── B0BY9Q4KTT.PT05.jpg
+│   │   │   │       └── B0BY9Q4KTT.PT06.jpg
+│   │   │   ├── B08XQQHK37.jpg
+│   │   │   ├── B095KW4BS4.jpg
+│   │   │   ├── B0BY9Q4KTT.jpg
+│   │   │   └── B0C5Y4QWG2.jpg
+│   │   ├── mock
+│   │   │   ├── prodotti-listing.json
+│   │   │   └── prodotti.json
+│   │   └── vite.svg
+│   ├── src
+│   │   ├── api
+│   │   │   └── prodotti.js
+│   │   ├── assets
+│   │   │   └── react.svg
+│   │   ├── components
+│   │   │   ├── ddt
+│   │   │   │   └── DDT.jsx
+│   │   │   ├── fornitori
+│   │   │   │   ├── InserimentoFornitore.jsx
+│   │   │   │   ├── InserimentoOrdine.jsx
+│   │   │   │   ├── ListaFornitori.jsx
+│   │   │   │   └── StoricoOrdini.jsx
+│   │   │   ├── inventario
+│   │   │   │   ├── AccessorioCard.jsx
+│   │   │   │   ├── FiltroSezioni.jsx
+│   │   │   │   ├── Inventario100ml.jsx
+│   │   │   │   ├── Inventario12ml.jsx
+│   │   │   │   ├── Inventario5litri.jsx
+│   │   │   │   ├── InventarioAccessori.jsx
+│   │   │   │   ├── inventarioCard.jsx
+│   │   │   │   ├── InventarioKit.jsx
+│   │   │   │   ├── InventarioLista.jsx
+│   │   │   │   ├── ProdottoCard.jsx
+│   │   │   │   ├── PulsantiConfermaModifiche.jsx
+│   │   │   │   ├── SearchBarInventario.jsx
+│   │   │   │   └── StoricoProdotto.jsx
+│   │   │   ├── listing
+│   │   │   │   ├── ListingHome.jsx
+│   │   │   │   ├── MarketplaceCard.jsx
+│   │   │   │   ├── ProductCard.jsx
+│   │   │   │   ├── ProductDetails.jsx
+│   │   │   │   └── ProductHeader.jsx
+│   │   │   ├── magazzino
+│   │   │   ├── spedizioni
+│   │   │   │   └── SpedizioneCard.jsx
+│   │   │   ├── ui
+│   │   │   │   ├── button.tsx
+│   │   │   │   ├── card.tsx
+│   │   │   │   ├── ExportCSVButton.jsx
+│   │   │   │   ├── navigation-menu.tsx
+│   │   │   │   └── tooltip.tsx
+│   │   │   ├── CountryDetails.jsx
+│   │   │   ├── DropdownLinguePortal.jsx
+│   │   │   ├── EuropeMenu.jsx
+│   │   │   ├── Layout.jsx
+│   │   │   └── Sidebar.jsx
+│   │   ├── data
+│   │   │   └── centri_logistici.json
+│   │   ├── hooks
+│   │   │   └── useInventario.js
+│   │   ├── lib
+│   │   │   └── utils.ts
+│   │   ├── pages
+│   │   │   ├── Alert.jsx
+│   │   │   ├── DettaglioProdotto.jsx
+│   │   │   ├── FbaGestioneProdotti.jsx
+│   │   │   ├── Fornitori.jsx
+│   │   │   ├── GestioneSpedizioni.jsx
+│   │   │   ├── Home.jsx
+│   │   │   ├── inventario.jsx
+│   │   │   ├── InventarioMagazzino.jsx
+│   │   │   ├── ListaMarketplace.jsx
+│   │   │   ├── Listing.jsx
+│   │   │   ├── ListingHome.css
+│   │   │   ├── Magazzino.css
+│   │   │   ├── Magazzino.jsx
+│   │   │   ├── Ordini.jsx
+│   │   │   ├── PaginaAPlus.jsx
+│   │   │   ├── PaginaImmagini.jsx
+│   │   │   ├── Prodotti.jsx
+│   │   │   ├── Recensioni.jsx
+│   │   │   ├── Sponsor.jsx
+│   │   │   └── StoricoMovimenti.jsx
+│   │   ├── utils
+│   │   │   ├── abbreviate.js
+│   │   │   ├── formuleCalcoli.js
+│   │   │   ├── gestioneAccessori.js
+│   │   │   ├── gestioneInventario.js
+│   │   │   ├── gestioneListing.js
+│   │   │   ├── gestioneMagazzino.js
+│   │   │   ├── gestioneSpedizioni.js
+│   │   │   ├── listingUtils.js
+│   │   │   ├── normalizzaAccessori.js
+│   │   │   ├── normalizzaProdotti.js
+│   │   │   ├── paesi.js
+│   │   │   └── stringUtils.js
+│   │   ├── App.css
+│   │   ├── App.jsx
+│   │   ├── custom.css
+│   │   └── main.jsx
+│   ├── .env
+│   ├── .gitignore
+│   ├── components.json
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── jsconfig.json
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.cjs
+│   ├── README.md
+│   ├── tailwind.config.cjs
+│   ├── tsconfig.json
+│   └── vite.config.js
+├── reports
+│   └── TREE.txt
+├── tools
+│   ├── reports
+│   │   ├── audit-report.json
+│   │   ├── audit-report.txt
+│   │   └── TREE.txt
+│   ├── audit-project.mjs
+│   ├── export-tree.cmd
+│   └── export-tree.mjs
+├── DOCUMENTAZIONE_PROGETTO.txt
+├── GESTIONE_PRODUZIONE_E_ACCESSORI.md
+├── package-lock.json
+├── package.json
+├── spapi-user_accessKeys.csv
+├── struttura_backend.txt
+└── struttura_frontend.txt

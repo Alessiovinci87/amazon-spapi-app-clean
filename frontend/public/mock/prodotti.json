@@ -1,0 +1,72 @@
+[
+  {
+    "asin": "B0BY9Q4KTT",
+    "sku": "EC-51AN-X3J4",
+    "nome": "antimicotico",
+    "image": "/images/B0BY9Q4KTT.jpg",
+    "prezzo": "8.99",
+    "buyBox": true,
+    "stock": 35,
+    "accessoriAssociati": [
+    { "asin_accessorio": "TAPPINI_12_ML", "quantitaPerProdotto": 1 },
+    { "asin_accessorio": "PENNELLINI_12ML", "quantitaPerProdotto": 1 },
+    { "asin_accessorio": "BOCCETTE_12ML", "quantitaPerProdotto": 1 }
+    ],
+    "perPaese": {
+      "ITALIA": { "prezzo": "14.99", "stock": 10, "buyBox": true },
+      "FRANCIA": { "prezzo": "15.49", "stock": 5, "buyBox": false },
+      "UK": { "prezzo": "13.99", "stock": 8, "buyBox": true },
+      "SPAGNA": { "prezzo": "15.29", "stock": 7, "buyBox": false },
+      "GERMANIA": { "prezzo": "15.99", "stock": 6, "buyBox": true },
+      "BELGIO": { "prezzo": "16.00", "stock": 4, "buyBox": true },
+      "OLANDA": { "prezzo": "15.89", "stock": 3, "buyBox": false },
+      "SVEZIA": { "prezzo": "16.49", "stock": 2, "buyBox": false },
+      "POLONIA": { "prezzo": "15.19", "stock": 9, "buyBox": true },
+      "IRLANDA": { "prezzo": "15.19", "stock": 9, "buyBox": true }
+    }
+    
+  },
+  {
+  "asin": "B0C5Y4QWG2",
+  "sku": "NX-ZTQL-00UH",
+  "nome": "olio trifasico",
+  "image": "/images/B0C5Y4QWG2.jpg",
+  "prezzo": "9.99",
+  "buyBox": false,
+  "stock": 3,
+   "accessoriAssociati": [
+    { "asin_accessorio": "TAPPINI_12_ML", "quantitaPerProdotto": 1 },
+    { "asin_accessorio": "PENNELLINI_12ML", "quantitaPerProdotto": 1 },
+    { "asin_accessorio": "BOCCETTE_12ML", "quantitaPerProdotto": 1 }
+    ],
+  "perPaese": {
+    "ITALIA": { "prezzo": "9.99", "stock": 2, "buyBox": false },
+    "FRANCIA": { "prezzo": "10.29", "stock": 1, "buyBox": false },
+    "SPAGNA": { "prezzo": "10.49", "stock": 0, "buyBox": false },
+    "GERMANIA": { "prezzo": "15.99", "stock": 6, "buyBox": true },
+    "BELGIO": { "prezzo": "16.00", "stock": 4, "buyBox": true },
+    "OLANDA": { "prezzo": "15.89", "stock": 3, "buyBox": false },
+    "SVEZIA": { "prezzo": "16.49", "stock": 2, "buyBox": false },
+    "POLONIA": { "prezzo": "15.19", "stock": 9, "buyBox": true },
+    "IRLANDA": { "prezzo": "15.19", "stock": 9, "buyBox": true }
+  }
+},
+  {
+
+  "asin": "B0TEST5L",
+  "sku": "TEST-5L",
+  "nome": "Cleaner 5 lt",
+  "image": "/images/test-5l.jpg",
+  "prezzo": "29.99",
+  "stock": 12,
+  "buyBox": true,
+  "perPaese": {
+    "ITALIA": { "prezzo": "29.99", "stock": 12, "buyBox": true }
+   }
+    
+  }
+
+
+  
+  
+]

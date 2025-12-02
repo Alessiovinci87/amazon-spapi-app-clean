@@ -1,0 +1,18 @@
+=== AUDIT PROGETTO ===
+Root: C:\Users\aless\amazon-spapi-app\tools
+
+Entrypoint usati:
+ - audit-project.mjs
+
+Totale file analizzabili: 2
+Raggiungibili dagli entry: 1
+Orfani: 1
+
+--- FILE ORFANI ---
+ - export-tree.mjs
+
+--- NOTE ---
+I file orfani potrebbero essere:
+  • codice morto da eliminare/spostare
+  • utility non ancora collegate
+  • entry aggiuntivi mancanti (usa --entries per indicarli)

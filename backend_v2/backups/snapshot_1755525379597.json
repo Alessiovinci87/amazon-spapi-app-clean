@@ -1,0 +1,349 @@
+{
+  "created_at": "2025-08-18T13:56:19.596Z",
+  "prodotti": [
+    {
+      "asin": "BOTTLE_12ML",
+      "nome": "Boccetta 12 ml",
+      "pronto": 3000
+    },
+    {
+      "asin": "BOTTLE_100ML",
+      "nome": "Boccetta 100 ml",
+      "pronto": 0
+    }
+  ],
+  "accessori": [
+    {
+      "asin_accessorio": "TAPPO_12_ML",
+      "nome": "Tappo 12 ml",
+      "quantita": 7000
+    },
+    {
+      "asin_accessorio": "PENNELLO_12_ML",
+      "nome": "Pennello 12 ml",
+      "quantita": 7000
+    },
+    {
+      "asin_accessorio": "BOCCETTA_VUOTA_12_ML",
+      "nome": "Boccetta vuota 12 ml",
+      "quantita": 7000
+    },
+    {
+      "asin_accessorio": "TAPPO_12",
+      "nome": "Tappo 12 ml",
+      "quantita": 1000
+    },
+    {
+      "asin_accessorio": "PENNELLO_12",
+      "nome": "Pennello 12 ml",
+      "quantita": 1000
+    },
+    {
+      "asin_accessorio": "BOCCETTA_12",
+      "nome": "Boccetta vuota 12 ml",
+      "quantita": 1000
+    }
+  ],
+  "relazioni": [
+    {
+      "asin": "BOTTLE_12ML",
+      "asin_accessorio": "TAPPO_12_ML",
+      "perUnita": 1
+    },
+    {
+      "asin": "BOTTLE_12ML",
+      "asin_accessorio": "PENNELLO_12_ML",
+      "perUnita": 1
+    },
+    {
+      "asin": "BOTTLE_12ML",
+      "asin_accessorio": "BOCCETTA_VUOTA_12_ML",
+      "perUnita": 1
+    },
+    {
+      "asin": "BOTTLE_12ML",
+      "asin_accessorio": "TAPPO_12",
+      "perUnita": 1
+    },
+    {
+      "asin": "BOTTLE_12ML",
+      "asin_accessorio": "PENNELLO_12",
+      "perUnita": 1
+    },
+    {
+      "asin": "BOTTLE_12ML",
+      "asin_accessorio": "BOCCETTA_12",
+      "perUnita": 1
+    }
+  ],
+  "storico": [
+    {
+      "id": 2,
+      "asin": "BOTTLE_12ML",
+      "tipo": "RETTIFICA",
+      "qty": 10,
+      "ts": "2025-08-18 10:20:13",
+      "note": ""
+    },
+    {
+      "id": 1,
+      "asin": "BOTTLE_12ML",
+      "tipo": "PRODUZIONE",
+      "qty": 10,
+      "ts": "2025-08-12 09:17:55",
+      "note": "Produzione iniziale"
+    }
+  ],
+  "movimenti": [
+    {
+      "id": 2,
+      "created_at": "2025-08-18 12:53:06",
+      "tipo": "PRODUZIONE",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": 50,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 8,
+      "created_at": "2025-08-18 12:53:57",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": -50,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 9,
+      "created_at": "2025-08-18 12:55:16",
+      "tipo": "PRODUZIONE",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": 30,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 14,
+      "created_at": "2025-08-18 13:42:06",
+      "tipo": "PRODUZIONE",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": 500,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 15,
+      "created_at": "2025-08-18 13:42:06",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "BOCCETTA_VUOTA_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -500,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 16,
+      "created_at": "2025-08-18 13:42:06",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "PENNELLO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -500,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 17,
+      "created_at": "2025-08-18 13:42:06",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "TAPPO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -500,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 18,
+      "created_at": "2025-08-18 13:42:08",
+      "tipo": "PRODUZIONE",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": 530,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 19,
+      "created_at": "2025-08-18 13:42:08",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "BOCCETTA_VUOTA_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -530,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 20,
+      "created_at": "2025-08-18 13:42:08",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "PENNELLO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -530,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 21,
+      "created_at": "2025-08-18 13:42:08",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "TAPPO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -530,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 22,
+      "created_at": "2025-08-18 13:42:33",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": -1060,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 23,
+      "created_at": "2025-08-18 13:42:40",
+      "tipo": "PRODUZIONE",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": 500,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 24,
+      "created_at": "2025-08-18 13:42:40",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "BOCCETTA_VUOTA_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -500,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 25,
+      "created_at": "2025-08-18 13:42:40",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "PENNELLO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -500,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 26,
+      "created_at": "2025-08-18 13:42:40",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "TAPPO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -500,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 27,
+      "created_at": "2025-08-18 13:42:58",
+      "tipo": "PRODUZIONE",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": 200,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 28,
+      "created_at": "2025-08-18 13:42:58",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "BOCCETTA_VUOTA_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -200,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 29,
+      "created_at": "2025-08-18 13:42:58",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "PENNELLO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -200,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 30,
+      "created_at": "2025-08-18 13:42:58",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "TAPPO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -200,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 31,
+      "created_at": "2025-08-18 13:44:00",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": -700,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 32,
+      "created_at": "2025-08-18 13:44:42",
+      "tipo": "PRODUZIONE",
+      "asin_prodotto": "BOTTLE_12ML",
+      "asin_accessorio": null,
+      "delta_pronto": 3000,
+      "delta_quantita": 0,
+      "note": ""
+    },
+    {
+      "id": 33,
+      "created_at": "2025-08-18 13:44:42",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "BOCCETTA_VUOTA_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -3000,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 34,
+      "created_at": "2025-08-18 13:44:42",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "PENNELLO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -3000,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    },
+    {
+      "id": 35,
+      "created_at": "2025-08-18 13:44:42",
+      "tipo": "RETTIFICA",
+      "asin_prodotto": null,
+      "asin_accessorio": "TAPPO_12_ML",
+      "delta_pronto": 0,
+      "delta_quantita": -3000,
+      "note": "SCALATURA_ACCESSORI per produzione BOTTLE_12ML"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "asin": "TAPPINI_12ML",
+    "nome": "Tappini 12 ml",
+    "formati": [12],
+    "quantitaPerProdotto": ""
+  },
+  {
+    "asin": "PENNELLINI_12ML",
+    "nome": "Pennellini",
+    "formati": [12],
+    "quantitaPerProdotto": ""
+  },
+  {
+    "asin": "BOCCETTE_12ML",
+    "nome": "Boccette 12 ml",
+    "formati": [12],
+    "quantitaPerProdotto": ""
+  },
+  {
+    "asin": "BOCCETTE_100ML",
+    "nome": "Boccette 100 ml",
+    "formati": [100],
+    "quantitaPerProdotto": ""
+  },
+  {
+    "asin": "TAPPINI_100ML",
+    "nome": "Tappini 100 ml",
+    "formati": [100],
+    "quantitaPerProdotto": ""
+  }
+]

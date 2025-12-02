@@ -1,0 +1,383 @@
+
+
+[
+  {
+  "asin": "B0CVB9GWPW",
+  "sku": "WQ-I5N1-JKGI",
+  "nome": "KIT Nail Prep e Primer",
+  "categoria": "Preparatori unghie",
+  "formato": null,
+  "formatiInclusi": ["12 ml"],  
+  "pezziPerKit": 2,
+  "isKit": 1,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B08X21RXF1",
+  "sku": "HL-3AJ4-9DWJ",
+  "nome": "Nail Prep",
+  "categoria": "Preparatori unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B08JCWDCF2",
+  "sku": "IQ-CJP7-HGHI",
+  "nome": "Primer",
+  "categoria": "Preparatori unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0BK9QLKN1",
+  "sku": "PH-U17C-SDTL",
+  "nome": "Primer Acido",
+  "categoria": "Preparatori unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+
+{
+  "asin": "B0FJMF75RR",
+  "sku": "0C-GRMH-AF5U",
+  "nome": "Olio Caramello",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0FJMGRDBJ",
+  "sku": "W8-VGAT-9ZVC",
+  "nome": "Olio Monoi",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0CHMK39L9",
+  "sku": "B3-OI3E-Q5EU",
+  "nome": "Olio Frutti di Bosco",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0CHMK6QTY",
+  "sku": "B0-4T35-L47C",
+  "nome": "Olio Cocco",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0CHMJ7HW8",
+  "sku": "DJ-YXM7-BKPY",
+  "nome": "Olio Banana",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0CHMLJD7K",
+  "sku": "7S-2HON-0K7W",
+  "nome": "Olio Lavanda",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+
+{
+  "asin": "B09VY51ZFF",
+  "sku": "BR-QOX7-DTQL",
+  "nome": "Olio Fragola",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B09VY4M2R4",
+  "sku": "ZX-NZFS-TU60",
+  "nome": "Olio Ananas",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0963P8M6Y",
+  "sku": "JD-JNS2-XDO2",
+  "nome": "Olio Mela",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0963Q6MSP",
+  "sku": "KI-JDKZ-FY0A",
+  "nome": "Olio Arancia",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0963Q2987",
+  "sku": "H5-Q5LT-O5N4",
+  "nome": "Olio Cioccolato",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0963P222M",
+  "sku": "QD-7OXR-TGEQ",
+  "nome": "Olio Limone",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0963PF48B",
+  "sku": "6L-E47V-KB24",
+  "nome": "Olio Vaniglia",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0C5Y4QWG2",
+  "sku": "NX-ZTQL-00UH",
+  "nome": "Olio TRIFASICO",
+  "categoria": "Oli Cuticole",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0DKPBB9K4",
+  "sku": "WH-ACB7-54DY",
+  "nome": "Kit 9 Oli Cuticole",
+  "categoria": "Oli Cuticole",
+  "formato": null,
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": 9,
+  "isKit": 1,
+  "isAccessorio": 0
+},
+  
+
+
+
+  {
+  "asin": "B0DKTQXDR9",
+  "sku": "FF-98K0-ESI5",
+  "nome": "KIT Antimicotico",
+  "categoria": "Trattamenti unghie",
+  "formato": null,
+  "formatiInclusi": ["12 ml"],  
+  "pezziPerKit": 2,
+  "isKit": 1,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0BY9Q4KTT",
+  "sku": "68-YM50-I8G3",
+  "nome": "Antimicotico",
+  "categoria": "Trattamenti unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0977FRJ6M",
+  "sku": "BO-UO6L-WFVR",
+  "nome": "Anti bite",
+  "categoria": "Trattamenti unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B094RK3P5T",
+  "sku": "1V-PVA4-32Q1",
+  "nome": "Rinforzante",
+  "categoria": "Trattamenti unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B095KW4BS4",
+  "sku": "ZP-8F2J-HVL5",
+  "nome": "Sciogli Rimuovi Cuticole",
+  "categoria": "Trattamenti unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B09DQ3KH7Q",
+  "sku": "0Y-WJJG-6ALF",
+  "nome": "Indurente",
+  "categoria": "Trattamenti unghie",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+  {
+  "asin": "B0CVS15HDW",
+  "sku": "Z5-HPUD-FG0R",
+  "nome": "KIT Base e Top Coat",
+  "categoria": "Top / Base Coat UV",
+  "formato": null,
+  "formatiInclusi": ["12 ml"],  
+  "pezziPerKit": 2,
+  "isKit": 1,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0CFB8PV37",
+  "sku": "HM-SJ8F-HRRD",
+  "nome": "No Wipe Top Coat",
+  "categoria": "Top / Base Coat UV",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0CFBC4MCP",
+  "sku": "6H-LHM4-GL4M",
+  "nome": "Ultra Shine Top Coat",
+  "categoria": "Top / Base Coat UV",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B0CFBBL77X",
+  "sku": "7S-E0VB-89IU",
+  "nome": "Opaco Top Coat",
+  "categoria": "Top / Base Coat UV",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B09DQ62H25",
+  "sku": "GZ-KPW2-2BQP",
+  "nome": "Top Coat Manicure LUCIDO",
+  "categoria": "Top / Base Coat UV",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+},
+
+{
+  "asin": "B09DQ5457F",
+  "sku": "ET-3S95-8MKF",
+  "nome": "Top Coat Manicure OPACO",
+  "categoria": "Top / Base Coat UV",
+  "formato": "12 ml",
+  "formatiInclusi": ["12 ml"],
+  "pezziPerKit": null,
+  "isKit": 0,
+  "isAccessorio": 0
+}
+
+]
+
+

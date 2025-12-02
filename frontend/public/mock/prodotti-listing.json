@@ -1,0 +1,196 @@
+[
+  {
+    "asin": "B0BY9Q4KTT",
+    "sku": "EC-51AN-X3J4",
+    "nome": "antimicotico",
+    "image": "/images/B0BY9Q4KTT.jpg",
+    "marketplaces": {
+      "Italia": {
+        "prezzo": "8.99",
+        "valutazione": 4.2
+      },
+      "Francia": {
+        "prezzo": "9.49",
+        "valutazione": 4.3
+      },
+      "Germania": {
+        "prezzo": "9.89",
+        "valutazione": 4.5
+      },
+      "Spagna": {
+        "prezzo": "9.29",
+        "valutazione": 4.0
+      },
+      "UK": {
+        "prezzo": "10.99",
+        "valutazione": 4.1
+      },
+      "Belgio": {
+        "prezzo": "9.79",
+        "valutazione": 4.2
+      },
+      "Olanda": {
+        "prezzo": "9.39",
+        "valutazione": 4.3
+      },
+      "Svezia": {
+        "prezzo": "10.29",
+        "valutazione": 4.0
+      },
+      "Polonia": {
+        "prezzo": "8.79",
+        "valutazione": 4.1
+      },
+      "Irlanda": {
+        "prezzo": "9.59",
+        "valutazione": 4.4
+      }
+    }
+  },
+  {
+    "asin": "B0C5Y4QWG2",
+    "sku": "NX-ZTQL-00UH",
+    "nome": "olio trifasico",
+    "image": "/images/B0C5Y4QWG2.jpg",
+    "marketplaces": {
+      "Italia": {
+        "prezzo": "7.99",
+        "valutazione": 4.0
+      },
+      "Francia": {
+        "prezzo": "8.49",
+        "valutazione": 4.2
+      },
+      "Germania": {
+        "prezzo": "8.99",
+        "valutazione": 4.4
+      },
+      "Spagna": {
+        "prezzo": "8.29",
+        "valutazione": 4.1
+      },
+      "UK": {
+        "prezzo": "9.59",
+        "valutazione": 4.0
+      },
+      "Belgio": {
+        "prezzo": "8.89",
+        "valutazione": 4.3
+      },
+      "Olanda": {
+        "prezzo": "8.59",
+        "valutazione": 4.2
+      },
+      "Svezia": {
+        "prezzo": "9.19",
+        "valutazione": 4.0
+      },
+      "Polonia": {
+        "prezzo": "7.89",
+        "valutazione": 4.1
+      },
+      "Irlanda": {
+        "prezzo": "8.69",
+        "valutazione": 4.3
+      }
+    }
+  },
+  
+  {
+    "asin": "B095KW4BS4",
+    "sku": "ZP-8F2J-HVL5",
+    "nome": "Rimuovi cuticole",
+    "image": "/images/B095KW4BS4.jpg",
+    "marketplaces": {
+      "Italia": {
+        "prezzo": "8.99",
+        "valutazione": 4.2
+      },
+      "Francia": {
+        "prezzo": "9.49",
+        "valutazione": 4.3
+      },
+      "Germania": {
+        "prezzo": "9.89",
+        "valutazione": 4.5
+      },
+      "Spagna": {
+        "prezzo": "9.29",
+        "valutazione": 4.0
+      },
+      "UK": {
+        "prezzo": "10.99",
+        "valutazione": 4.1
+      },
+      "Belgio": {
+        "prezzo": "9.79",
+        "valutazione": 4.2
+      },
+      "Olanda": {
+        "prezzo": "9.39",
+        "valutazione": 4.3
+      },
+      "Svezia": {
+        "prezzo": "10.29",
+        "valutazione": 4.0
+      },
+      "Polonia": {
+        "prezzo": "8.79",
+        "valutazione": 4.1
+      },
+      "Irlanda": {
+        "prezzo": "9.59",
+        "valutazione": 4.4
+      }
+    }
+  },
+  {
+    "asin": "B08XQQHK37",
+    "sku": "AP-TRNV-PN72",
+    "nome": "cleaner",
+    "image": "/images/B08XQQHK37.jpg",
+    "marketplaces": {
+      "Italia": {
+        "prezzo": "7.99",
+        "valutazione": 4.0
+      },
+      "Francia": {
+        "prezzo": "8.49",
+        "valutazione": 4.2
+      },
+      "Germania": {
+        "prezzo": "8.99",
+        "valutazione": 4.4
+      },
+      "Spagna": {
+        "prezzo": "8.29",
+        "valutazione": 4.1
+      },
+      "UK": {
+        "prezzo": "9.59",
+        "valutazione": 4.0
+      },
+      "Belgio": {
+        "prezzo": "8.89",
+        "valutazione": 4.3
+      },
+      "Olanda": {
+        "prezzo": "8.59",
+        "valutazione": 4.2
+      },
+      "Svezia": {
+        "prezzo": "9.19",
+        "valutazione": 4.0
+      },
+      "Polonia": {
+        "prezzo": "7.89",
+        "valutazione": 4.1
+      },
+      "Irlanda": {
+        "prezzo": "8.69",
+        "valutazione": 4.3
+      }
+    }
+  }
+
+]

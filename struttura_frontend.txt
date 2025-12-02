@@ -1,0 +1,84 @@
+📁 frontend
+└── 📁 src
+    ├── 📁 components
+    │   ├── 📁 ddt
+    │   │   └── 📄 DDT.jsx
+    │   ├── 📁 fornitori
+    │   │   ├── 📄 InserimentoFornitore.jsx
+    │   │   ├── 📄 InserimentoOrdine.jsx
+    │   │   ├── 📄 ListaFornitori.jsx
+    │   │   └── 📄 StoricoOrdini.jsx
+    │   ├── 📁 inventario
+    │   │   ├── 📄 AccessorioCard.jsx
+    │   │   ├── 📄 FiltroSezioni.jsx
+    │   │   ├── 📄 inventarioCard.jsx
+    │   │   ├── 📄 ProdottoCard.jsx
+    │   │   ├── 📄 PulsantiConfermaModifiche.jsx
+    │   │   ├── 📄 SearchBarInventario.jsx
+    │   │   └── 📄 StoricoProdotto.jsx
+    │   ├── 📁 listing
+    │   │   ├── 📄 ListingHome.jsx
+    │   │   ├── 📄 MarketplaceCard.jsx
+    │   │   ├── 📄 ProductCard.jsx
+    │   │   ├── 📄 ProductDetails.jsx
+    │   │   └── 📄 ProductHeader.jsx
+    │   ├── 📁 spedizioni
+    │   │   └── 📄 SpedizioneCard.jsx
+    │   ├── 📁 ui
+    │   │   ├── 📄 CountryDetails.jsx
+    │   │   ├── 📄 DropdownLinguePortal.jsx
+    │   │   ├── 📄 EuropeMenu.jsx
+    │   │   ├── 📄 Layout.jsx
+    │   │   └── 📄 Sidebar.jsx
+    │   ├── 📁 data
+    │   │   └── 📄 centri_logistici.json
+    │   ├── 📁 hooks
+    │   │   └── 📄 useInventario.js
+    │   └── 📁 lib
+    │       └── 📄 utils.ts
+    ├── 📁 pages
+    │   ├── 📄 Alert.jsx
+    │   ├── 📄 DettaglioProdotto.jsx
+    │   ├── 📄 FbaGestioneProdotti.jsx
+    │   ├── 📄 Fornitori.jsx
+    │   ├── 📄 GestioneSpedizioni.jsx
+    │   ├── 📄 Home.jsx
+    │   ├── 📄 Inventario.jsx
+    │   ├── 📄 InventarioMagazzino.jsx
+    │   ├── 📄 ListaMarketplace.jsx
+    │   ├── 📄 Listing.jsx
+    │   ├── 📄 ListingHome.css
+    │   ├── 📄 Magazzino.css
+    │   ├── 📄 Magazzino.jsx
+    │   ├── 📄 Ordini.jsx
+    │   ├── 📄 PaginaAPlus.jsx
+    │   ├── 📄 PaginaImmagini.jsx
+    │   ├── 📄 Prodotti.jsx
+    │   ├── 📄 Recensioni.jsx
+    │   └── 📄 Sponsor.jsx
+    ├── 📁 utils
+    │   ├── 📄 abbreviate.js
+    │   ├── 📄 formuleCalcoli.js
+    │   ├── 📄 gestioneInventario.js
+    │   ├── 📄 gestioneListing.js
+    │   ├── 📄 gestioneMagazzino.js
+    │   ├── 📄 gestioneSpedizioni.js
+    │   ├── 📄 listingUtils.js
+    │   └── 📄 paesi.js
+    ├── 📄 App.css
+    ├── 📄 App.jsx
+    ├── 📄 custom.css
+    └── 📄 main.jsx
+📄 .env
+📄 .gitignore
+📄 components.json
+📄 eslint.config.js
+📄 index.html
+📄 jsconfig.json
+📄 package-lock.json
+📄 package.json
+📄 postcss.config.cjs
+📄 README.md
+📄 tailwind.config.cjs
+📄 tsconfig.json
+📄 vite.config.js

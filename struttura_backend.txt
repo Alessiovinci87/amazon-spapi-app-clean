@@ -1,0 +1,48 @@
+📁 backend
+├── 📁 alerts
+│   ├── checkNegativeReviews.js
+│   ├── checkPriceChange.js
+│   ├── checkStockThreshold.js
+│   └── compareListingData.js
+├── 📁 data
+│   ├── hash_snapshot.json
+│   ├── inventario.json
+│   ├── listings_snapshot.json
+│   ├── magazzino.sqlite
+│   ├── stock_levels.json
+│   └── stock_thresholds.json
+├── 📁 db
+│   ├── inventario.db
+│   ├── inventario.sqbpro
+│   ├── magazzino.sqbpro
+│   └── magazzino.sqlite
+├── 📁 mailer
+│   └── sendAlertEmail.js
+├── 📁 routes
+│   ├── accessori.js
+│   ├── inventario.js
+│   └── storico.js
+├── 📁 scripts
+│   ├── importaAccessoriIndipendenti.js
+│   └── popolaDB.js
+├── 📁 server
+│   ├── fornitori.db
+│   └── index-fornitori.js
+├── .env
+├── accessori_test.js
+├── db-check.js
+├── fornitori.db
+├── index.js
+├── index-vecchio.js
+├── initDB.js
+├── package-lock.json
+├── package.json
+├── patch-test.js
+├── server.js
+├── test-all.js
+├── test-email.js
+├── test.js
+├── testCheckReviews.js
+├── testCheckStock.js
+├── testCompare.js
+└── testpatch.js

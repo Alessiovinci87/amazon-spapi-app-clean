@@ -1,0 +1,287 @@
+/* src/pages/Magazzino.css */
+
+.magazzino-container {
+  padding: 40px 180px;
+  background-color: #3f3f3f;
+  min-height: 100vh;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.riga-prodotti {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.product-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background-color: #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  flex: 1 1 calc(100% - 120px);
+  max-width: 100%;
+  min-width: 800px;
+}
+
+.product-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 40px;
+}
+
+.product-image {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 6px;
+  background-color: white;
+}
+
+.product-details {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 30px;
+  flex: 1;
+}
+
+.product-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.sku-sotto-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #aaa;
+  margin-top: 8px;
+}
+
+.sku-sotto {
+  font-size: 0.85rem;
+  color: #ccc;
+  display: block;
+  margin-top: 2px;
+}
+
+
+.label {
+  font-size: 13px;
+  color: #000;
+  font-weight: normal;
+  min-width: 70px;
+}
+
+
+.product-link-right {
+  text-align: right;
+  margin: 8px 16px 0 0;
+}
+
+.amazon-button {
+  background-color: #ff9900;
+  color: #000;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  text-decoration: none;
+  display: inline-block;
+  transition: background-color 0.2s ease;
+}
+
+.amazon-button:hover {
+  background-color: #e68900;
+}
+
+
+.amazon-button {
+  background-color: #ff9900;
+  color: #000;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: bold;
+  text-decoration: none;
+  display: inline-block;
+  transition: background-color 0.2s ease;
+}
+
+.amazon-button:hover {
+  background-color: #e68900;
+}
+
+
+.azione-export {
+  margin-bottom: 1rem;
+  text-align: right;
+}
+
+.btn-csv {
+  background-color: #4caf50;
+  color: white;
+  font-weight: bold;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.azione-export {
+  margin-bottom: 1rem;
+  text-align: right;
+}
+
+.btn-csv {
+  background-color: #4caf50;
+  color: white;
+  font-weight: bold;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-csv:hover {
+  background-color: #3e8e41;
+}
+
+.product-download {
+  text-align: right;
+  margin: 0.5rem 1rem 0 0;
+}
+
+
+
+.value {
+  font-weight: bold;
+  color: #000;
+}
+
+.value.yes {
+  color: green;
+}
+
+.value.no {
+  color: red;
+}
+
+.toggle-button {
+  background: black;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+.toggle-button:hover {
+  background: #333;
+}
+
+.dettagli-paesi {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.paese-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  border: 1px solid #ccc;
+  padding: 10px 30px;
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  color: #000;
+  font-size: 14px;
+  width: calc(100% - 60px); /* <- stesso padding laterale della card principale */
+  margin: 0 auto; /* <- centra il blocco */
+  gap: 40px;
+}
+
+.bandiera {
+  width: 30px;
+  height: auto;
+}
+
+.paese-info {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  flex: 1;
+}
+
+.paese-info span {
+  font-size: 14px;
+  color: #000;
+  align-self: center;
+}
+
+.verde {
+  color: green;
+}
+
+.rosso {
+  color: red;
+}
+.product-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.filtro-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filtro-container input[type="text"] {
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  width: 200px;
+}
+
+.filtro-container label {
+  font-size: 0.9rem;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+
+.asin-clickable {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  position: relative;
+}
+
+.asin-clickable:hover {
+  color: #4caf50;
+}
+
+
+
+
+@media (min-width: 640px) {
+  .product-header {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+}

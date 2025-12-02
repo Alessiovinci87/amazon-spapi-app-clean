@@ -1,0 +1,26 @@
+{
+  "name": "amazon-spapi-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "backend": "nodemon backend_v2/index.js",
+    "frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Alessiovinci87/app-amz.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Alessiovinci87/app-amz/issues"
+  },
+  "homepage": "https://github.com/Alessiovinci87/app-amz#readme",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "nodemon": "^3.1.11"
+  }
+}
