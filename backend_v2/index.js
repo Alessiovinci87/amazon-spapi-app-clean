@@ -10,10 +10,17 @@ if (process.env.NODE_ENV !== "production") {
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const { ensureDatabaseReady } = require("./db/database");
+// Sceglie automaticamente il file giusto (locale vs Render)
+const isRender = process.env.RENDER === "true";
+
+const { ensureDatabaseReady } = isRender
+  ? require("./db/database")        // Render → usa percorso interno
+  : require("./db/database.local"); // Locale → DB su D:/
+
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
 
 const { runMigrations } = require("./db/migrate.js");
+
 
 // =========================================================
 // 🔹 IMPORTAZIONE ROTTE

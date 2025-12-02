@@ -36,4 +36,8 @@ Thumbs.db
 *.db-shm
 *.db-wal
 
+*.db
+dbdata/
+
 spapi-user_accessKeys.csv
+backend_v2/db/database.local.js

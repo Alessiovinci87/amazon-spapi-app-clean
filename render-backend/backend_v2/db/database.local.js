@@ -1,37 +1,25 @@
-// backend_v2/db/database.js
-// Database locale incluso nel repository (dbdata/inventario.db)
-
 const path = require("path");
 const fs = require("fs");
 const Database = require("better-sqlite3");
 
 let dbInstance = null;
 
-/**
- * Percorso del database incluso nel progetto
- */
 function getDbPath() {
-  // Percorso: backend_v2/dbdata/inventario.db
-  const dbPath = path.join(__dirname, "dbdata", "inventario.db");
-  return dbPath;
+  return path.resolve("D:/inventario_database/inventario.db");
 }
 
-/**
- * Apertura database
- */
 function openDb() {
   const dbFile = getDbPath();
 
   console.log("\n=========================================");
-  console.log("📌 DATABASE APERTO DA:");
+  console.log("📌 DATABASE APERTO DA QUESTO PERCORSO:");
   console.log(dbFile);
   console.log("=========================================\n");
 
-  // Controllo esistenza DB
   if (!fs.existsSync(dbFile)) {
     throw new Error(
       "❌ ERRORE: inventario.db NON trovato!\n" +
-      "👉 Assicurati che esista in: backend_v2/dbdata/inventario.db"
+      "👉 Percorso richiesto: " + dbFile
     );
   }
 
@@ -47,14 +35,17 @@ function openDb() {
 
 async function ensureDatabaseReady() {
   if (dbInstance) return dbInstance;
+
   const db = openDb();
+  console.log("📂 Database locale caricato da:", getDbPath());
+
   dbInstance = db;
   return dbInstance;
 }
 
 function getDb() {
   if (!dbInstance) {
-    throw new Error("DB non inizializzato. Chiama ensureDatabaseReady().");
+    throw new Error("❌ Database non inizializzato!");
   }
   return dbInstance;
 }
