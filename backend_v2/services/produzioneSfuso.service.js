@@ -5,6 +5,9 @@ const magazzinoService = require("./magazzino.service");
 
 const { registraStoricoProduzione } = require("./storicoProduzioniSfuso.service");
 
+const { registraMovimentoScatolette } = require("./scatoletteStorico.service");
+
+
 /* =========================================================
    🎛️ SERVICE PRODUZIONI SFUSO
    Gestione creazione, aggiornamento, completamento e storico
@@ -204,14 +207,11 @@ function completaProduzione(id, operatore = "system") {
 `).run(id);
 
 
-  // ============================
-  // STEP 3 - Informazioni prodotto
-  // ============================
   const prodotto = db.prepare(`
-    SELECT asin, nome, formato, pezzi_per_kit, isKit
-    FROM prodotti
-    WHERE asin = ?
-  `).get(produzione.asin_prodotto);
+  SELECT asin, nome, formato, pezzi_per_kit, isKit
+  FROM prodotti
+  WHERE asin = ?
+`).get(produzione.asin_prodotto);
 
   if (!prodotto) {
     throw new Error(`Prodotto non trovato per ASIN: ${produzione.asin_prodotto}`);
@@ -220,17 +220,75 @@ function completaProduzione(id, operatore = "system") {
   const pezziPerKit = prodotto.isKit ? (prodotto.pezzi_per_kit || 1) : 1;
   const quantitaTotalePezzi = produzione.quantita * pezziPerKit;
 
-  // ============================
   // STEP 4 - Recupero accessori
-  // ============================
   const { getAccessoriPerFormato } = require("./accessoriMapping.service");
-
   const accessoriDaUsare = getAccessoriPerFormato(produzione.formato);
 
   const accessoriCalcolati = accessoriDaUsare.map(acc => ({
     asin_accessorio: acc.asin_accessorio,
     quantita: quantitaTotalePezzi
   }));
+
+  // ============================================
+  // STEP 6B - SCALATURA SCATOLETTE
+  // ============================================
+
+  // recupero scatoletta del prodotto
+  const scatoletta = db.prepare(`
+  SELECT scatoletta, quantita
+  FROM scatolette
+  WHERE asin_prodotto = ?
+`).get(produzione.asin_prodotto);
+
+  if (!scatoletta) {
+    throw new Error(`Scatoletta non trovata per ASIN: ${produzione.asin_prodotto}`);
+  }
+
+  // controllo disponibilità scatoletta
+  if (scatoletta.quantita < quantitaTotalePezzi) {
+    throw new Error(
+      `Scatolette insufficienti: richieste ${quantitaTotalePezzi}, disponibili ${scatoletta.quantita}`
+    );
+  }
+
+  // scalatura scatoletta
+  db.prepare(`
+  UPDATE scatolette
+  SET quantita = quantita - ?
+  WHERE asin_prodotto = ?
+`).run(quantitaTotalePezzi, produzione.asin_prodotto);
+
+  // storico scatoletta
+  const quantitaFinale = db
+    .prepare("SELECT quantita FROM scatolette WHERE asin_prodotto = ?")
+    .get(produzione.asin_prodotto).quantita;
+
+  console.log("📦 STO REGISTRANDO MOVIMENTO SCATOLETTE:", {
+    asin: produzione.asin_prodotto,
+    scatoletta: scatoletta.scatoletta,
+    delta: -quantitaTotalePezzi,
+    quantita_finale: quantitaFinale,
+  });
+
+
+  registraMovimentoScatolette({
+    asin_prodotto: produzione.asin_prodotto,
+    scatoletta: scatoletta.scatoletta,
+    delta: -quantitaTotalePezzi,
+    quantita_finale: quantitaFinale,
+    nota: `Scalatura scatolette per produzione ${produzione.asin_prodotto}`,
+    operatore,
+  });
+
+
+
+
+  // ============================
+  // STEP 3 - Informazioni prodotto
+  // ============================
+  // STEP 3 - Informazioni prodotto
+
+
 
   console.log("ACCESSORI DA SCALARE:", accessoriCalcolati);
 
@@ -292,7 +350,7 @@ function completaProduzione(id, operatore = "system") {
       WHERE asin_accessorio = ?
     `).run(acc.quantita, acc.asin_accessorio);
 
-            db.prepare(`
+      db.prepare(`
         INSERT INTO storico_movimenti
         (asin_accessorio, nome_prodotto, delta_quantita, note, operatore, tipo, created_at)
         VALUES (
@@ -305,7 +363,7 @@ function completaProduzione(id, operatore = "system") {
           datetime('now','localtime')
         )
       `).run(
-              acc.asin_accessorio,
+        acc.asin_accessorio,
         acc.asin_accessorio,
         -acc.quantita, // delta negativo
         `Scalatura per produzione ${produzione.asin_prodotto}`,

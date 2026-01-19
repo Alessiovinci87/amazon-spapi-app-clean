@@ -1,28 +1,44 @@
-
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import SfusoCard from "../components/sfuso/SfusoCard";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+    ArrowLeft,
+    History,
+    Filter,
+    Search,
+    X,
+    Package,
+    CheckCircle,
+    Clock,
+    AlertCircle,
+    BarChart3,
+    Save,
+    Play,
+    XCircle,
+    FileText,
+    Target,
+    Beaker,
+    RotateCcw
+} from "lucide-react";
 import ProduzioneCard from "../components/produzione/ProduzioneCard";
 import { triggerReloadInventario } from "../utils/globalEvents";
 import { fetchJSON, buildUrl } from "../utils/api";
 
 const GestioneProduzione = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+    const isUffici = location.pathname.startsWith('/uffici');
     const [prenotazioni, setPrenotazioni] = useState([]);
     const [sfusoData, setSfusoData] = useState([]);
     const [selectedProdotto, setSelectedProdotto] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
     const [prodotti, setProdotti] = useState([]);
-    const [filterSearchTerm, setFilterSearchTerm] = useState(""); // 🔍 Filtro ricerca in alto
+    const [filterSearchTerm, setFilterSearchTerm] = useState("");
     const [produzioneCounter, setProduzioneCounter] = useState(0);
-
 
     // ========== NORMALIZZAZIONE STATI ==========
     const normalizeState = (value) => {
         if (!value) return "pending";
         const normalized = value.toString().toLowerCase().trim();
-
-        // Mappa valori legacy → stati normalizzati
         const stateMap = {
             "prenotazione": "pending",
             "in lavorazione": "in_corso",
@@ -33,7 +49,6 @@ const GestioneProduzione = () => {
             "pending": "pending",
             "in_corso": "in_corso"
         };
-
         return stateMap[normalized] || "pending";
     };
 
@@ -86,9 +101,6 @@ const GestioneProduzione = () => {
         }
     };
 
-
-
-    // 🔄 Funzione centralizzata per ricaricare tutti i dati
     const ricaricaDati = async () => {
         await Promise.all([fetchPrenotazioni(), fetchSfuso()]);
     };
@@ -106,26 +118,21 @@ const GestioneProduzione = () => {
         if (["CREATA", "AGGIORNATA", "COMPLETATA", "ANNULLATA"].includes(upper)) {
             return upper;
         }
-        // fallback sicuro
         return "AGGIORNATA";
     };
-
 
     // ========== STORICO PRODUZIONI ==========
     const registraStoricoProduzione = async (p, evento) => {
         try {
             const payload = {
                 id_produzione: p.id_produzione || null,
-
                 id_prenotazione: p.id || null,
                 id_sfuso: p.id_sfuso || null,
                 asin_prodotto: p.asin_prodotto || null,
                 nome_prodotto: p.nome_prodotto || null,
                 formato: p.formato || null,
-
                 quantita: Number(p.quantita ?? p.prodotti ?? 0),
                 litri_usati: Number(p.litri_usati ?? p.litriImpegnati ?? 0),
-
                 evento: evento.toUpperCase(),
                 note: p.note || "",
                 operatore: "admin"
@@ -150,11 +157,6 @@ const GestioneProduzione = () => {
             console.error("❌ Errore registraStoricoProduzione:", err);
         }
     };
-
-
-
-
-
 
     // ========== GESTIONE STATO PRENOTAZIONE ==========
     const handleAggiornaStato = async (id, nuovoStato) => {
@@ -185,7 +187,6 @@ const GestioneProduzione = () => {
 
             console.log("✅ Stato aggiornato con successo:", data.message || data);
 
-            // 📝 Registra nello storico se annullamento
             if (statoNormalizzato === "annullato") {
                 const prenotazione = prenotazioni.find(p => p.id === id);
                 console.log("🔍 Prenotazione trovata:", prenotazione);
@@ -207,17 +208,12 @@ const GestioneProduzione = () => {
                                     note: "Modifica quantità prenotazione"
                                 })
                             });
-
                         }
                     }
-
-
                 }
             }
 
-            // 🔁 Ricarica dati
             await ricaricaDati();
-
         } catch (err) {
             console.error("❌ Errore aggiornamento stato:", err);
             alert("Errore durante l'aggiornamento dello stato");
@@ -233,7 +229,6 @@ const GestioneProduzione = () => {
                 return;
             }
 
-            // 1️⃣ Recupera prima la prenotazione per sapere la quantità iniziale
             const oldRes = await fetch(buildUrl(`sfuso/prenotazione/${id}`));
             const oldData = await oldRes.json();
 
@@ -244,7 +239,6 @@ const GestioneProduzione = () => {
 
             const quantitaPrima = Number(oldData.data.prodotti);
 
-            // 2️⃣ PATCH aggiorna la quantità
             const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
@@ -256,7 +250,6 @@ const GestioneProduzione = () => {
 
             if (!res.ok) throw new Error("Errore modifica quantità");
 
-            // 3️⃣ Recupera ora la prenotazione AGGIORNATA
             const resPren = await fetch(buildUrl(`sfuso/prenotazione/${id}`));
             const prenAgg = await resPren.json();
 
@@ -267,7 +260,6 @@ const GestioneProduzione = () => {
 
             const pren = prenAgg.data;
 
-            // 4️⃣ Registra storico correttamente
             await registraStoricoProduzione(
                 {
                     ...pren,
@@ -280,20 +272,15 @@ const GestioneProduzione = () => {
 
             await ricaricaDati();
             alert("✅ Quantità aggiornata e registrata nello storico");
-
         } catch (err) {
             console.error("❌ Errore modifica quantità:", err);
             alert("Errore durante la modifica della quantità");
         }
     };
 
-
-
     // ========== CONFERMA PRODUZIONE ==========
     const handleConfermaProduzione = async (prenotazione) => {
         try {
-
-            // 🔍 1) Recupera dal backend la prenotazione AGGIORNATA
             const resPren = await fetch(buildUrl(`sfuso/prenotazione/${prenotazione.id}`));
             const prenAgg = await resPren.json();
 
@@ -302,10 +289,8 @@ const GestioneProduzione = () => {
                 return;
             }
 
-            const pren = prenAgg.data; // ← versione aggiornata
+            const pren = prenAgg.data;
 
-
-            // 🔧 2) CREA PRODUZIONE DA PRENOTAZIONE
             const resCrea = await fetch(buildUrl("produzioni-sfuso/crea-da-prenotazione"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -319,16 +304,13 @@ const GestioneProduzione = () => {
             }
 
             const dataCrea = await resCrea.json();
-            const idProduzione =
-                dataCrea?.id_produzione || dataCrea?.data?.id_produzione;
+            const idProduzione = dataCrea?.id_produzione || dataCrea?.data?.id_produzione;
 
             if (!idProduzione) {
                 alert("❌ Errore: ID produzione mancante.");
                 return;
             }
 
-
-            // 🚀 3) COMPLETA PRODUZIONE
             const resCompleta = await fetch(
                 buildUrl(`produzioni-sfuso/${idProduzione}/completa`),
                 {
@@ -344,24 +326,15 @@ const GestioneProduzione = () => {
                 return;
             }
 
-
-            // 🔄 3B) RICARICA LA PRENOTAZIONE *AGGIORNATA* (per avere la quantità GIUSTA)
             const resPrenUpdated = await fetch(buildUrl(`sfuso/prenotazione/${prenotazione.id}`));
             const prenAggUpdated = await resPrenUpdated.json();
             const prenUpdated = prenAggUpdated.data;
-
-
 
             if (!prenAggUpdated || !prenAggUpdated.data) {
                 alert("Errore nel ricaricare la prenotazione aggiornata");
                 return;
             }
 
-
-
-
-            // 📝 3C) REGISTRA STORICO → COMPLETATA  
-            // ❗ QUI sta il punto chiave!
             await registraStoricoProduzione(
                 {
                     ...prenUpdated,
@@ -370,32 +343,17 @@ const GestioneProduzione = () => {
                 "COMPLETATA"
             );
 
-
-            // 🔧 4) AGGIORNA STATO PRENOTAZIONE
             await handleAggiornaStato(pren.id, "CONFERMATA");
-
-
-            // 🔁 5) Trigger inventario
             triggerReloadInventario();
-
-            // 🔄 6) Ricarica dati locali
             await ricaricaDati();
 
-            // 🗑 7) Rimuovi riga dalla tabella
-            setPrenotazioni(prev =>
-                prev.filter(p => p.id !== prenotazione.id)
-            );
-
+            setPrenotazioni(prev => prev.filter(p => p.id !== prenotazione.id));
             alert("✅ Produzione completata");
-
         } catch (err) {
             console.error("❌ Errore generale handleConfermaProduzione:", err);
             alert("Errore durante la conferma produzione");
         }
     };
-
-
-
 
     // ========== NUOVA PRENOTAZIONE ==========
     const handleNewPrenotazione = async (newRow) => {
@@ -454,14 +412,11 @@ const GestioneProduzione = () => {
 
             alert("✔ Reset completato");
             window.location.reload();
-
         } catch (err) {
             console.error("❌ Errore reset:", err);
             alert("Errore durante il reset totale");
         }
     };
-
-
 
     // ========== SALVATAGGIO NOTE ==========
     const handleSalvaNota = async (id, nota) => {
@@ -483,22 +438,16 @@ const GestioneProduzione = () => {
     // ========== FILTRI ==========
     const getFilteredPrenotazioni = (stato) => {
         const statoNormalizzato = normalizeState(stato);
-
         return prenotazioni.filter((p) => {
-            // Filtro per stato
             if (normalizeState(p.stato) !== statoNormalizzato) return false;
-
-            // 🔍 Filtro per ricerca prodotto (funziona su nome_prodotto e asin_prodotto)
             if (filterSearchTerm.trim()) {
                 const term = filterSearchTerm.toLowerCase();
                 const nomeProdotto = (p.nome_prodotto || "").toLowerCase();
                 const asinProdotto = (p.asin_prodotto || "").toLowerCase();
-
                 if (!nomeProdotto.includes(term) && !asinProdotto.includes(term)) {
                     return false;
                 }
             }
-
             return true;
         });
     };
@@ -506,92 +455,104 @@ const GestioneProduzione = () => {
     const prenotazioniInLavorazione = getFilteredPrenotazioni("in_corso");
     const prenotazioniAttive = getFilteredPrenotazioni("pending");
 
-
-
     return (
-        <div className="min-h-screen bg-zinc-950 p-4 md:p-8">
+        <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
             <div className="max-w-8xl mx-auto space-y-6">
+
                 {/* ========== HEADER ========== */}
-                <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
+                <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-white mb-2">📦 Gestione Produzione</h1>
+                            <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                                <Beaker className="w-8 h-8 text-purple-400" />
+                                Gestione Produzione
+                            </h1>
                             <p className="text-zinc-400">Gestisci prenotazioni e produzioni</p>
                         </div>
-                        <div className="flex gap-3">
+
+                        <div className="flex flex-wrap gap-3">
                             <button
-                                onClick={() => navigate("/storico-produzioni-sfuso")}
-                                className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-white font-medium transition-colors"
+                                onClick={() => navigate(isUffici ? "/uffici/storici/movimenti" : "/magazzino/storici/sfuso")}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium transition-colors"
                             >
-                                📜 Storico Produzioni
+                                <History className="w-4 h-4" />
+                                Storico Produzioni
                             </button>
 
                             <button
-                                onClick={() => navigate("/magazzino")}
-                                className="bg-zinc-700 hover:bg-zinc-600 px-4 py-2 rounded-lg text-white font-medium transition-colors"
+                                onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")}
+                                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-colors"
                             >
-                                ⬅️ Magazzino
+                                <ArrowLeft className="w-4 h-4" />
+                                {isUffici ? "Dashboard" : "Magazzino"}
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* ========== FILTRO RICERCA GLOBALE ========== */}
-                <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-                    <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                        🔍 Filtra Prenotazioni
+                {/* ========== FILTRO RICERCA ========== */}
+                <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                    <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+                        <Filter className="w-5 h-5 text-purple-400" />
+                        Filtra Prenotazioni
                     </h2>
+
                     <div className="relative">
                         <input
                             type="text"
                             placeholder="Cerca per nome prodotto o ASIN..."
                             value={filterSearchTerm}
                             onChange={(e) => setFilterSearchTerm(e.target.value)}
-                            className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-lg pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                            className="w-full bg-zinc-800 border border-zinc-700 text-white px-12 py-3 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                         />
+                        <Search className="w-5 h-5 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
                         {filterSearchTerm && (
                             <button
                                 onClick={() => setFilterSearchTerm("")}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-                                title="Cancella filtro"
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
                             >
-                                ✖
+                                <X className="w-5 h-5" />
                             </button>
                         )}
                     </div>
+
                     {filterSearchTerm && (
-                        <p className="mt-2 text-sm text-zinc-400">
-                            Filtrando per: <strong className="text-emerald-400">{filterSearchTerm}</strong>
-                        </p>
+                        <div className="mt-3 px-3 py-2 bg-purple-900/20 border border-purple-700/30 rounded-lg">
+                            <p className="text-sm text-purple-400">
+                                Filtrando per: <strong>{filterSearchTerm}</strong>
+                            </p>
+                        </div>
                     )}
                 </div>
+
+                {/* ========== SELETTORE PRODOTTO (solo per ufficio) ========== */}
                 {localStorage.getItem("role") === "ufficio" && (
                     <>
-                        {/* ========== SELETTORE PRODOTTO ========== */}
-                        <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-                            <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                                🎯 Seleziona Prodotto da Produrre
+                        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+                            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
+                                <Target className="w-5 h-5 text-emerald-400" />
+                                Seleziona Prodotto da Produrre
                             </h2>
+
                             <div className="relative mb-3">
                                 <input
                                     type="text"
                                     placeholder="Cerca per nome, ASIN o SKU..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-lg pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                                    className="w-full bg-zinc-800 border border-zinc-700 text-white px-12 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                                 />
+                                <Search className="w-5 h-5 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
                                 {searchTerm && (
                                     <button
                                         onClick={() => setSearchTerm("")}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-                                        title="Cancella"
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
                                     >
-                                        ✖
+                                        <X className="w-5 h-5" />
                                     </button>
                                 )}
                             </div>
 
-                            {/* Lista filtrata prodotti */}
                             {searchTerm.trim() && (
                                 <div className="max-h-64 overflow-y-auto border border-zinc-700 rounded-lg bg-zinc-800">
                                     {(() => {
@@ -600,7 +561,6 @@ const GestioneProduzione = () => {
                                             const nome = (p.nome || "").toLowerCase();
                                             const asin = (p.asin || "").toLowerCase();
                                             const sku = (p.sku || "").toLowerCase();
-
                                             return nome.includes(term) || asin.includes(term) || sku.includes(term);
                                         });
 
@@ -633,27 +593,28 @@ const GestioneProduzione = () => {
                             )}
 
                             {selectedProdotto && (
-                                <div className="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center justify-between">
+                                <div className="mt-3 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center justify-between">
                                     <div>
-                                        <p className="text-emerald-400 text-sm">
-                                            ✅ Prodotto selezionato: <strong>{selectedProdotto.nome}</strong>
+                                        <p className="text-emerald-400 font-semibold flex items-center gap-2">
+                                            <CheckCircle className="w-4 h-4" />
+                                            Prodotto selezionato: <strong>{selectedProdotto.nome}</strong>
                                         </p>
-                                        <p className="text-emerald-300/70 text-xs mt-1">
+                                        <p className="text-emerald-300/70 text-sm mt-1">
                                             ASIN: {selectedProdotto.asin} {selectedProdotto.sku ? `• SKU: ${selectedProdotto.sku}` : ""}
                                         </p>
                                     </div>
                                     <button
                                         onClick={() => setSelectedProdotto(null)}
-                                        className="bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1 rounded text-sm transition-colors"
-                                        title="Deseleziona prodotto"
+                                        className="flex items-center gap-1 px-3 py-2 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg transition-colors"
                                     >
-                                        ✖ Rimuovi
+                                        <X className="w-4 h-4" />
+                                        Rimuovi
                                     </button>
                                 </div>
                             )}
                         </div>
 
-                        {/* ========== CARD PRODUZIONE PER FORMATO ========== */}
+                        {/* CARD PRODUZIONE PER FORMATO */}
                         <div className="grid md:grid-cols-3 gap-4">
                             <ProduzioneCard
                                 formato="10ml"
@@ -677,86 +638,121 @@ const GestioneProduzione = () => {
                     </>
                 )}
 
+                {/* ========== RESET CONTATORE (solo per ufficio) ========== */}
                 {localStorage.getItem("role") === "ufficio" && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex items-center justify-between">
-
-
+                    <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center">
+                                <RotateCcw className="w-5 h-5 text-red-400" />
+                            </div>
+                            <div>
+                                <p className="text-white font-semibold">Reset Totale Sistema</p>
+                                <p className="text-zinc-400 text-sm">Elimina tutte le prenotazioni, produzioni e storico</p>
+                            </div>
+                        </div>
                         <button
                             onClick={handleResetProduzioneCounter}
-                            className={`px-4 py-2 rounded-lg text-white font-medium transition-colors ${prenotazioniAttive.length === 0 && prenotazioniInLavorazione.length === 0
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-white font-medium transition-colors ${prenotazioniAttive.length === 0 && prenotazioniInLavorazione.length === 0
                                 ? "bg-red-600 hover:bg-red-700"
-                                : "bg-zinc-700 cursor-not-allowed"
+                                : "bg-zinc-700 cursor-not-allowed opacity-50"
                                 }`}
                             disabled={prenotazioniAttive.length > 0 || prenotazioniInLavorazione.length > 0}
                         >
-                            🔄 Reset Contatore
+                            <RotateCcw className="w-4 h-4" />
+                            Reset Contatore
                         </button>
                     </div>
                 )}
 
                 {/* ========== STATISTICHE ========== */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-emerald-500">{prenotazioni.length}</p>
-                        <p className="text-sm text-zinc-400 mt-1">Totali</p>
+                    <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/20 border border-purple-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+                        <div className="flex justify-center mb-2">
+                            <div className="p-3 bg-purple-600 rounded-full">
+                                <BarChart3 className="w-6 h-6 text-white" />
+                            </div>
+                        </div>
+                        <p className="text-4xl font-bold text-white mb-1">{prenotazioni.length}</p>
+                        <p className="text-sm text-purple-200 font-medium">Totali</p>
                     </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-blue-500">
+
+                    <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+                        <div className="flex justify-center mb-2">
+                            <div className="p-3 bg-blue-600 rounded-full">
+                                <AlertCircle className="w-6 h-6 text-white" />
+                            </div>
+                        </div>
+                        <p className="text-4xl font-bold text-white mb-1">
                             {prenotazioni.filter((p) => normalizeState(p.stato) === "pending").length}
                         </p>
-                        <p className="text-sm text-zinc-400 mt-1">Prenotazioni</p>
+                        <p className="text-sm text-blue-200 font-medium">Prenotazioni</p>
                     </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-yellow-500">
+
+                    <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+                        <div className="flex justify-center mb-2">
+                            <div className="p-3 bg-yellow-600 rounded-full">
+                                <Clock className="w-6 h-6 text-white" />
+                            </div>
+                        </div>
+                        <p className="text-4xl font-bold text-white mb-1">
                             {prenotazioni.filter((p) => normalizeState(p.stato) === "in_corso").length}
                         </p>
-
-                        <p className="text-sm text-zinc-400 mt-1">In Lavorazione</p>
+                        <p className="text-sm text-yellow-200 font-medium">In Lavorazione</p>
                     </div>
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
-                        <p className="text-3xl font-bold text-green-500">
+
+                    <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+                        <div className="flex justify-center mb-2">
+                            <div className="p-3 bg-green-600 rounded-full">
+                                <CheckCircle className="w-6 h-6 text-white" />
+                            </div>
+                        </div>
+                        <p className="text-4xl font-bold text-white mb-1">
                             {prenotazioni.filter((p) => normalizeState(p.stato) === "completato").length}
                         </p>
-                        <p className="text-sm text-zinc-400 mt-1">Completate</p>
+                        <p className="text-sm text-green-200 font-medium">Completate</p>
                     </div>
                 </div>
 
-                {/* ========== PRENOTAZIONI IN LAVORAZIONE ========== */}
-                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
-                    <div className="bg-yellow-600 px-6 py-4">
-                        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                            ⚙️ In Lavorazione
-                            <span className="text-sm font-normal opacity-90">
-                                ({prenotazioniInLavorazione.length})
+                {/* ========== IN LAVORAZIONE ========== */}
+                <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Clock className="w-6 h-6" />
+                            In Lavorazione
+                            <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
+                                {prenotazioniInLavorazione.length}
                             </span>
                         </h2>
                     </div>
 
                     <div className="p-6">
                         {prenotazioniInLavorazione.length === 0 ? (
-                            <p className="text-zinc-400 text-center py-8">Nessuna prenotazione in lavorazione</p>
+                            <div className="text-center py-12">
+                                <Clock className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
+                                <p className="text-zinc-400">Nessuna prenotazione in lavorazione</p>
+                            </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm border-collapse">
+                                <table className="w-full text-sm">
                                     <thead>
                                         <tr className="bg-zinc-800 text-white">
-                                            <th className="p-3 border border-zinc-700 text-left">Nome Prodotto</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Formato</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Quantità</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Lotto</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Note</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Azioni</th>
+                                            <th className="p-4 text-left rounded-tl-lg">Nome Prodotto</th>
+                                            <th className="p-4 text-left">Formato</th>
+                                            <th className="p-4 text-left">Quantità</th>
+                                            <th className="p-4 text-left">Lotto</th>
+                                            <th className="p-4 text-left">Note</th>
+                                            <th className="p-4 text-left rounded-tr-lg">Azioni</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-zinc-700">
                                         {prenotazioniInLavorazione.map((p) => (
                                             <React.Fragment key={p.id}>
-                                                <tr className="bg-yellow-900/20 hover:bg-yellow-900/30 transition-colors">
-                                                    <td className="p-3 border border-zinc-700 text-white">
+                                                <tr className="hover:bg-zinc-800/50 transition-colors">
+                                                    <td className="p-4 text-white font-medium">
                                                         {(p.nome_prodotto || "-").replace(/\(NUOVO\)|\(VECCHIO\)/gi, "").trim()}
                                                     </td>
-                                                    <td className="p-3 border border-zinc-700 text-white">{p.formato}</td>
-                                                    <td className="p-3 border border-zinc-700">
+                                                    <td className="p-4 text-zinc-300">{p.formato}</td>
+                                                    <td className="p-4">
                                                         <div className="flex items-center gap-2">
                                                             <input
                                                                 type="number"
@@ -769,18 +765,17 @@ const GestioneProduzione = () => {
                                                                         )
                                                                     );
                                                                 }}
-                                                                className="bg-zinc-800 border border-zinc-700 text-white px-2 py-1 rounded w-24 focus:ring-2 focus:ring-emerald-500"
+                                                                className="bg-zinc-800 border border-zinc-700 text-white px-3 py-2 rounded-lg w-24 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all"
                                                             />
                                                             <button
                                                                 onClick={() => handleModificaQuantita(p.id, p.nuovaQuantita || p.prodotti)}
-                                                                className="bg-emerald-600 hover:bg-emerald-700 px-3 py-1 rounded text-white transition-colors"
-                                                                title="Aggiorna quantità"
+                                                                className="flex items-center gap-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white transition-colors"
                                                             >
-                                                                ✅
+                                                                <CheckCircle className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     </td>
-                                                    <td className="p-3 border border-zinc-700 text-white">
+                                                    <td className="p-4 text-zinc-300">
                                                         {p.lotto || "-"}{" "}
                                                         {(() => {
                                                             const sfuso = sfusoData.find((s) => s.id === p.id_sfuso);
@@ -790,7 +785,7 @@ const GestioneProduzione = () => {
                                                             return "";
                                                         })()}
                                                     </td>
-                                                    <td className="p-3 border border-zinc-700">
+                                                    <td className="p-4">
                                                         <div className="flex gap-2">
                                                             <input
                                                                 type="text"
@@ -803,38 +798,42 @@ const GestioneProduzione = () => {
                                                                         )
                                                                     )
                                                                 }
-                                                                className="bg-zinc-800 border border-zinc-700 text-white px-2 py-1 rounded w-full focus:ring-2 focus:ring-emerald-500"
+                                                                className="flex-1 bg-zinc-800 border border-zinc-700 text-white px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                                             />
                                                             <button
                                                                 onClick={() => handleSalvaNota(p.id, p.nuovaNota)}
-                                                                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white transition-colors"
-                                                                title="Salva nota"
+                                                                className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition-colors"
                                                             >
-                                                                💾
+                                                                <Save className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     </td>
-                                                    <td className="p-3 border border-zinc-700">
+                                                    <td className="p-4">
                                                         <div className="flex gap-2">
                                                             <button
                                                                 onClick={() => handleConfermaProduzione(p)}
-                                                                className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-white transition-colors font-medium"
+                                                                className="flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
                                                             >
-                                                                ✅ Conferma
+                                                                <CheckCircle className="w-4 h-4" />
+                                                                Conferma
                                                             </button>
                                                             <button
                                                                 onClick={() => handleAggiornaStato(p.id, "annullato")}
-                                                                className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-white transition-colors font-medium"
+                                                                className="flex items-center gap-1 px-3 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white font-medium transition-colors"
                                                             >
-                                                                ❌ Annulla
+                                                                <XCircle className="w-4 h-4" />
+                                                                Annulla
                                                             </button>
                                                         </div>
                                                     </td>
                                                 </tr>
                                                 {p.note && (
                                                     <tr className="bg-yellow-900/10">
-                                                        <td colSpan="6" className="p-3 border border-zinc-700 text-zinc-300 text-xs whitespace-pre-wrap">
-                                                            <strong className="text-yellow-400">Note precedenti:</strong> {p.note}
+                                                        <td colSpan="6" className="p-4">
+                                                            <div className="p-3 bg-yellow-900/20 border border-yellow-700/30 rounded-lg">
+                                                                <p className="text-xs text-yellow-400 font-semibold mb-1">Note precedenti:</p>
+                                                                <p className="text-sm text-yellow-100">{p.note}</p>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 )}
@@ -848,54 +847,58 @@ const GestioneProduzione = () => {
                 </div>
 
                 {/* ========== PRENOTAZIONI ATTIVE ========== */}
-                <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
-                    <div className="bg-emerald-600 px-6 py-4">
-                        <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                            📦 Prenotazioni Attive
-                            <span className="text-sm font-normal opacity-90">
-                                ({prenotazioniAttive.length})
+                <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl overflow-hidden">
+                    <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <Package className="w-6 h-6" />
+                            Prenotazioni Attive
+                            <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
+                                {prenotazioniAttive.length}
                             </span>
                         </h2>
                     </div>
 
                     <div className="p-6">
                         {prenotazioniAttive.length === 0 ? (
-                            <p className="text-zinc-400 text-center py-8">Nessuna prenotazione attiva</p>
+                            <div className="text-center py-12">
+                                <Package className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
+                                <p className="text-zinc-400">Nessuna prenotazione attiva</p>
+                            </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm border-collapse">
+                                <table className="w-full text-sm">
                                     <thead>
                                         <tr className="bg-zinc-800 text-white">
-                                            <th className="p-3 border border-zinc-700 text-left">Nome Prodotto</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Formato</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Litri</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Lotto</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Prodotti</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Priorità</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Data</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Note</th>
-                                            <th className="p-3 border border-zinc-700 text-left">Azioni</th>
+                                            <th className="p-4 text-left rounded-tl-lg">Nome Prodotto</th>
+                                            <th className="p-4 text-left">Formato</th>
+                                            <th className="p-4 text-left">Litri</th>
+                                            <th className="p-4 text-left">Lotto</th>
+                                            <th className="p-4 text-left">Prodotti</th>
+                                            <th className="p-4 text-left">Priorità</th>
+                                            <th className="p-4 text-left">Data</th>
+                                            <th className="p-4 text-left">Note</th>
+                                            <th className="p-4 text-left rounded-tr-lg">Azioni</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody className="divide-y divide-zinc-700">
                                         {prenotazioniAttive.map((p, idx) => {
                                             const stableKey = p.id ?? p.tempKey ?? `pren-${idx}`;
                                             const hasId = Boolean(p.id);
 
                                             return (
                                                 <tr key={stableKey} className="hover:bg-zinc-800/50 transition-colors">
-                                                    <td className="p-3 border border-zinc-700 text-white">
+                                                    <td className="p-4 text-white font-medium">
                                                         {(p.nome_prodotto || "-").replace(/\(NUOVO\)|\(VECCHIO\)/gi, "").trim()}
                                                     </td>
-                                                    <td className="p-3 border border-zinc-700 text-white">{p.formato}</td>
-                                                    <td className="p-3 border border-zinc-700 text-emerald-400 font-medium">
+                                                    <td className="p-4 text-zinc-300">{p.formato}</td>
+                                                    <td className="p-4 text-emerald-400 font-semibold">
                                                         {p.litriImpegnati?.toFixed(1)}
                                                     </td>
-                                                    <td className="p-3 border border-zinc-700 text-white">{p.lotto || "-"}</td>
-                                                    <td className="p-3 border border-zinc-700 text-white font-medium">{p.prodotti}</td>
-                                                    <td className="p-3 border border-zinc-700 text-white">{p.priorita}</td>
-                                                    <td className="p-3 border border-zinc-700 text-zinc-400 text-xs">{p.dataRichiesta}</td>
-                                                    <td className="p-3 border border-zinc-700">
+                                                    <td className="p-4 text-zinc-300">{p.lotto || "-"}</td>
+                                                    <td className="p-4 text-white font-bold">{p.prodotti}</td>
+                                                    <td className="p-4 text-zinc-300">{p.priorita}</td>
+                                                    <td className="p-4 text-zinc-400 text-xs">{p.dataRichiesta}</td>
+                                                    <td className="p-4">
                                                         <div className="flex gap-2">
                                                             <input
                                                                 type="text"
@@ -908,28 +911,27 @@ const GestioneProduzione = () => {
                                                                         )
                                                                     )
                                                                 }
-                                                                className="bg-zinc-800 border border-zinc-700 text-white px-2 py-1 rounded w-full focus:ring-2 focus:ring-emerald-500"
+                                                                className="flex-1 bg-zinc-800 border border-zinc-700 text-white px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                                                             />
                                                             <button
                                                                 onClick={() => handleSalvaNota(p.id, p.note)}
-                                                                className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white transition-colors"
-                                                                title="Salva nota"
+                                                                className="flex items-center gap-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition-colors"
                                                             >
-                                                                💾
+                                                                <Save className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     </td>
-                                                    <td className="p-3 border border-zinc-700">
+                                                    <td className="p-4">
                                                         <button
                                                             disabled={!hasId}
-                                                            title={hasId ? "Metti in lavorazione" : "ID mancante — attendi salvataggio"}
                                                             onClick={() => hasId && handleAggiornaStato(p.id, "in_corso")}
-                                                            className={`px-3 py-1 rounded font-medium transition-colors ${hasId
+                                                            className={`flex items-center gap-1 px-3 py-2 rounded-lg font-medium transition-colors ${hasId
                                                                 ? "bg-yellow-600 hover:bg-yellow-700 text-white"
                                                                 : "bg-zinc-700 cursor-not-allowed text-zinc-500"
                                                                 }`}
                                                         >
-                                                            ▶️ In lavorazione
+                                                            <Play className="w-4 h-4" />
+                                                            In lavorazione
                                                         </button>
                                                     </td>
                                                 </tr>
@@ -941,8 +943,6 @@ const GestioneProduzione = () => {
                         )}
                     </div>
                 </div>
-
-
             </div>
         </div>
     );

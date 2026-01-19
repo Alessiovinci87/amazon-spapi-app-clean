@@ -62,7 +62,8 @@ export const aggiornaAccessoriDopoPronto = (accessori, nomeProdotto, deltaQuanti
       if (
         nomeLower.includes("boccetta 12 ml") ||
         nomeLower.includes("tappino 12 ml") ||
-        nomeLower.includes("pennellino 12 ml")
+        nomeLower.includes("pennellino 12 ml")||
+        nomeLower.includes("scatoletta 12 ml")
       ) {
         daModificare = true;
       }

@@ -1,0 +1,185 @@
+﻿sku	asin	price	quantity	Business Price	Quantity Price Type	Quantity Lower Bound 1	Quantity Price 1	Quantity Lower Bound 2	Quantity Price 2	Quantity Lower Bound 3	Quantity Price 3	Quantity Lower Bound 4	Quantity Price 4	Quantity Lower Bound 5	Quantity Price 5	Progressive Price Type	Progressive Lower Bound 1	Progressive Price 1	Progressive Lower Bound 2	Progressive Price 2	Progressive Lower Bound 3	Progressive Price 3	Minimum order quantity	Sell remainder
+0C-GRMH-AF5U	B0FJMF75RR	6.64		6.11	fixed	2	5.32	5	4.98															false
+0C-QHL3-W39S	B094YJC9HR	6.85		6.3	fixed	2	5.48	5	5.14															false
+0Y-WJJG-6ALF	B09DQ3KH7Q	7.49		6.89	fixed	2	6.00	5	5.62															false
+10535	B0BNNWY2GC	9.99		9.19	fixed	2	8.00	5	7.50															false
+1685	B0BNNX9M9F	9.99		9.19	fixed	2	8.00	5	7.50															false
+1687	B0BNNWJ2KV	9.99		9.19	fixed	2	8.00	5	7.50															false
+1692	B0BNNXTJXY	9.99		9.19	fixed	2	8.00	5	7.50															false
+1695	B0BNNV5ZKD	9.99		9.19	fixed	2	8.00	5	7.50															false
+1814	B0BNNX8727	9.99		9.19	fixed	2	8.00	5	7.50															false
+19456	B0BNNWQJ6D	9.79		9.01	fixed	2	7.84	5	7.35															false
+19466	B0BNNZC6Z9	9.79		9.01	fixed	2	7.84	5	7.35															false
+19472	B0BNNYPL9H	9.79		9.01	fixed	2	7.84	5	7.35															false
+19478	B0BNNZJ2XS	9.99		9.19	fixed	2	8.00	5	7.50															false
+19482	B0BNNZLQW5	9.79		9.01	fixed	2	7.84	5	7.35															false
+19489	B0BNNXPD6Y	9.99		9.19	fixed	2	8.00	5	7.50															false
+19492	B0BNNZSC6G	9.99		9.19	fixed	2	8.00	5	7.50															false
+19507	B0BNNZF8V3	9.99		9.19	fixed	2	8.00	5	7.50															false
+19510	B0BNNY5PZY	9.99		9.19	fixed	2	8.00	5	7.50															false
+19514	B0BNNYQKLN	9.99		9.19	fixed	2	8.00	5	7.50															false
+1E-2POT-RVIZ	B0CQ5GGYR4	8.81		8.11	fixed	2	7.05	5	6.61															
+1V-PVA4-32Q1	B094RK3P5T	6.99		6.43	fixed	2	5.60	5	5.25															false
+1V-T4QP-C2RG	B0G4DWT7R9	24.99	18	22.99	fixed	2	20.00	5	18.75															
+202023	B0C4L9ZYNY	9.99		9.19	fixed	2	8.00	5	7.50															false
+202210	B0BNNX35MB	9.99		9.19	fixed	2	8.00	5	7.50															false
+202212	B0BNNYP3BH	9.99		9.19	fixed	2	8.00	5	7.50															false
+202213	B0BNNXGN4F	9.99		9.19	fixed	2	8.00	5	7.50															false
+202216	B0BNNX2188	9.99		9.19	fixed	2	8.00	5	7.50															false
+202217	B0C4L8PHF9	14.98		13.78	fixed	2	11.99	5	11.24															false
+20223	B0BNNY2LVV	9.99		9.19	fixed	2	8.00	5	7.50															false
+20226	B0BNNXCX65	9.79		9.01	fixed	2	7.84	5	7.35															false
+20227	B0BNNX2B48	9.99		9.19	fixed	2	8.00	5	7.50															false
+20228	B0BNNZRMS9	9.99		9.19	fixed	2	8.00	5	7.50															false
+20229	B0BNNY5GTZ	9.99		9.19	fixed	2	8.00	5	7.50															false
+2092	B0BNNWPRDZ	9.99		9.19	fixed	2	8.00	5	7.50															false
+2305	B0BNNZRB36	9.99		9.19	fixed	2	8.00	5	7.50															false
+25294	B0BNNZ3CKM	9.99		9.19	fixed	2	8.00	5	7.50															false
+27-IVD3-CDZN	B0DGGYBWDH	8.81		8.11	fixed	2	7.05	5	6.61															
+2D-0ZS9-0PG5	B0FYQM5G6C	6.99		6.43	fixed	2	5.60	5	5.25															
+2T-3P2S-77QH	B0DGGWXXBM	8.81		8.11	fixed	2	7.05	5	6.61															
+2X-76K5-RQY2	B0CQ5GQH4N	8.81		8.11	fixed	2	7.05	5	6.61															
+40685	B0BNNXWWGJ	9.99		9.19	fixed	2	8.00	5	7.50															false
+45-XTR9-JGRD	B0CQ5KDR5Z	8.81		8.11	fixed	2	7.05	5	6.61															
+48-U0XC-WJ3U	B0CQ5JZH2B	8.81		8.11	fixed	2	7.05	5	6.61															
+5N-CQKP-6ZV6	B0DGGZHMWL	8.81		8.11	fixed	2	7.05	5	6.61															
+68-YM50-I8G3	B0BY9Q4KTT	14.99		9.0																				
+6E-DL3Y-NXY3	B09238F1VL	6.99		6.43	fixed	2	5.60	5	5.25															false
+6H-LHM4-GL4M	B0CFBC4MCP	8.81		8.11	fixed	2	7.05	5	6.61															
+6J-TI1C-Z3WK	B0DGH2K7ZG	8.81		8.11	fixed	2	7.05	5	6.61															
+6L-E47V-KB24	B0963PF48B	6.49		6.29	fixed	2	5.99	4	5.59															false
+6Y-HWP9-702O	B0C9QK6W2J	5.87		5.4	fixed	2	4.70	5	4.41															false
+76-LCP9-ORGF	B0DGH1262Z	8.81		8.11	fixed	2	7.05	5	6.61															
+7S-2HON-0K7W	B0CHMLJD7K	6.85		6.3	fixed	2	5.48	5	5.14															false
+7S-E0VB-89IU	B0CFBBL77X	7.83		7.2	fixed	2	6.27	5	5.88															
+81-SPL0-HNB8	B0DXVQ42VH	7.49		6.89	fixed	2	6.00	5	5.62															false
+83-TEH7-D0P8	B0FXH5MGCS	6.99		6.43	fixed	2	5.60	5	5.25															
+8P-RZBB-VBND	B0FTSZD1J6	21.86	11	20.11	fixed	2	17.49	5	16.40															
+8W-RRL7-0S15	B0CQ5GJTT8	8.81		8.11	fixed	2	7.05	5	6.61															
+8Y-55XM-19M6	B0CQ5J8PFK	8.81		8.11	fixed	2	7.05	5	6.61															
+9I-94PX-1TFB	B08X21RXF1	8.81	18	8.11	fixed	2	7.05	5	6.61															false
+9X-M0GR-ST3Z	B0G3XV21YD	29.39	18	27.04	fixed	2	23.52	5	22.05															
+AP-TRNV-PN72	B08XQQHK37	6.73	20	6.19	fixed	2	5.39	5	5.05															
+Amazon.Found.B0BY9Q4KTT	B0BY9Q4KTT	14.99		13.79	fixed	2	12.00	5	11.25															
+B0-4T35-L47C	B0CHMK6QTY	6.49		5.97	fixed	2	5.20	5	4.87															false
+B3-OI3E-Q5EU	B0CHMK39L9	6.85		6.3	fixed	2	5.48	5	5.14															false
+BF-PW8S-GMQ7	B094RK3P5T	6.99	17	2.49																				false
+BO-UO6L-WFVR	B0977FRJ6M	7.99		7.35	fixed	2	6.40	5	6.00															false
+BR-QOX7-DTQL	B09VY51ZFF	6.85		6.3	fixed	2	5.48	5	5.14															false
+CS-V0AC-R1QE	B0924Q9M9X	8.99		8.27	fixed	2	7.20	5	6.75															false
+CU-E0AS-S0X4	B08JCWDCF2	6.99		6.43	fixed	2	5.60	5	5.25															false
+DJ-YXM7-BKPY	B0CHMJ7HW8	6.85		6.3	fixed	2	5.48	5	5.14															false
+DS-T9IZ-423N	B0FXH9CK43	6.99		6.43	fixed	2	5.60	5	5.25															
+DZ-6QXR-M3QZ	B0G3XXLJRT	29.39	16	27.04	fixed	2	23.52	5	22.05															
+EA-Q5BD-JOJW	B09JZK3SQL	6.85		6.3	fixed	2	5.48	5	5.14															false
+EI-YQNH-JWN4	B0DGH19R3X	8.81		8.11	fixed	2	7.05	5	6.61															
+ET-3S95-8MKF	B09DQ5457F	7.99		7.35	fixed	2	6.40	5	6.00															false
+FV-NY3A-L1D6	B08XQQHK37	6.99		6.43	fixed	2	5.60	5	5.25															false
+GZ-KPW2-2BQP	B09DQ62H25	6.99		6.43	fixed	2	5.60	5	5.25															false
+H5-Q5LT-O5N4	B0963Q2987	6.85		6.3	fixed	2	5.48	5	5.14															false
+HL-3AJ4-9DWJ	B08X21RXF1	6.99		6.3	fixed	2	5.48	5	5.14															false
+HL-HCUN-VAYD	B0CVSDGZBP	7.49		6.89	fixed	2	6.00	5	5.62															
+HM-SJ8F-HRRD	B0CFB8PV37	7.83		7.2	fixed	2	6.27	5	5.88															
+HO-JGFA-LSWW	B0C4TF7MFH	7.83		7.2	fixed	2	6.27	5	5.88															false
+HY-VV22-R5O3	B0DGGYDWYH	8.81		8.11	fixed	2	7.05	5	6.61															
+IA-1PNP-V6CQ	B0CQ5HRS3V	8.81		8.11	fixed	2	7.05	5	6.61															
+IP-WFDZ-U3U1	B0DGH31BMM	8.81		8.11	fixed	2	7.05	5	6.61															
+IQ-CJP7-HGHI	B08JCWDCF2	6.99	23	6.43	fixed	2	5.60	5	5.25															false
+IV-L3VC-OG4K	B0CQ5GF8TP	8.81		8.11	fixed	2	7.05	5	6.61															
+JD-JNS2-XDO2	B0963P8M6Y	6.85		6.3	fixed	2	5.48	5	5.14															false
+JF-51UN-53XD	B0DGGZRVBN	8.81		8.11	fixed	2	7.05	5	6.61															
+JT-L6NC-LPAA	B0CQ5GN72K	5.38		4.95	fixed	2	4.31	5	4.04															
+KI-JDKZ-FY0A	B0963Q6MSP	6.85		6.3	fixed	2	5.48	5	5.14															false
+KJ-RVXP-NIA5	B0DGGYH1W6	8.81		8.11	fixed	2	7.05	5	6.61															
+KU-YSM8-USHV	B0FXH5MJLG	6.99		6.43	fixed	2	5.60	5	5.25															
+KY-M2P5-05G1	B0CQ5JLZFN	8.81		8.11	fixed	2	7.05	5	6.61															
+MD-IHFO-VTWA	B0CQ5JDCXT	8.81		8.11	fixed	2	7.05	5	6.61															
+NX-ZTQL-00UH	B0C5Y4QWG2	6.85		5.99																				false
+O9-PY9V-ZVIS	B0FXH369HV	6.99		6.43	fixed	2	5.60	5	5.25															
+OT-D3MQ-A6K5	B0G3XRT7B5	18.61	12	17.12	fixed	2	14.89	5	13.96															
+P1-K6Y6-EBT5	B0C9QHPG3Q	5.87		5.4	fixed	2	4.70	5	4.41															false
+PH-U17C-SDTL	B0BK9QLKN1	7.99		7.35	fixed	2	6.40	5	6.00															false
+Q0-Y0PB-6Z4Z	B0FXH5JQF9	6.99		6.43	fixed	2	5.60	5	5.25															
+QC-TZQ2-FZK9	B0DGGZ2PVC	8.81		8.11	fixed	2	7.05	5	6.61															
+QD-7OXR-TGEQ	B0963P222M	6.85		6.3	fixed	2	5.48	5	5.14															false
+QM-K8DX-ZVKN	B0G4DVPV5B	44.99	20	41.39	fixed	2	36.00	5	33.75															
+QT-D8Y0-RZ58	B0DGH1CHWH	53.89	5	54.44	fixed	2	50.99																	
+QU-AOVE-CEQ4	B0CLS1H8MF	7.99		7.35	fixed	2	6.40	5	6.00															
+R8-PG4G-RCUC	B09FLX9CQV	7.99		7.35	fixed	2	6.40	5	6.00															false
+RE-ZAE7-KSET	B0CQ5HX243	8.81		8.11	fixed	2	7.05	5	6.61															
+RF-H7DI-RZFB	B0DHXZ9XP8	8.81		8.11	fixed	2	7.05	5	6.61															
+S8-W4E6-H29T	B0C9QJV244	5.87		5.4	fixed	2	4.70	5	4.41															false
+SK-NVI3-TY4J	B0FTSN1X1V	12.99		11.95	fixed	2	10.40	5	9.75															false
+SK-X3YF-SIG4	B0C9QJD1JV	5.87		5.4	fixed	2	4.70	5	4.41															false
+ST-347T-I20K	B0CQ5KSMYS	8.81		8.11	fixed	2	7.05	5	6.61															
+TD-RU51-57WD	B0CQ5K2N9B	8.99		8.27	fixed	2	7.20	5	6.75															
+U5-CEA3-1GXL	B0DT4L4HQR	59.99	5	55.19	fixed	2	48.00	5	45.00															
+UF-CCFB-LE80	B0CQ5JS2TW	8.81		8.11	fixed	2	7.05	5	6.61															
+V1-V3JE-8IF7	B0C9QJMK7T	5.87		5.4	fixed	2	4.70	5	4.41															false
+V5-N7AB-PBGM	B09G32LP1C	6.99		6.43	fixed	2	5.60	5	5.25															false
+W2-QOST-SUUD	B0DHVH4TLZ	51.93	1	52.99	fixed	2	50.00																	
+W8-KPWB-GKZ1	B0DGGYL427	8.81		8.11	fixed	2	7.05	5	6.61															
+W8-VGAT-9ZVC	B0FJMGRDBJ	6.78		6.24	fixed	2	5.43	5	5.09															false
+WH-ACB7-54DY	B0DKPBB9K4	25.47		26.99																				false
+WN-8WZ9-FI4I	B0CQ5JV4KC	8.81		8.11	fixed	2	7.05	5	6.61															
+WQ-I5N1-JKGI	B0CVB9GWPW	8.99		8.27	fixed	2	7.20	5	6.75															
+XE-KBV5-3WW1	B0CQ5HSSM6	8.81		8.11	fixed	2	7.05	5	6.61															
+XI-Y2HS-AW1W	B0CQ5HTL3X	8.81		8.11	fixed	2	7.05	5	6.61															
+XN-8816-HWGE	B0DT4JG66N	59.99	3	55.19	fixed	2	48.00	5	45.00															
+Z8-7NPI-DXEH	B0DGGXDFLT	8.81		8.11	fixed	2	7.05	5	6.61															
+ZP-8F2J-HVL5	B095KW4BS4	7.83		7.2	fixed	2	6.27	5	5.88															false
+ZX-NZFS-TU60	B09VY4M2R4	6.85		6.3	fixed	2	5.48	5	5.14															false
+08-4PGS-WUVZ	B0C9QGQPCT	5.99		5.51	fixed	2	4.80	5	4.50															false
+1247	B07THXCC2C	6.00	0	5.52	fixed	2	4.80	5	4.50															
+1696	B0BNNWQKG2	9.99	0																					false
+1817	B0BNP25WPZ	20.39																						false
+1E-OWSK-X3BF	B0FXH71KRJ	6.99																						
+2367	B0BNNYJB5T	20.39																						false
+26-UPY2-CXO4	B0C9QJ2W5H	5.99		5.51	fixed	2	4.80	5	4.50															false
+2B-0CRB-3K1A	B0DGGZLQ54	8.81		8.11	fixed	2	7.05	5	6.61															
+2P-5F4F-C8XB	B0C8BJCFRY	6.99		6.43	fixed	2	5.60	5	5.25															false
+40-4GRP-RNFP	B0GFXFN6HK	8.99																						false
+40672	B0BNNYZFDN	9.99	0																					false
+46-MC57-Q0A0	B0C9QHFB5Y	6.99		6.43	fixed	2	5.60	5	5.25															false
+4F-I2CW-R76M	B0CQ5JNDVH	8.99		8.27	fixed	2	7.20	5	6.75															
+6S-B419-65OT	B0C9QJFNRT	6.99		6.43	fixed	2	5.60	5	5.25															false
+6T-6W7X-Q9T4	B0DGH1NMB3	8.81		8.11	fixed	2	7.05	5	6.61															
+6W-BZ7G-SA51	B0GGV1BH37	8.99																						
+7M-Z8OH-Q82Y	B08DYB28ZH	6.85		6.3	fixed	2	5.48	5	5.14															false
+86-I0YG-D8Y9	B0C8BNK6KS	5.99		5.51	fixed	2	4.80	5	4.50															false
+89-S17T-99DB	B0C8BK5TLH	6.99		6.43	fixed	2	5.60	5	5.25															false
+A5-3YRK-9PF4	B094YPSVWK	68.59		63.1	fixed	2	54.88	5	51.45															false
+BG-F23X-R3NK	B0C8BGKYH3	6.99		6.43	fixed	2	5.60	5	5.25															false
+D3-NABI-J86A	B0C9QKH1TX	5.99		5.51	fixed	2	4.80	5	4.50															false
+GF-JCW2-BSLX	B0CQ5HNYKP	8.81		8.11	fixed	2	7.05	5	6.61															
+HQ-QFB6-5QU6	B0C9QK6BY6	6.99		6.43	fixed	2	5.60	5	5.25															false
+HR-TRE5-WKX6	B09JZLHKRP	8.99		8.27	fixed	2	7.20	5	6.75															false
+HS-3OH4-3UUQ	B0CQ5HJGFS	8.99		8.27	fixed	2	7.20	5	6.75															
+I3-MES4-BCW3	B0CQ5K9B5Y	8.99		8.27	fixed	2	7.20	5	6.75															
+J0-9I4A-I4K3	B09WYYBFX2	6.99		6.99																				false
+KK-USIC-NSGP	B0DGGYG2DK	8.81		8.11	fixed	2	7.05	5	6.61															
+LW-Z8AQ-O2D5	B0DGGZX8SH	8.81		8.11	fixed	2	7.05	5	6.61															
+M6-5SGR-G9EX	B0DTJ6H1WD	9.99		9.19	fixed	2	8.00	5	7.50															
+OZ-8QYR-WG1G	B08B3YRSQS	74.99	0	68.99	fixed	2	60.00	5	56.25															
+P0-S4HC-TC7H	B0C8BJNNGZ	6.99		6.43	fixed	2	5.60	5	5.25															false
+P9-CHW2-8WOV	B0FXH77RGC	6.99		6.43	fixed	2	5.60	5	5.25															
+PS-R8AH-S0JZ	B0C8BHNTSK	6.99		6.43	fixed	2	5.60	5	5.25															false
+PW-NFX4-LKY1	B09GVR44Z7	6.99		6.43	fixed	2	5.60	5	5.25															false
+QB-MVPL-3EZR	B0DGH1JVYT	8.81		8.11	fixed	2	7.05	5	6.61															
+QF-ULVI-1TTM	B0C9QJBSFR	5.99		5.51	fixed	2	4.80	5	4.50															false
+R7-FJQW-1VXR	B0CQ5KLF9P	8.81		8.11	fixed	2	7.05	5	6.61															
+RW-ZYO5-6BSX	B0C8BLBJV1	6.99		6.43	fixed	2	5.60	5	5.25															false
+S5-7PSX-N1OE	B0DKXXRMZS	11.99		11.03	fixed	2	9.60	5	9.00															false
+ST-8ZE3-OQVD	B0C9QG725S	5.99		5.51	fixed	2	4.80	5	4.50															false
+TJ-53YJ-GQVL	B0DTZ5PPPB	9.50		8.99	fixed	2	7.60	5	7.13															false
+TQ-9YNW-7572	B0FGQPZWQP	9.99																						
+UI-Z1NL-A5AY	B0C8BMXBQH	6.85		6.3	fixed	2	5.48	5	5.14															false
+UN-N053-TM0O	B0CQ5HX7HG	8.81		8.11	fixed	2	7.05	5	6.61															
+W4-RN92-S4T7	B0DGH1FZ98	8.99		8.27	fixed	2	7.20	5	6.75															
+W9-0NQN-O214	B0DTJ5PVGQ	9.99		9.19	fixed	2	8.00	5	7.50															
+X2-5E2C-U4PF	B0C8BJ9RSY	6.99		6.43	fixed	2	5.60	5	5.25															false
+X3-ZQJ3-GJCJ	B0CQ5HRH87	8.99		8.27	fixed	2	7.20	5	6.75															
+XH-CTZ0-1A4D	B0C8BM925T	6.99		6.43	fixed	2	5.60	5	5.25															false
+Z5-HPUD-FG0R	B0CVS15HDW	8.81		8.49	fixed	2	8.00	5	7.50															
+ZO-YMZC-9CD9	B09JZJ2PL6	8.99																						false
+ZR-7EAV-GE7X	B09CL6RMWZ	6.99		6.43	fixed	2	5.60	5	5.25															false

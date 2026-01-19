@@ -1,7 +1,4 @@
-// backend_v2/services/accessoriService.js
-// Operazioni CRUD essenziali sugli accessori
-
-const { getDb } = require('../db/database');
+const { getDb } = require("../db/database");
 
 /** 🔎 Ritorna tutti gli accessori */
 function getAllAccessori() {
@@ -27,52 +24,55 @@ function getAccessorio(asin_accessorio) {
     .get(asin_accessorio);
 }
 
-/** ✏️ Imposta la quantità assoluta di un accessorio */
-function updateQuantitaAccessorio(asin_accessorio, quantita) {
+/** ✏️ Imposta la quantità assoluta di un accessorio + registra storico */
+function updateQuantitaAccessorio(asin_accessorio, quantitaNuova, nota = "", operatore = "admin") {
   const db = getDb();
 
-  const stmt = db.prepare(`
-    UPDATE accessori
-    SET quantita = ?
-    WHERE asin_accessorio = ?
-  `);
+  // quantità precedente
+  const before = db
+    .prepare(`SELECT quantita, nome FROM accessori WHERE asin_accessorio = ?`)
+    .get(asin_accessorio);
 
-  const info = stmt.run(quantita, asin_accessorio);
-
-  if (info.changes === 0) {
+  if (!before) {
     throw new Error(`Accessorio ${asin_accessorio} non trovato`);
   }
 
-  return { ok: true, asin_accessorio, quantita };
-}
+  const quantitaPrecedente = before.quantita;
+  const delta = quantitaNuova - quantitaPrecedente;
 
-/** 💾 Salva un movimento nello storico accessori */
-function salvaStoricoAccessorio({ asin_accessorio, nome, quantitaPrecedente, quantitaNuova, nota, operatore }) {
-  const db = getDb();
+  // 🔄 aggiorna quantità effettiva
   db.prepare(
-    `INSERT INTO storico_movimenti 
-     (asin_accessorio, nome, quantita_precedente, quantita_nuova, nota, operatore, tipo, data)
-     VALUES (?, ?, ?, ?, ?, ?, 'RETTIFICA_ACCESSORIO', datetime('now'))`
-  ).run(
-    asin_accessorio,
-    nome,
-    quantitaPrecedente,
-    quantitaNuova,
-    nota,
-    operatore
-  );
-}
+    `UPDATE accessori
+     SET quantita = ?
+     WHERE asin_accessorio = ?`
+  ).run(quantitaNuova, asin_accessorio);
 
+  // 📝 salva storico nel formato CORRETTO
+  db.prepare(
+    `INSERT INTO storico_movimenti
+      (tipo, asin_accessorio, delta_quantita, note, operatore, created_at)
+     VALUES
+      ('RETTIFICA_ACCESSORIO', ?, ?, ?, ?, datetime('now','localtime'))`
+  ).run(asin_accessorio, delta, nota, operatore);
+
+  return {
+    ok: true,
+    asin_accessorio,
+    precedente: quantitaPrecedente,
+    nuova: quantitaNuova,
+    delta,
+  };
+}
 
 /** 📜 Ritorna lo storico dei movimenti accessori */
 function getStoricoAccessori() {
   const db = getDb();
   return db
     .prepare(`
-      SELECT asin_accessorio, nome, quantita_precedente, quantita_nuova, nota, operatore, data
+      SELECT *
       FROM storico_movimenti
       WHERE tipo = 'RETTIFICA_ACCESSORIO'
-      ORDER BY data DESC
+      ORDER BY created_at DESC
     `)
     .all();
 }
@@ -82,6 +82,4 @@ module.exports = {
   getAccessorio,
   updateQuantitaAccessorio,
   getStoricoAccessori,
-  salvaStoricoAccessorio,
 };
-

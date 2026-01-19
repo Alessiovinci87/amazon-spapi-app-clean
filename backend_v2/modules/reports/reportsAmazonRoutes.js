@@ -644,7 +644,143 @@ router.get("/catalog-images/all", async (req, res) => {
   }
 });
 
+// ============================================================
+// 🔄 POST → Sincronizza SKU da Amazon (GET_MERCHANT_LISTINGS_ALL_DATA)
+// ============================================================
+router.post("/sync-sku", async (req, res) => {
+  let db;
+  try {
+    console.log("🚀 Avvio sincronizzazione SKU da Amazon...");
+    
+    // Risposta immediata
+    res.json({ ok: true, message: "Sincronizzazione SKU avviata in background" });
 
+    // Esecuzione in background
+    setImmediate(async () => {
+      try {
+        const { getAccessToken } = require("../auth/authService");
+        const { access_token } = await getAccessToken();
+
+        // 1️⃣ Crea il report
+        console.log("📑 Creazione report GET_MERCHANT_LISTINGS_ALL_DATA...");
+        const reportResponse = await createReport({
+          reportType: "GET_FLAT_FILE_OPEN_LISTINGS_DATA",
+          marketplaceIds: defaultMarketplaceIds,
+        });
+
+        const reportId = reportResponse?.reportId;
+        if (!reportId) {
+          console.error("❌ Nessun reportId ricevuto");
+          return;
+        }
+        console.log(`📋 Report creato: ${reportId}`);
+
+        // 2️⃣ Attendi che il report sia pronto (polling)
+        let status = null;
+        let attempts = 0;
+        const maxAttempts = 30;
+
+        while (attempts < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 10000)); // Attendi 10 secondi
+          status = await getReportStatus(reportId);
+          console.log(`⏳ Stato report: ${status?.processingStatus} (tentativo ${attempts + 1}/${maxAttempts})`);
+
+          if (status?.processingStatus === "DONE") break;
+          if (status?.processingStatus === "FATAL" || status?.processingStatus === "CANCELLED") {
+            console.error(`❌ Report fallito: ${status?.processingStatus}`);
+            return;
+          }
+          attempts++;
+        }
+
+        if (status?.processingStatus !== "DONE") {
+          console.error("❌ Timeout: report non completato");
+          return;
+        }
+
+        // 3️⃣ Scarica il documento
+        const reportDocumentId = status?.reportDocumentId;
+        if (!reportDocumentId) {
+          console.error("❌ Nessun reportDocumentId");
+          return;
+        }
+
+        console.log(`📥 Download documento: ${reportDocumentId}`);
+        const docInfo = await getReportDocument({ reportId: reportDocumentId });
+        const buffer = await downloadReportDocument({
+          url: docInfo.url,
+          compressionAlgorithm: docInfo.compressionAlgorithm,
+        });
+
+        // 4️⃣ Parsing TSV
+        const { parseDelimited } = require("./reportClient");
+        const rows = parseDelimited(buffer);
+        console.log(`📊 Righe trovate nel report: ${rows.length}`);
+
+        // 5️⃣ Aggiorna DB
+        db = await open({
+          filename: path.join(__dirname, "../../db/inventario.db"),
+          driver: sqlite3.Database,
+        });
+
+        let updated = 0;
+        for (const row of rows) {
+          const asin = row["asin1"] || row["asin"];
+          const sku = row["seller-sku"] || row["sku"];
+
+          if (asin && sku) {
+            const result = await db.run(
+              `UPDATE prodotti SET sku = ? WHERE asin = ? AND (sku IS NULL OR sku = '')`,
+              sku,
+              asin
+            );
+            if (result.changes > 0) {
+              updated++;
+              console.log(`✅ SKU aggiornato: ${asin} → ${sku}`);
+            }
+          }
+        }
+
+        console.log(`🎉 Sincronizzazione completata! SKU aggiornati: ${updated}`);
+      } catch (err) {
+        console.error("❌ Errore sincronizzazione SKU:", err.message);
+      } finally {
+        if (db) await db.close();
+      }
+    });
+  } catch (err) {
+    console.error("❌ Errore iniziale sync-sku:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 📊 GET → Verifica stato SKU nel DB
+router.get("/sku-status", async (req, res) => {
+  let db;
+  try {
+    db = await open({
+      filename: path.join(__dirname, "../../db/inventario.db"),
+      driver: sqlite3.Database,
+    });
+
+    const totale = await db.get(`SELECT COUNT(*) as count FROM prodotti`);
+    const conSku = await db.get(`SELECT COUNT(*) as count FROM prodotti WHERE sku IS NOT NULL AND sku != ''`);
+    const senzaSku = await db.get(`SELECT COUNT(*) as count FROM prodotti WHERE sku IS NULL OR sku = ''`);
+
+    res.json({
+      ok: true,
+      totale: totale.count,
+      conSku: conSku.count,
+      senzaSku: senzaSku.count,
+      percentuale: Math.round((conSku.count / totale.count) * 100) + "%",
+    });
+  } catch (err) {
+    console.error("❌ Errore sku-status:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  } finally {
+    if (db) await db.close();
+  }
+});
 
 
 

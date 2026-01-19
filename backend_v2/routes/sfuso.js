@@ -573,53 +573,54 @@ router.patch("/ricevi/:id", (req, res) => {
   try {
     const db = getDb();
 
-    // 1) Leggo il record
-    const row = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
-    if (!row) {
-      return res.status(404).json({ error: "Record sfuso non trovato" });
-    }
+    // Transazione atomica
+    db.prepare('BEGIN TRANSACTION').run();
 
-    const inArrivo = Number(row.litri_in_arrivo || 0);
-    if (!inArrivo || inArrivo <= 0) {
-      return res.status(422).json({ error: "Nessun sfuso in arrivo da ricevere" });
-    }
-
-    // 2) Transazione atomica: disponibili += in_arrivo, in_arrivo = 0
-    const apply = db.transaction(() => {
+    try {
+      // 1. Aggiorna sfuso (sposta litri_in_arrivo → litri_disponibili)
       db.prepare(`
         UPDATE sfuso
         SET 
-          litri_disponibili = COALESCE(litri_disponibili, 0) + ?,
-          litri_in_arrivo   = 0,
-          updated_at        = datetime('now','localtime')
+          litri_disponibili = litri_disponibili + litri_in_arrivo,
+          litri_in_arrivo = 0,
+          updated_at = datetime('now','localtime')
         WHERE id = ?
-      `).run(inArrivo, id);
+      `).run(id);
 
-      // ritorno record aggiornato
-      return db.prepare("SELECT id, nome_prodotto, formato, lotto, litri_disponibili, litri_in_arrivo FROM sfuso WHERE id = ?").get(id);
-    });
+      // 2. NUOVO: Chiudi gli ordini fornitori
+      db.prepare(`
+        UPDATE ordini_fornitori 
+        SET 
+          stato = 'Consegnato',
+          data_consegna_effettiva = datetime('now','localtime')
+        WHERE id_sfuso = ? 
+          AND stato = 'In attesa'
+      `).run(id);
 
-    const updated = apply();
+      db.prepare('COMMIT').run();
 
-    console.log("✅ Ricezione sfuso:", {
-      id: updated.id,
-      nome: updated.nome_prodotto,
-      formato: updated.formato,
-      ricevuti_litri: inArrivo,
-      disponibili_finali: updated.litri_disponibili
-    });
+      const updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
 
-    return res.json({
-      ok: true,
-      message: "Sfuso ricevuto con successo",
-      sfuso: updated
-    });
+      console.log("✅ Ricezione sfuso completata:", {
+        id: updated.id,
+        nome: updated.nome_prodotto,
+        disponibili: updated.litri_disponibili
+      });
+
+      return res.json({
+        ok: true,
+        message: "Ordini ricevuti e registrati",
+        sfuso: updated
+      });
+    } catch (err) {
+      db.prepare('ROLLBACK').run();
+      throw err;
+    }
   } catch (err) {
     console.error("❌ Errore PATCH /sfuso/ricevi/:id:", err);
     return res.status(500).json({ error: "Errore durante la ricezione dello sfuso" });
   }
 });
-
 
 
 // =====================================================

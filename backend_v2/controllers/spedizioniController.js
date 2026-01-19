@@ -1,45 +1,124 @@
+// backend_v2/controllers/spedizioniController.js
 const service = require("../services/spedizioniService");
 
-// 📦 GET tutte le spedizioni
+/* ============================================================
+   📦 CONTROLLER — tutte le funzioni chiamate dal router
+============================================================ */
+
+// 🟦 GET tutte le spedizioni
 function getSpedizioni(req, res) {
   try {
-    const spedizioni = service.getAllSpedizioni();
-    res.json(spedizioni);
+    const dati = service.getAll();
+    res.json(dati);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 }
 
-// 📦 POST nuova spedizione
+exports.getSpedizioni = (req, res) => {
+  const data = service.getAll(); // già filtrato in BOZZA
+  res.json(data);
+};
+
+
+// 🟦 GET dettaglio spedizione + righe
+function getDettaglio(req, res) {
+  try {
+    const { id } = req.params;
+    const spedizione = service.getOne(id);
+
+    if (!spedizione)
+      return res.status(404).json({ error: "Spedizione non trovata" });
+
+    res.json(spedizione);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 🟦 GET solo righe spedizione
+function getRighe(req, res) {
+  try {
+    const { id } = req.params;
+    const righe = service.getRighe(id);
+    res.json(righe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 🟩 POST crea spedizione
 function creaSpedizione(req, res) {
   try {
-    const { paese, prodotto_nome, asin, quantita, data, operatore, note } = req.body;
-    if (!paese || !prodotto_nome || !quantita || !data) {
-      return res.status(400).json({ error: "Campi obbligatori mancanti" });
-    }
-    const nuova = service.creaSpedizione({ paese, prodotto_nome, asin, quantita, data, operatore, note });
+    const nuova = service.crea(req.body);
     res.json(nuova);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 }
 
-// ✏️ PATCH aggiorna spedizione
+// 🟧 POST aggiungi righe
+function aggiungiRighe(req, res) {
+  try {
+    const { id } = req.params;
+    const { righe } = req.body;
+    const updated = service.addRighe(id, righe);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 🟨 PATCH aggiorna spedizione (solo BOZZA)
 function aggiornaSpedizione(req, res) {
   try {
     const { id } = req.params;
-    const { quantita, data, operatore, note } = req.body;
+    const updated = service.update(id, req.body);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
-    if (!quantita && !data && !operatore && !note) {
-      return res.status(400).json({ error: "Nessun campo da aggiornare" });
-    }
+// 🟪 PATCH conferma spedizione
+function confermaSpedizione(req, res) {
+  try {
+    const { id } = req.params;
+    const updated = service.conferma(id);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
-    const aggiornata = service.aggiornaSpedizione(id, { quantita, data, operatore, note });
-    if (!aggiornata) {
-      return res.status(404).json({ error: "Spedizione non trovata" });
-    }
+// 🟫 GET storico confermate
+function getStorico(req, res) {
+  try {
+    const { paese, tipo_evento, da, a } = req.query;
+    const storico = service.getStorico(paese, tipo_evento, da, a);
+    res.json(storico);
+  } catch (err) {
+    console.error("❌ Errore GET storico:", err);
+    res.status(500).json({ error: err.message });
+  }
+}
 
-    res.json(aggiornata);
+// 🟥 DELETE singola spedizione
+function eliminaSpedizione(req, res) {
+  try {
+    const { id } = req.params;
+    const ok = service.delete(id);
+    res.json(ok);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 🟧 DELETE tutte le spedizioni
+function eliminaTutte(req, res) {
+  try {
+    const ok = service.deleteAll();
+    res.json(ok);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -47,6 +126,13 @@ function aggiornaSpedizione(req, res) {
 
 module.exports = {
   getSpedizioni,
+  getDettaglio,
+  getRighe,
   creaSpedizione,
+  aggiungiRighe,
   aggiornaSpedizione,
+  confermaSpedizione,
+  getStorico,
+  eliminaSpedizione,
+  eliminaTutte,
 };

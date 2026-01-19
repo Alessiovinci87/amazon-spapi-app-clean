@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  Package, 
+import { History } from "lucide-react";
+import {
+  ArrowLeft,
+  Package,
   Edit3,
   ChevronDown,
   ChevronUp,
@@ -14,40 +15,29 @@ import {
   Truck
 } from "lucide-react";
 
-const initialData = [
-  { id: 1, nome: "Primer no acido", quantita: 25000 },
-  { id: 2, nome: "Primer Acido", quantita: 1170 },
-  { id: 3, nome: "Nail Prep", quantita: 4500 },
-  { id: 4, nome: "Olio Vaniglia", quantita: 2300 },
-  { id: 5, nome: "olio fragola", quantita: 3000 },
-  { id: 6, nome: "olio cocco", quantita: 3600 },
-  { id: 7, nome: "olio generico", quantita: 5300 },
-  { id: 8, nome: "acrygel", quantita: 1300 },
-  { id: 9, nome: "cilindri", quantita: "2000+" },
-  { id: 10, nome: "antifungo", quantita: 0 },
-  { id: 11, nome: "cutiway", quantita: 3400 },
-  { id: 12, nome: "olio 3 fasico", quantita: 3400 },
-  { id: 13, nome: "Rinforzante", quantita: 4800 },
-  { id: 14, nome: "Smalto Amaro", quantita: 7000 },
-  { id: 15, nome: "Rimuovi Cuticole", quantita: 9300 },
-  { id: 16, nome: "top coat manicure", quantita: 2000 },
-  { id: 17, nome: "top coat Ultra shine", quantita: 1300 },
-  { id: 18, nome: "top coat no wipe", quantita: 2340 },
-  { id: 19, nome: "top coat matt", quantita: 2000 },
-  { id: 20, nome: "base + top", quantita: 4700 },
-  { id: 21, nome: "base coat", quantita: 2000 },
-  { id: 22, nome: "olio cbd 5%", quantita: 2500 },
-  { id: 23, nome: "olio cbd 15%", quantita: 2500 },
-  { id: 24, nome: "olio cbd 25%", quantita: 2500 },
-  { id: 25, nome: "Rubber base", quantita: 4700 },
-  { id: 26, nome: "generica", quantita: 4700 },
-];
+
 
 const Scatolette = () => {
-  const [rows, setRows] = useState(initialData);
+  const [rows, setRows] = useState([]);
   const [expandedCards, setExpandedCards] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchScatolette = async () => {
+      try {
+        const res = await fetch("http://localhost:3005/api/v2/scatolette"); // ⬅️ PERCORSO COMPLETO
+        const data = await res.json();
+        console.log("📦 Dati ricevuti:", data); // ⬅️ DEBUG
+        setRows(data);
+      } catch (err) {
+        console.error("Errore caricamento scatolette:", err);
+      }
+    };
+
+    fetchScatolette();
+  }, []);
+
 
   const toggleCardExpansion = (id) => {
     setExpandedCards(prev => ({
@@ -64,21 +54,42 @@ const Scatolette = () => {
     );
   };
 
-  const handleRettifica = (row) => {
+  const handleRettifica = async (row) => {
     const nuovaQuantita = prompt(
-      `Rettifica quantità per "${row.nome}".\nQuantità attuale: ${row.quantita}`,
+      `Rettifica quantità per "${row.nome_prodotto}".\nQuantità attuale: ${row.quantita}`,
       row.quantita
     );
-    
-    if (nuovaQuantita !== null) {
-      handleChange(row.id, "quantita", nuovaQuantita);
-      alert(`✅ Quantità aggiornata per "${row.nome}": ${nuovaQuantita}`);
+
+    if (nuovaQuantita === null) return;
+
+    try {
+      const res = await fetch(`http://localhost:3005/api/v2/scatolette/${row.id}`, { // ⬅️ PERCORSO COMPLETO
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantita: Number(nuovaQuantita) }),
+      });
+
+      if (!res.ok) throw new Error("Errore aggiornamento quantità");
+
+      // aggiorna lo state locale
+      setRows(prev =>
+        prev.map(r =>
+          r.id === row.id ? { ...r, quantita: Number(nuovaQuantita) } : r
+        )
+      );
+
+      alert("✅ Quantità aggiornata");
+    } catch (err) {
+      console.error("Errore aggiornamento:", err);
+      alert("Errore aggiornamento quantità");
     }
   };
 
+
+
   // Filtro ricerca
   const filteredRows = rows.filter(row =>
-    row.nome.toLowerCase().includes(searchTerm.toLowerCase())
+    row.nome_prodotto?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Calcola statistiche
@@ -87,11 +98,11 @@ const Scatolette = () => {
     return acc + qty;
   }, 0);
 
-  const scatoletteBasse = filteredRows.filter(row => 
+  const scatoletteBasse = filteredRows.filter(row =>
     typeof row.quantita === 'number' && row.quantita > 0 && row.quantita < 2000
   ).length;
 
-  const scatoletteEsaurite = filteredRows.filter(row => 
+  const scatoletteEsaurite = filteredRows.filter(row =>
     row.quantita === 0
   ).length;
 
@@ -110,7 +121,7 @@ const Scatolette = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
       <div className="max-w-8xl mx-auto space-y-6">
-        
+
         {/* ========== HEADER ========== */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -131,6 +142,15 @@ const Scatolette = () => {
               <ArrowLeft className="w-4 h-4" />
               Magazzino
             </button>
+
+            <button
+              onClick={() => navigate("/scatolette/storico")}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
+            >
+              <History className="w-4 h-4" />
+              Storico Scatolette
+            </button>
+
           </div>
         </div>
 
@@ -200,14 +220,14 @@ const Scatolette = () => {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {filteredRows.map((row) => {
             const isExpanded = expandedCards[row.id];
-            
+
             return (
               <div
                 key={row.id}
                 className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-purple-500/50 transition-all"
               >
                 {/* Header sempre visibile */}
-                <div 
+                <div
                   className="p-4 cursor-pointer hover:bg-zinc-800/50 transition-colors"
                   onClick={() => toggleCardExpansion(row.id)}
                 >
@@ -218,11 +238,11 @@ const Scatolette = () => {
                         <Package className="w-8 h-8 text-white" />
                       </div>
                     </div>
-                    
+
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg font-bold text-white truncate capitalize">
-                        {row.nome}
+                        {row.nome_prodotto}
                       </h3>
                       <div className="flex flex-wrap items-center gap-2 mt-1">
                         <span className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 ${getQuantitaColor(row.quantita)}`}>
@@ -231,7 +251,7 @@ const Scatolette = () => {
                         </span>
                       </div>
                     </div>
-                    
+
                     {/* Pulsante espandi */}
                     <button
                       className="flex-shrink-0 p-2 rounded-lg bg-purple-600 hover:bg-purple-700 transition-colors"

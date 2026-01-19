@@ -28,5 +28,11 @@
     "nome": "Tappini 100 ml",
     "formati": [100],
     "quantitaPerProdotto": ""
-  }
+  },
+  {
+  "asin": "SCATOLETTE_12ML",
+  "nome": "Scatolette 12 ml",
+  "formati": [12],
+  "quantitaPerProdotto": ""
+}
 ]

@@ -474,12 +474,12 @@ const Inventario = () => {
 
             <div className="flex gap-3 flex-wrap">
               <button
-                onClick={() => navigate(-1)}
+                onClick={() => navigate("/dashboard")}
                 className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
                 type="button"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Magazzino
+                Dashboard
               </button>
               <button
                 onClick={() => setShowNuovoProdotto(true)}

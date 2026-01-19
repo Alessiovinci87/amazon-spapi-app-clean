@@ -1,7 +1,5 @@
-<!-- backend_v2/ddt/templates/ddtTemplate.html -->
 <!DOCTYPE html>
 <html lang="it">
-
 <head>
     <meta charset="UTF-8" />
     <title>Documento di Trasporto</title>
@@ -42,8 +40,7 @@
             margin-top: 15px;
         }
 
-        th,
-        td {
+        th, td {
             border: 1px solid #000;
             padding: 6px;
             font-size: 11px;
@@ -64,10 +61,6 @@
             border: none;
         }
 
-        .info {
-            margin-top: 10px;
-        }
-
         .info p {
             margin: 4px 0;
         }
@@ -75,44 +68,43 @@
 </head>
 
 <body>
-    <!-- Logo + intestazione -->
-    <div class="header">
-        <img src="{{logoPath}}" alt="Logo" style="max-height:80px; max-width:200px;" />
 
+    <!-- INTESTAZIONE IN ALTO (come foto 2) -->
+    <div class="header">
+        <img src="{{logoPath}}" alt="Logo" />
         <div class="intestazione">
-            <strong>Pics Srl</strong><br />
-            IT02603050903 - REA SS-189484<br />
-            Via Dei Fabbri S.N.C. 07041 Alghero (SS), Italia<br />
-            Tel.: 079.97.31.078 - info@picsnails.com
+            Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia  
+            P.I. IT02603050903 – info@picsnails.com
         </div>
     </div>
 
     <h1>DOCUMENTO DI TRASPORTO</h1>
 
-    <!-- Info documento -->
+    <!-- DATI DOCUMENTO -->
     <section class="info">
 
         <p><b>Numero DDT:</b> {{NUMERO_DDT}}</p>
         <p><b>N° Riferimento Amazon:</b> {{NUMERO_AMAZON}}</p>
         <p><b>Data:</b> {{DATA}}</p>
 
-        <!-- Destinatario + centro logistico -->
+        <!-- BLOCCO IMPORTATORE + CENTRO (come foto 2) -->
         <table style="width: 100%; border: 1px solid #000; margin-top: 10px;">
             <tr>
                 <td style="width: 50%; padding: 6px;">
-                    <b>Destinatario:</b><br />
-                    Pics Srl<br />
-                    {{CENTRO_LOGISTICO}}
+                    <b>Importatore Registrato:</b><br>
+                    Pics Srl – {{CENTRO_LOGISTICO}}<br>
+                    Italia
                 </td>
+
                 <td style="width: 50%; padding: 6px;">
-                    <b>Centro logistico:</b><br />
+                    <b>Centro logistico:</b><br>
                     {{CENTRO_LOGISTICO}}
                 </td>
             </tr>
         </table>
     </section>
 
-    <!-- Tabella prodotti -->
+    <!-- TAB PRODOTTI -->
     <table>
         <thead>
             <tr>
@@ -120,7 +112,7 @@
                 <th>Descrizione prodotto + ASIN</th>
                 <th>SKU</th>
                 <th>N° Cartoni</th>
-                <th>N° Pacco</th> <!-- rimane la colonna ma la compili a mano -->
+                <th>N° Pacco</th>
             </tr>
         </thead>
         <tbody>
@@ -128,7 +120,7 @@
         </tbody>
     </table>
 
-    <!-- Totali -->
+    <!-- TOTALI -->
     <table class="totali">
         <tr>
             <td>Tot unità: {{TOT_UNITA}}</td>
@@ -137,6 +129,6 @@
             <td>Tracking: {{TRACKING}}</td>
         </tr>
     </table>
-</body>
 
+</body>
 </html>

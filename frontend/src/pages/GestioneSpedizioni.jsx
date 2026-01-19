@@ -1,25 +1,31 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import SpedizioneCard from "../components/spedizioni/SpedizioneCard";
 import ExportCSVButton from "../components/ui/ExportCSVButton";
 import { PAESI, cleanText } from "../utils/gestioneSpedizioni";
-import { 
-  ArrowLeft, 
-  Truck, 
-  Plus, 
-  Save, 
-  FileText, 
+import {
+  ArrowLeft,
+  Truck,
+  Plus,
+  Save,
+  FileText,
   Calendar,
   User,
   MapPin,
   Package,
   AlertCircle,
   CheckCircle,
-  ClipboardList
+  ClipboardList,
+  X,
+  Search,
+  ShoppingCart,
+  BarChart3
 } from "lucide-react";
 
 const GestioneSpedizioni = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isUffici = location.pathname.startsWith('/uffici');
   const [inventario, setInventario] = useState([]);
   const [spedizioni, setSpedizioni] = useState([]);
 
@@ -55,14 +61,10 @@ const GestioneSpedizioni = () => {
   // Carica inventario e spedizioni esistenti
   useEffect(() => {
     const aggiornaInventario = () => {
-      const saved = localStorage.getItem("inventario_prodotti");
-      if (saved) {
-        setInventario(JSON.parse(saved));
-      } else {
-        fetch("/data/inventario.json")
-          .then((res) => res.json())
-          .then((data) => setInventario(data));
-      }
+      fetch("/api/v2/magazzino")
+        .then((res) => res.json())
+        .then((data) => setInventario(data.data || []));
+
     };
 
     const aggiornaSpedizioni = () => {
@@ -119,6 +121,11 @@ const GestioneSpedizioni = () => {
     setErrore("");
   };
 
+  // Rimuovi riga dal carrello
+  const rimuoviRiga = (index) => {
+    setRighe((prev) => prev.filter((_, i) => i !== index));
+  };
+
   // Salva spedizione con tutte le righe
   const salvaSpedizione = async () => {
     if (!spedizioneInfo.data || righe.length === 0) {
@@ -153,6 +160,11 @@ const GestioneSpedizioni = () => {
         const nuova = await res.json();
         setSpedizioni((prev) => [nuova, ...prev]);
       }
+
+      // Ricarica inventario
+      fetch("/api/v2/magazzino")
+        .then((res) => res.json())
+        .then((data) => setInventario(data.data || []));
 
       // Reset righe temporanee
       setRighe([]);
@@ -241,12 +253,19 @@ const GestioneSpedizioni = () => {
     }
   };
 
-  const prodottiFiltrati = inventario.filter(
-    (p) =>
-      p.nome.toLowerCase().includes(filtro.toLowerCase()) ||
-      p.asin.toLowerCase().includes(filtro.toLowerCase()) ||
-      (p.sku || "").toLowerCase().includes(filtro.toLowerCase())
-  );
+  const filtroLower = (filtro || "").toLowerCase();
+
+  const prodottiFiltrati = inventario.filter((p) => {
+    const nome = (p.nome || "").toLowerCase();
+    const asin = (p.asin || "").toLowerCase();
+    const sku = (p.sku || "").toLowerCase();
+
+    return (
+      nome.includes(filtroLower) ||
+      asin.includes(filtroLower) ||
+      sku.includes(filtroLower)
+    );
+  });
 
   // Cancella una spedizione
   const eliminaSpedizione = async (id) => {
@@ -258,37 +277,51 @@ const GestioneSpedizioni = () => {
     }
   };
 
+  // Funzione per ottenere bandiera emoji
+  const getPaeseBadge = (paese) => {
+    const flags = {
+      "IT": "🇮🇹",
+      "FR": "🇫🇷",
+      "ES": "🇪🇸",
+      "DE": "🇩🇪",
+      "BE": "🇧🇪",
+      "NL": "🇳🇱",
+      "SE": "🇸🇪",
+      "PL": "🇵🇱",
+      "IE": "🇮🇪"
+    };
+    return flags[paese] || "🌍";
+  };
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="w-full space-y-6">
-        
+      <div className="max-w-8xl mx-auto space-y-6">
+
         {/* ========== HEADER ========== */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                <Truck className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">Gestione Spedizioni</h1>
-                <p className="text-zinc-400 mt-1">Crea e gestisci le tue spedizioni</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+                <Truck className="w-8 h-8 text-blue-400" />
+                Gestione Spedizioni
+              </h1>
+              <p className="text-zinc-400">Crea e gestisci le tue spedizioni in modo efficiente</p>
             </div>
-            
-            <div className="flex gap-3">
+
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => navigate("/spedizioni/storico")}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
               >
                 <FileText className="w-4 h-4" />
                 Storico
               </button>
               <button
-                onClick={() => navigate("/magazzino")}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
+                onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")}
+                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Magazzino
+                {isUffici ? "Dashboard" : "Magazzino"}
               </button>
             </div>
           </div>
@@ -296,11 +329,66 @@ const GestioneSpedizioni = () => {
 
         {/* ========== ALERT ERRORE ========== */}
         {errore && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-            <p className="text-red-200 text-sm">{errore}</p>
+          <div className="bg-red-900/20 border border-red-700/30 rounded-xl p-4 flex items-start gap-3 animate-fadeIn">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-red-200 font-medium">{errore}</p>
+            </div>
+            <button
+              onClick={() => setErrore("")}
+              className="text-red-400 hover:text-red-300 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         )}
+
+        {/* ========== STATISTICHE CON GRADIENT ========== */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-blue-600 rounded-full">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">{spedizioni.length}</p>
+            <p className="text-sm text-blue-200 font-medium">Totali</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-yellow-600 rounded-full">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">
+              {spedizioni.filter(s => s.stato === "BOZZA").length}
+            </p>
+            <p className="text-sm text-yellow-200 font-medium">Bozze</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-green-600 rounded-full">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">
+              {spedizioni.filter(s => s.stato === "CONFERMATA" || s.stato === "SPEDITA").length}
+            </p>
+            <p className="text-sm text-green-200 font-medium">Confermate</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-800/20 border border-emerald-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-emerald-600 rounded-full">
+                <Package className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">{inventario.length}</p>
+            <p className="text-sm text-emerald-200 font-medium">Prodotti</p>
+          </div>
+        </div>
 
         {/* ========== INFORMAZIONI SPEDIZIONE ========== */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
@@ -308,33 +396,40 @@ const GestioneSpedizioni = () => {
             <ClipboardList className="w-5 h-5 text-blue-400" />
             Informazioni Spedizione
           </h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
-                Paese di Destinazione
+                Paese Destinazione
               </label>
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                value={spedizioneInfo.paese}
-                onChange={(e) => handleInfoChange("paese", e.target.value)}
-              >
-                {PAESI.map((paese) => (
-                  <option key={paese} value={paese}>
-                    {paese}
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-12 pr-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none cursor-pointer"
+                  value={spedizioneInfo.paese}
+                  onChange={(e) => handleInfoChange("paese", e.target.value)}
+                >
+                  {PAESI.map((paese) => (
+                    <option key={paese} value={paese}>
+                      {paese}
+                    </option>
+                  ))}
+                </select>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl pointer-events-none">
+                  {getPaeseBadge(spedizioneInfo.paese)}
+                </span>
+              </div>
             </div>
 
             <div>
               <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
                 Data Spedizione
+                <span className="text-red-400 text-sm">*</span>
               </label>
               <input
                 type="date"
+                required
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 value={spedizioneInfo.data}
                 onChange={(e) => handleInfoChange("data", e.target.value)}
@@ -377,7 +472,33 @@ const GestioneSpedizioni = () => {
             <Package className="w-5 h-5 text-emerald-400" />
             Aggiungi Prodotti alla Spedizione
           </h2>
-          
+
+          {/* Barra di ricerca prodotti */}
+          <div className="mb-4">
+            <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
+              <Search className="w-4 h-4" />
+              Cerca Prodotto
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Cerca per nome, ASIN o SKU..."
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value)}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-10 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+              />
+              <Search className="w-5 h-5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              {filtro && (
+                <button
+                  onClick={() => setFiltro("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-1">
               <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide">
@@ -385,17 +506,16 @@ const GestioneSpedizioni = () => {
               </label>
               <select
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                style={{ whiteSpace: "pre-line" }}
                 value={nuovaRiga.asin}
                 onChange={(e) => handleRigaChange("asin", e.target.value)}
               >
                 <option value="">-- Seleziona prodotto --</option>
                 {prodottiFiltrati.map((p) => (
-                  <option key={p.asin} value={p.asin}>
+                  <option
+                    key={p.asin || p.id || p.nome}
+                    value={p.asin || ""}
+                  >
                     {p.nome} (Giacenza: {p.pronto})
-                    {impegni[p.asin]
-                      ?.map((i) => `\nImpegnati ${i.totale} per ${i.paese}-${i.progressivo}`)
-                      .join("")}
                   </option>
                 ))}
               </select>
@@ -418,34 +538,69 @@ const GestioneSpedizioni = () => {
             <div className="flex items-end">
               <button
                 onClick={aggiungiRiga}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-6 py-3 rounded-lg font-medium transition-all hover:scale-[1.02]"
+                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-6 py-3 rounded-lg font-medium transition-colors"
               >
                 <Plus className="w-5 h-5" />
-                Aggiungi Prodotto
+                Aggiungi
               </button>
             </div>
           </div>
 
           {/* Lista righe temporanee */}
           {righe.length > 0 && (
-            <div className="mt-6 space-y-2">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle className="w-5 h-5 text-emerald-400" />
-                <h3 className="font-semibold text-white">Prodotti Aggiunti ({righe.length})</h3>
+            <div className="mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5 text-emerald-400" />
+                  <h3 className="font-semibold text-white">Carrello Spedizione</h3>
+                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-semibold">
+                    {righe.length} {righe.length === 1 ? "prodotto" : "prodotti"}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setRighe([])}
+                  className="text-sm text-red-400 hover:text-red-300 transition-colors font-medium flex items-center gap-1"
+                >
+                  <X className="w-4 h-4" />
+                  Svuota carrello
+                </button>
               </div>
-              <div className="space-y-2">
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {righe.map((r, i) => (
-                  <div key={i} className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-white">{r.prodotto_nome}</p>
-                      <p className="text-sm text-zinc-400">ASIN: {r.asin}</p>
+                  <div key={i} className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 hover:border-emerald-700/50 transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-white truncate">{r.prodotto_nome}</p>
+                        <p className="text-sm text-zinc-400 mt-1">ASIN: {r.asin}</p>
+                      </div>
+                      <button
+                        onClick={() => rimuoviRiga(i)}
+                        className="flex-shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
+                        title="Rimuovi prodotto"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-emerald-400">{r.quantita}</p>
-                      <p className="text-xs text-zinc-400">pezzi</p>
+                    <div className="mt-3 flex items-center justify-between pt-3 border-t border-zinc-700">
+                      <span className="text-xs text-zinc-400 uppercase font-medium">Quantità</span>
+                      <span className="text-2xl font-bold text-emerald-400">{r.quantita}</span>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Totale prodotti */}
+              <div className="mt-4 bg-gradient-to-r from-emerald-900/30 to-emerald-800/20 border border-emerald-700/30 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5 text-emerald-400" />
+                    <span className="text-zinc-300 font-medium">Totale Prodotti:</span>
+                  </div>
+                  <span className="text-3xl font-bold text-emerald-400">
+                    {righe.reduce((sum, r) => sum + r.quantita, 0)} pz
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -454,16 +609,16 @@ const GestioneSpedizioni = () => {
         {/* ========== PULSANTE SALVA ========== */}
         <button
           onClick={salvaSpedizione}
-          disabled={righe.length === 0}
-          className="w-full flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded-xl px-6 py-4 font-semibold text-lg transition-all hover:scale-[1.01] disabled:hover:scale-100"
+          disabled={righe.length === 0 || !spedizioneInfo.data}
+          className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-zinc-700 disabled:to-zinc-700 disabled:cursor-not-allowed rounded-xl px-6 py-4 font-semibold text-lg transition-all shadow-lg hover:shadow-blue-900/50 disabled:opacity-50 disabled:shadow-none"
         >
           <Save className="w-6 h-6" />
-          Salva come Bozza
-          {righe.length > 0 && (
-            <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
-              {righe.length} {righe.length === 1 ? "prodotto" : "prodotti"}
-            </span>
-          )}
+          {righe.length === 0
+            ? "Aggiungi prodotti per salvare"
+            : !spedizioneInfo.data
+              ? "Inserisci data per salvare"
+              : `Salva Spedizione (${righe.length} ${righe.length === 1 ? "prodotto" : "prodotti"})`
+          }
         </button>
 
         {/* ========== LISTA SPEDIZIONI ========== */}
@@ -471,7 +626,7 @@ const GestioneSpedizioni = () => {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
               <Truck className="w-5 h-5 text-blue-400" />
-              Spedizioni Inserite
+              Spedizioni Create
               <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-normal">
                 {spedizioni.length}
               </span>
@@ -489,9 +644,11 @@ const GestioneSpedizioni = () => {
         </div>
 
         {/* ========== EXPORT CSV ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <ExportCSVButton spedizioni={spedizioni} cleanText={cleanText} />
-        </div>
+        {spedizioni.length > 0 && (
+          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+            <ExportCSVButton spedizioni={spedizioni} cleanText={cleanText} />
+          </div>
+        )}
       </div>
     </div>
   );

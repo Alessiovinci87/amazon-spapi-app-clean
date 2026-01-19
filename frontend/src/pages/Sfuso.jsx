@@ -16,7 +16,9 @@ import {
   AlertCircle,
   TrendingUp,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  BarChart3,
+  Layers
 } from "lucide-react";
 
 const Sfuso = () => {
@@ -28,15 +30,7 @@ const Sfuso = () => {
   const [modalData, setModalData] = useState(null);
   const [showSfusoModal, setShowSfusoModal] = useState(false);
   const [sfusoModalData, setSfusoModalData] = useState(null);
-
-  // Stati non utilizzati - possono essere rimossi o riabilitati quando necessario
-  // const [prodotti, setProdotti] = useState([]);
-  // const [searchTerm, setSearchTerm] = useState("");
-  // const [selectedProdotto, setSelectedProdotto] = useState(null);
-
-  // Nuovo stato per gestire le card espanse
   const [expandedCards, setExpandedCards] = useState({});
-
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSfuso, setNewSfuso] = useState({
     nome: "",
@@ -45,13 +39,11 @@ const Sfuso = () => {
     litri: 5,
   });
 
-  // Flag: imposta a true se gli endpoint degli ordini sono disponibili
-  const ENABLE_ORDINI_FETCH = false;
-  
-  // Flag: imposta a true se l'endpoint dell'inventario è disponibile
+  const [ordiniPerSfuso, setOrdiniPerSfuso] = useState({});
+
+
   const ENABLE_INVENTARIO_FETCH = false;
 
-  // Funzione per toggleare l'espansione di una card
   const toggleCardExpansion = (cardId) => {
     setExpandedCards(prev => ({
       ...prev,
@@ -99,10 +91,7 @@ const Sfuso = () => {
   };
 
   const fetchProdotti = async () => {
-    // Se il fetch dell'inventario è disabilitato, ritorna subito
-    if (!ENABLE_INVENTARIO_FETCH) {
-      return;
-    }
+    if (!ENABLE_INVENTARIO_FETCH) return;
 
     try {
       const res = await fetch("/api/v2/inventario");
@@ -111,115 +100,111 @@ const Sfuso = () => {
         return;
       }
       const data = await res.json();
-      // setProdotti(data); // Commentato perché prodotti non è più in uso
       console.log("📦 Inventario caricato:", data);
     } catch (err) {
       console.warn("⚠️ Impossibile caricare l'inventario:", err.message);
     }
   };
 
-  const fetchOrdiniPerSfuso = async ({ id_sfuso, asin }) => {
-    // Se il fetch degli ordini è disabilitato, ritorna subito null
-    if (!ENABLE_ORDINI_FETCH) {
-      return null;
-    }
+  const fetchOrdiniFornitori = async (sfusi) => {
+    const map = {};
 
-    try {
-      let res;
-      if (id_sfuso) {
-        res = await fetch(`/api/v2/fornitori/ordini/sfuso/${id_sfuso}`);
-      } else if (asin) {
-        res = await fetch(`/api/v2/fornitori/ordini/asin/${asin}`);
-      } else {
-        return null;
-      }
+    await Promise.all(
+      sfusi.map(async (s) => {
+        try {
+          const res = await fetch(`/api/v2/fornitori/sfuso/${s.id}/ordini`);
+          if (!res.ok) {
+            map[s.id] = [];
+            return;
+          }
 
-      // Se l'endpoint non esiste (404) o altri errori, ritorna null silenziosamente
-      if (!res.ok) {
-        if (res.status === 404) {
-          // Endpoint non trovato - comportamento normale, non serve loggare
-          return null;
+          const data = await res.json();
+          map[s.id] = data.filter(o => o.stato === "In attesa");
+        } catch {
+          map[s.id] = [];
         }
-        console.warn(`⚠️ Errore ${res.status} nel recupero ordini per sfuso/ASIN`);
-        return null;
-      }
+      })
+    );
 
+    setOrdiniPerSfuso(map);
+  };
+
+  const fetchSfusi = async () => {
+    try {
+      const res = await fetch("/api/v2/sfuso");
       const data = await res.json();
 
-      if (data && data.length > 0) {
-        const ordine = data[0];
-        return {
-          quantita: ordine.quantita_litri || 0,
-          dataPrevista: ordine.data_consegna_prevista
-            ? new Date(ordine.data_consegna_prevista).toLocaleDateString("it-IT")
-            : "-",
-          fornitore: ordine.fornitore || "-",
-        };
-      }
-      return null;
+      // 1️⃣ mappa sfusi
+      const mapped = data.map((s) => ({
+        id: s.id,
+        nome: s.nome_prodotto || s.nome,
+        formato: s.formato,
+        quantita: Number(s.litri_disponibili || 0),
+        quantita_old: Number(s.litri_disponibili_old || 0),
+        lotto: s.lotto,
+        lotto_old: s.lotto_old,
+        fornitore: s.fornitore || "-", // TEMPORANEO
+        asin_collegati: JSON.parse(s.asin_collegati || "[]"),
+        immagine: s.immagine || "/images/no_image2.png",
+      }));
+
+      setSfusi(mapped);
+
+      // 2️⃣ fetch ordini fornitori (QUI È IL POSTO GIUSTO)
+      const ordiniMap = {};
+
+      await Promise.all(
+        mapped.map(async (sfuso) => {
+          try {
+            const resOrdini = await fetch(
+              `/api/v2/fornitori/sfuso/${sfuso.id}/ordini`
+            );
+
+            if (!resOrdini.ok) {
+              ordiniMap[sfuso.id] = [];
+              return;
+            }
+
+            const ordini = await resOrdini.json();
+
+            ordiniMap[sfuso.id] = ordini.filter(
+              (o) => o.stato === "In attesa"
+            );
+          } catch {
+            ordiniMap[sfuso.id] = [];
+          }
+        })
+      );
+
+      setOrdiniPerSfuso(ordiniMap);
+
     } catch (err) {
-      // Errore di rete o parsing - log solo per debug
-      console.warn("⚠️ Impossibile recuperare ordini:", err.message);
-      return null;
+      console.error("Errore fetch sfusi:", err);
     }
   };
 
+  const handlePrendiInCarico = async (idSfuso) => {
+    if (!window.confirm("Confermi la ricezione degli ordini in arrivo?")) return;
+
+    try {
+      const res = await fetch(`/api/v2/sfuso/ricevi/${idSfuso}`, {
+        method: "PATCH",
+      });
+
+      if (!res.ok) throw new Error("Errore ricezione sfuso");
+
+      await fetchSfusi(); // 🔄 ricarica tutto
+    } catch (err) {
+      console.error("Errore prendi in carico:", err);
+      alert("Errore durante la presa in carico");
+    }
+  };
+
+
+
   useEffect(() => {
-    const fetchSfusi = async () => {
-      try {
-        const res = await fetch("/api/v2/sfuso");
-        if (!res.ok) {
-          throw new Error(`Errore ${res.status} nel caricamento dei dati sfuso`);
-        }
-        const data = await res.json();
 
-        const mapped = await Promise.all(
-          data.map(async (s) => {
-            const asin = (() => {
-              try {
-                const arr = JSON.parse(s.asin_collegati || "[]");
-                return arr.length ? arr[0] : null;
-              } catch {
-                return null;
-              }
-            })();
 
-            // Recupera gli ordini (ritorna null se ENABLE_ORDINI_FETCH è false)
-            const spedizione = await fetchOrdiniPerSfuso({
-              id_sfuso: s.id,
-              asin: asin,
-            });
-
-            return {
-              id: s.id,
-              nome: s.nome_prodotto || s.nome || `Prodotto ${s.id}`,
-              formato: s.formato || "N/D",
-              quantita: Number(s.litri_disponibili || 0),
-              quantita_old: Number(s.litri_disponibili_old || 0),
-              lotto: s.lotto || "-",
-              lotto_old: s.lotto_old || "-",
-              fornitore: s.fornitore || (spedizione ? spedizione.fornitore : "-"),
-              asin_collegati: (() => {
-                try {
-                  return JSON.parse(s.asin_collegati || "[]");
-                } catch {
-                  return [];
-                }
-              })(),
-              asin_collegato: s.asin_collegato || null,
-              immagine: s.immagine || "/images/no_image2.png",
-              spedizione,
-              quantitaInArrivo: spedizione ? spedizione.quantita : 0,
-            };
-          })
-        );
-
-        setSfusi(mapped);
-      } catch (err) {
-        console.error("❌ Errore critico nel caricamento sfuso:", err);
-        alert("Errore nel caricamento dei dati. Riprova più tardi.");
-      }
-    };
 
     fetchSfusi();
     fetchProdotti();
@@ -371,10 +356,21 @@ const Sfuso = () => {
     }
   };
 
+  // Calcolo statistiche
+  const totaleLitri = sfusi.reduce((sum, s) => sum + (s.quantita || 0) + (s.quantita_old || 0), 0);
+  const totaleProdotti = sfusi.reduce((sum, s) =>
+    sum + calcolaProdottiDaSfuso(s.quantita_old || 0, s.nome, s.formato) +
+    calcolaProdottiDaSfuso(s.quantita || 0, s.nome, s.formato), 0
+  );
+  const ordiniInArrivo = Object.values(ordiniPerSfuso)
+    .filter(arr => arr.length > 0)
+    .length;
+
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="w-full space-y-6">
-        
+      <div className="max-w-8xl mx-auto space-y-6">
+
         {/* ========== HEADER ========== */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -387,7 +383,7 @@ const Sfuso = () => {
                 <p className="text-zinc-400 mt-1">Gestione materiale liquido e lotti</p>
               </div>
             </div>
-            
+
             <div className="flex gap-3">
               <button
                 onClick={() => setShowAddModal(true)}
@@ -414,23 +410,65 @@ const Sfuso = () => {
           </div>
         </div>
 
+        {/* ========== STATISTICHE CON GRADIENT ========== */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-gradient-to-br from-cyan-900/40 to-cyan-800/20 border border-cyan-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-cyan-600 rounded-full">
+                <BarChart3 className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">{sfusi.length}</p>
+            <p className="text-sm text-cyan-200 font-medium">Prodotti Sfusi</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-blue-600 rounded-full">
+                <Droplet className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">{totaleLitri.toFixed(1)}</p>
+            <p className="text-sm text-blue-200 font-medium">Totale Litri</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-green-600 rounded-full">
+                <Package className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">{totaleProdotti}</p>
+            <p className="text-sm text-green-200 font-medium">Prodotti Totali</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
+            <div className="flex justify-center mb-2">
+              <div className="p-3 bg-yellow-600 rounded-full">
+                <Truck className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <p className="text-4xl font-bold text-white mb-1">{ordiniInArrivo}</p>
+            <p className="text-sm text-yellow-200 font-medium">In Arrivo</p>
+          </div>
+        </div>
+
         {/* ========== FILTRI E RICERCA ========== */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Search className="w-5 h-5 text-cyan-400" />
             Filtri e Ricerca
           </h2>
-          
+
           <div className="flex flex-wrap gap-3 mb-4">
             {["10ml", "12ml", "100ml", "oli", "tutti"].map((f) => (
               <button
                 key={f}
                 onClick={() => setFiltro(f)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                  filtro === f
-                    ? "bg-cyan-600 text-white shadow-lg scale-105"
-                    : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${filtro === f
+                  ? "bg-cyan-600 text-white shadow-lg scale-105"
+                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
+                  }`}
               >
                 {f === "tutti" ? "Tutti" : f === "oli" ? "Oli Cuticole" : f}
               </button>
@@ -449,35 +487,38 @@ const Sfuso = () => {
           </div>
         </div>
 
-        {/* ========== PRODOTTO SELEZIONATO ========== */}
-        {/* Sezione commentata - riabilitare se necessario
-        {selectedProdotto && (
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 flex items-center gap-4">
-            <img
-              src={selectedProdotto.immagine || "/placeholder.jpg"}
-              alt={selectedProdotto.nome}
-              className="w-16 h-16 rounded-lg object-cover border-2 border-zinc-700"
-            />
-            <div className="flex-1">
-              <p className="font-semibold text-white">{selectedProdotto.nome}</p>
-              <p className="text-sm text-zinc-400">ASIN: {selectedProdotto.asin}</p>
-            </div>
-          </div>
-        )}
-        */}
-
         {/* ========== CARD SFUSO CON ESPANSIONE ========== */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {sfusiFiltrati.map((s) => {
             const isExpanded = expandedCards[s.id];
-            
+
+            const ordini = ordiniPerSfuso[s.id] || [];
+            console.log(
+              "SFUSO",
+              s.id,
+              "ORDINI:",
+              ordini
+            );
+            const hasOrdini = ordini.length > 0;
+
+            const totaleInArrivo = ordini.reduce(
+              (sum, o) => sum + Number(o.quantita_litri || 0),
+              0
+            );
+
+            const fornitorePrincipale = hasOrdini
+              ? ordini[0].fornitore_nome || ordini[0].fornitore || "-"
+              : "-";
+
+
+
             return (
               <div
                 key={s.id}
                 className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden hover:border-cyan-500/50 transition-all"
               >
-                {/* Header sempre visibile - Nome, Immagine, e pulsante espandi */}
-                <div 
+                {/* Header sempre visibile */}
+                <div
                   className="p-6 cursor-pointer hover:bg-zinc-800/50 transition-colors"
                   onClick={() => toggleCardExpansion(s.id)}
                 >
@@ -497,20 +538,21 @@ const Sfuso = () => {
                         }}
                       />
                     </div>
-                    
+
                     {/* Nome e info base */}
                     <div className="flex-1">
                       <h3 className="text-xl font-bold text-white mb-2">{s.nome}</h3>
                       <div className="flex flex-wrap items-center gap-3 text-sm">
-                        <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-full text-cyan-400">
+                        <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-full text-cyan-400 font-medium">
                           {s.formato || "N/D"}
                         </span>
-                        <span className="text-zinc-400">
+                        <span className="text-zinc-400 flex items-center gap-1">
+                          <Droplet className="w-4 h-4" />
                           Totale: {((s.quantita_old || 0) + (s.quantita || 0)).toFixed(1)} L
                         </span>
                       </div>
                     </div>
-                    
+
                     {/* Pulsante espandi/comprimi */}
                     <button
                       className="flex-shrink-0 p-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 transition-colors"
@@ -594,15 +636,16 @@ const Sfuso = () => {
 
                           <button
                             onClick={() => apriRettificaLotto(s.id, s.nome + " (OLD)", "old")}
-                            className="w-full px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm font-medium transition-all"
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm font-medium transition-all"
                           >
+                            <Edit3 className="w-4 h-4" />
                             Rettifica Lotto
                           </button>
 
                           <div>
                             <label className="text-xs text-zinc-400 block mb-1">Prodotti producibili</label>
                             <div className="px-3 py-2 bg-zinc-700 border border-zinc-600 rounded-lg text-white font-semibold text-center">
-                              {calcolaProdottiDaSfuso(s.quantita_old || 0, s.nome, s.formato)}
+                              {calcolaProdottiDaSfuso(s.quantita_old || 0, s.nome, s.formato)} pz
                             </div>
                           </div>
                         </div>
@@ -647,15 +690,16 @@ const Sfuso = () => {
 
                           <button
                             onClick={() => apriRettificaLotto(s.id, s.nome + " (NEW)", "new")}
-                            className="w-full px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm font-medium transition-all"
+                            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-sm font-medium transition-all"
                           >
+                            <Edit3 className="w-4 h-4" />
                             Rettifica Lotto
                           </button>
 
                           <div>
                             <label className="text-xs text-zinc-400 block mb-1">Prodotti producibili</label>
                             <div className="px-3 py-2 bg-zinc-700 border border-zinc-600 rounded-lg text-white font-semibold text-center">
-                              {calcolaProdottiDaSfuso(s.quantita || 0, s.nome, s.formato)}
+                              {calcolaProdottiDaSfuso(s.quantita || 0, s.nome, s.formato)} pz
                             </div>
                           </div>
                         </div>
@@ -663,15 +707,15 @@ const Sfuso = () => {
 
                       {/* Totali */}
                       <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="bg-zinc-700 rounded-lg p-3 text-center">
-                          <p className="text-xs text-zinc-400 mb-1">Totale Litri</p>
-                          <p className="text-xl font-bold text-cyan-400">
+                        <div className="bg-gradient-to-br from-cyan-900/40 to-cyan-800/20 border border-cyan-700/30 rounded-lg p-3 text-center">
+                          <p className="text-xs text-cyan-200 mb-1">Totale Litri</p>
+                          <p className="text-2xl font-bold text-cyan-400">
                             {((s.quantita_old || 0) + (s.quantita || 0)).toFixed(1)} L
                           </p>
                         </div>
-                        <div className="bg-zinc-700 rounded-lg p-3 text-center">
-                          <p className="text-xs text-zinc-400 mb-1">Totale Prodotti</p>
-                          <p className="text-xl font-bold text-green-400">
+                        <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-700/30 rounded-lg p-3 text-center">
+                          <p className="text-xs text-green-200 mb-1">Totale Prodotti</p>
+                          <p className="text-2xl font-bold text-green-400">
                             {calcolaProdottiDaSfuso(s.quantita_old || 0, s.nome, s.formato) +
                               calcolaProdottiDaSfuso(s.quantita || 0, s.nome, s.formato)} pz
                           </p>
@@ -684,36 +728,60 @@ const Sfuso = () => {
                       <div>
                         <label className="text-xs text-zinc-400 block mb-1">Quantità in arrivo</label>
                         <div className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white">
-                          {s.quantitaInArrivo || 0} L
+                          {totaleInArrivo} L
                         </div>
                       </div>
+
                       <div>
                         <label className="text-xs text-zinc-400 block mb-1">Fornitore</label>
                         <div className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white">
-                          {s.fornitore || "-"}
+                          {fornitorePrincipale}
                         </div>
                       </div>
                     </div>
 
+
                     {/* Spedizione */}
-                    <div className={`rounded-lg p-4 ${s.spedizione ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-zinc-800 border border-zinc-700'}`}>
+                    <div
+                      className={`rounded-lg p-4 ${hasOrdini
+                        ? "bg-yellow-500/10 border border-yellow-500/30"
+                        : "bg-zinc-800 border border-zinc-700"
+                        }`}
+                    >
                       <div className="flex items-start gap-3">
-                        <Truck className={`w-5 h-5 flex-shrink-0 ${s.spedizione ? 'text-yellow-400' : 'text-zinc-600'}`} />
-                        <div className="flex-1">
-                          {s.spedizione ? (
-                            <>
-                              <p className="font-semibold text-yellow-400 mb-1">
-                                Spedizione in arrivo da {s.fornitore}
-                              </p>
-                              <p className="text-sm text-zinc-300">Data prevista: {s.spedizione.dataPrevista}</p>
-                              <p className="text-sm text-zinc-300">Quantità: {s.spedizione.quantita} L</p>
-                            </>
-                          ) : (
+                        <Truck
+                          className={`w-5 h-5 flex-shrink-0 ${hasOrdini ? "text-yellow-400" : "text-zinc-600"
+                            }`}
+                        />
+
+                        <div className="flex-1 space-y-1">
+                          {!hasOrdini ? (
                             <p className="text-zinc-400">Nessun ordine in arrivo</p>
+                          ) : (
+                            <>
+                              <p className="font-semibold text-yellow-400">
+                                Ordini in arrivo: {totaleInArrivo} L
+                              </p>
+
+                              {ordini.map((o) => (
+                                <p key={o.id} className="text-sm text-zinc-300">
+                                  • {o.quantita_litri} L – {o.fornitore_nome || "Fornitore"}
+                                </p>
+                              ))}
+
+                              {/* 🔘 PULSANTE CHIAVE */}
+                              <button
+                                onClick={() => handlePrendiInCarico(s.id)}
+                                className="mt-3 w-full bg-yellow-600 hover:bg-yellow-700 text-black font-semibold py-2 rounded-lg transition"
+                              >
+                                Prendi in carico ({totaleInArrivo} L)
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
                     </div>
+
 
                     {/* Elimina */}
                     <button

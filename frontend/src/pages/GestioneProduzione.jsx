@@ -482,13 +482,13 @@ const GestioneProduzione = () => {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => navigate("/storico-produzioni-sfuso")}
+                onClick={() => navigate("/magazzino/storici/sfuso")}
                 className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-white font-medium transition-colors"
               >
                 📜 Storico Produzioni
               </button>
               <button
-                onClick={() => navigate("/storicosfuso")}
+                onClick={() => navigate("/magazzino/storici/sfuso")}
                 className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white font-medium transition-colors"
               >
                 📊 Storico Sfuso

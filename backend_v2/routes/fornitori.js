@@ -115,7 +115,7 @@ router.get("/sfuso/:idSfuso/ordini", (req, res) => {
       ORDER BY o.data_ordine DESC;
     `;
     const ordini = db.prepare(query).all(idSfuso);
-    res.json({ ok: true, ordini });
+    res.json(ordini || []);
   } catch (err) {
     console.error("❌ Errore caricamento ordini per sfuso:", err);
     res.status(500).json({ ok: false, error: "Errore caricamento ordini per sfuso" });

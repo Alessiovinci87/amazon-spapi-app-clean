@@ -10,17 +10,10 @@ if (process.env.NODE_ENV !== "production") {
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-// Sceglie automaticamente il file giusto (locale vs Render)
-const isRender = process.env.RENDER === "true";
-
-const { ensureDatabaseReady } = isRender
-  ? require("./db/database")        // Render → usa percorso interno
-  : require("./db/database.local"); // Locale → DB su D:/
-
+const { ensureDatabaseReady } = require("./db/database");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
 
 const { runMigrations } = require("./db/migrate.js");
-
 
 // =========================================================
 // 🔹 IMPORTAZIONE ROTTE
@@ -51,6 +44,8 @@ const ddtRoutes = require("./ddt/ddtIndex");
 const ddtGenericoRoutes = require("./routes/ddtGenerico");
 const ddtStoricoRoutes = require("./routes/ddtStorico");
 const brandRoutes = require("./routes/brand");
+const prebolleRoutes = require("./ddt/prebolle");
+
 
 // --- Fornitori e Ordini
 const fornitoriRoutes = require("./routes/fornitori");
@@ -82,6 +77,8 @@ const bilancioRouter = require("./routes/bilancio");
 
 
 const configRoutes = require("./routes/config");
+
+const scatoletteRoutes = require("./routes/scatolette");
 
 
 
@@ -152,6 +149,10 @@ async function bootstrap() {
   app.use("/api/v2/produzioni-sfuso/storico", storicoProduzioniSfusoRouter);
   app.use("/api/v2", storicoResetRoutes);
 
+  app.use("/api/v2/storico-scatolette", require("./routes/scatoletteStorico"));
+
+  app.use("/api/v2/scatolette", require("./routes/scatolette"));
+
 
   // =========================================================
   // 🚚 SPEDIZIONI E DDT
@@ -162,6 +163,7 @@ async function bootstrap() {
   app.use("/api/v2/ddt", ddtRoutes);
   app.use("/api/v2/ddt", ddtGenericoRoutes);
   app.use("/api/v2/ddt", ddtStoricoRoutes);
+  app.use("/api/v2/prebolle", prebolleRoutes);
 
   // =========================================================
   // 🏭 FORNITORI / ORDINI / LOGISTICA
@@ -203,6 +205,8 @@ async function bootstrap() {
   app.use("/api/v2/config", configRoutes);
 
   app.use("/api/statistiche", require("./routes/statistiche"));
+
+  app.use("/api/v2/scatolette", scatoletteRoutes);
 
 
   

@@ -1,21 +1,27 @@
 // backend_v2/ddt/prebolle.js
+const express = require("express");
+const router = express.Router();
 const { getDb } = require("../db/database");
 
 /**
- * 📦 Recupera tutte le spedizioni (per pre-bolle DDT)
+ * 📦 Recupera tutte le spedizioni confermate per pre-bolle DDT
  */
-function getPrebolle(req, res) {
+router.get("/", (req, res) => {
     try {
         const db = getDb();
 
-       const query = `
-  SELECT s.id, s.progressivo, s.paese, s.data, s.operatore, s.note,
-         r.asin, r.sku, r.prodotto_nome, r.quantita
-  FROM spedizioni s
-  JOIN spedizioni_righe r ON r.spedizione_id = s.id
-  WHERE LOWER(s.stato) = 'confermata'
-  ORDER BY s.data DESC, s.progressivo DESC
-`;
+        const query = `
+            SELECT s.id, s.progressivo, s.paese, s.data, s.operatore, s.note,
+                   r.asin, 
+                   COALESCE(p.sku, r.sku) as sku,
+                   r.prodotto_nome, 
+                   r.quantita
+            FROM spedizioni s
+            JOIN spedizioni_righe r ON r.spedizione_id = s.id
+            LEFT JOIN prodotti p ON p.asin = r.asin
+            WHERE LOWER(s.stato) = 'confermata'
+            ORDER BY s.data DESC, s.progressivo DESC
+        `;
 
         const results = db.prepare(query).all();
 
@@ -34,20 +40,22 @@ function getPrebolle(req, res) {
                 };
                 acc.push(spedizione);
             }
+
             spedizione.righe.push({
                 asin: row.asin,
-                sku: row.sku,
+                sku: row.sku || "",
                 prodotto_nome: row.prodotto_nome,
                 quantita: row.quantita,
             });
+
             return acc;
         }, []);
 
         res.json(prebolle);
     } catch (err) {
-        console.error("Errore recupero prebolle:", err);
+        console.error("❌ Errore recupero prebolle:", err);
         res.status(500).json({ error: "Errore nel recupero prebolle" });
     }
-}
+});
 
-module.exports = { getPrebolle };
+module.exports = router;

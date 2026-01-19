@@ -1,9 +1,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  FileText, 
-  FileCheck, 
+import {
+  ArrowLeft,
+  FileText,
+  FileCheck,
   Archive,
   ChevronRight,
   Sparkles
@@ -15,7 +15,7 @@ const DDTIndex = () => {
   return (
     <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
       <div className="w-full max-w-8xl mx-auto space-y-8">
-        
+
         {/* ========== HEADER ========== */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -28,13 +28,13 @@ const DDTIndex = () => {
                 <p className="text-zinc-400 mt-1">Seleziona il tipo di documento da creare</p>
               </div>
             </div>
-            
+
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/dashboard")}
               className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
             >
               <ArrowLeft className="w-4 h-4" />
-              Indietro
+              Dashboard
             </button>
           </div>
         </div>
@@ -46,7 +46,7 @@ const DDTIndex = () => {
             <div>
               <h3 className="text-lg font-semibold text-white mb-2">Documenti di Trasporto</h3>
               <p className="text-zinc-300 text-sm">
-                Scegli tra DDT Pics Nails per documenti aziendali o DDT Generico per documenti personalizzati. 
+                Scegli tra DDT Pics Nails per documenti aziendali o DDT Generico per documenti personalizzati.
                 Puoi consultare lo storico di tutti i documenti generati.
               </p>
             </div>
@@ -55,10 +55,10 @@ const DDTIndex = () => {
 
         {/* ========== OPZIONI DDT ========== */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
+
           {/* DDT Pics Nails */}
           <button
-            onClick={() => navigate("/ddt")}
+            onClick={() => navigate("/uffici/ddt/prebolle")}
             className="group bg-zinc-900 border border-zinc-800 hover:border-purple-500/50 rounded-xl p-8 transition-all hover:shadow-xl hover:shadow-purple-500/10 text-left"
           >
             <div className="flex items-start justify-between mb-4">
@@ -88,7 +88,7 @@ const DDTIndex = () => {
 
           {/* DDT Generico */}
           <button
-            onClick={() => navigate("/ddt-nuovo")}
+            onClick={() => navigate("/uffici/ddt/nuovo")}
             className="group bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 rounded-xl p-8 transition-all hover:shadow-xl hover:shadow-emerald-500/10 text-left"
           >
             <div className="flex items-start justify-between mb-4">
@@ -120,7 +120,7 @@ const DDTIndex = () => {
         {/* ========== STORICO DDT ========== */}
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <button
-            onClick={() => navigate("/ddt-storico")}
+            onClick={() => navigate("/uffici/ddt/storico")}
             className="group w-full flex items-center justify-between p-6 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 hover:border-blue-500/50 rounded-xl transition-all"
           >
             <div className="flex items-center gap-4">
