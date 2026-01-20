@@ -32,8 +32,8 @@ const lines = content.split(/\r?\n/).filter((l) => l.trim());
 
 // Prima riga = header
 const header = lines[0].split("\t");
-const skuIndex = header.findIndex((h) => h.toLowerCase() === "sku");
-const asinIndex = header.findIndex((h) => h.toLowerCase() === "asin");
+const skuIndex = 0;  // Prima colonna
+const asinIndex = 1; // Seconda colonna
 
 if (skuIndex === -1 || asinIndex === -1) {
   console.error("❌ Colonne 'sku' o 'asin' non trovate nell'header");

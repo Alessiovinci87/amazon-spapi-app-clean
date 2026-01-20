@@ -15,6 +15,9 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
+  Copy,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 const corrieriPredefiniti = ["GLS", "BRT", "DHL", "SDA", "TNT", "AMAZON", "UPS"];
@@ -64,13 +67,15 @@ const DDTDettaglio = () => {
         if (found) {
           setSpedizione(found);
           // Precompila le righe con i dati della spedizione
-          const righePrecompilate = (found.righe || []).map((r) => ({
+          const righePrecompilate = (found.righe || []).map((r, index) => ({
+            id: `riga-${index}-${Date.now()}`,
             asin: r.asin || "",
             sku: r.sku || "",
             prodottoNome: r.prodotto_nome || "",
             quantita: r.quantita || 0,
             cartone: "",  // Da compilare
             pacco: "",    // Da compilare
+            isManuallyEdited: false, // Flag per tracciare modifiche manuali
           }));
           setRighe(righePrecompilate);
         } else {
@@ -87,10 +92,13 @@ const DDTDettaglio = () => {
     fetchSpedizione();
   }, [idSpedizione]);
 
-  // Aggiorna riga prodotto
+  // ========== FUNZIONI GESTIONE RIGHE ==========
+
+  // Aggiorna riga prodotto (setta isManuallyEdited = true)
   const aggiornaRiga = (index, campo, valore) => {
     const nuoveRighe = [...righe];
     nuoveRighe[index][campo] = valore;
+    nuoveRighe[index].isManuallyEdited = true; // Marca come modificata
     setRighe(nuoveRighe);
   };
 
@@ -98,7 +106,16 @@ const DDTDettaglio = () => {
   const aggiungiRiga = () => {
     setRighe([
       ...righe,
-      { asin: "", sku: "", prodottoNome: "", quantita: 0, cartone: "", pacco: "" },
+      {
+        id: `riga-new-${Date.now()}`,
+        asin: "",
+        sku: "",
+        prodottoNome: "",
+        quantita: 0,
+        cartone: "",
+        pacco: "",
+        isManuallyEdited: true, // Nuove righe sono sempre "manuali"
+      },
     ]);
   };
 
@@ -109,7 +126,38 @@ const DDTDettaglio = () => {
     }
   };
 
-  // Genera PDF
+  // Duplica riga
+  const duplicaRiga = (index) => {
+    const rigaDaDuplicare = righe[index];
+    const nuovaRiga = {
+      ...rigaDaDuplicare,
+      id: `riga-dup-${Date.now()}`,
+      cartone: "", // Reset campi da compilare
+      pacco: "",
+      isManuallyEdited: true,
+    };
+    const nuoveRighe = [...righe];
+    nuoveRighe.splice(index + 1, 0, nuovaRiga); // Inserisce subito dopo
+    setRighe(nuoveRighe);
+  };
+
+  // Sposta riga su
+  const spostaRigaSu = (index) => {
+    if (index === 0) return; // Già in cima
+    const nuoveRighe = [...righe];
+    [nuoveRighe[index - 1], nuoveRighe[index]] = [nuoveRighe[index], nuoveRighe[index - 1]];
+    setRighe(nuoveRighe);
+  };
+
+  // Sposta riga giù
+  const spostaRigaGiu = (index) => {
+    if (index === righe.length - 1) return; // Già in fondo
+    const nuoveRighe = [...righe];
+    [nuoveRighe[index], nuoveRighe[index + 1]] = [nuoveRighe[index + 1], nuoveRighe[index]];
+    setRighe(nuoveRighe);
+  };
+
+  // ========== GENERA PDF ==========
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -436,21 +484,81 @@ const DDTDettaglio = () => {
             <div className="space-y-3">
               {righe.map((r, i) => (
                 <div
-                  key={i}
-                  className="relative bg-zinc-800 border border-zinc-700 rounded-lg p-4"
+                  key={r.id}
+                  className={`relative bg-zinc-800 border rounded-lg p-4 ${
+                    r.isManuallyEdited 
+                      ? "border-yellow-500/50 bg-yellow-900/10" 
+                      : "border-zinc-700"
+                  }`}
                 >
-                  {righe.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => rimuoviRiga(i)}
-                      className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center bg-red-600 hover:bg-red-500 rounded-lg transition-all"
-                      title="Rimuovi prodotto"
-                    >
-                      <Trash2 className="w-4 h-4 text-white" />
-                    </button>
+                  {/* Badge modificato manualmente */}
+                  {r.isManuallyEdited && (
+                    <span className="absolute -top-2 left-4 px-2 py-0.5 bg-yellow-600 text-yellow-100 text-xs rounded font-medium">
+                      Modificato
+                    </span>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 pr-10">
+                  {/* Azioni riga (in alto a destra) */}
+                  <div className="absolute top-3 right-3 flex items-center gap-1">
+                    {/* Sposta su */}
+                    <button
+                      type="button"
+                      onClick={() => spostaRigaSu(i)}
+                      disabled={i === 0}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                        i === 0
+                          ? "bg-zinc-700 text-zinc-500 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-500 text-white"
+                      }`}
+                      title="Sposta su"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+
+                    {/* Sposta giù */}
+                    <button
+                      type="button"
+                      onClick={() => spostaRigaGiu(i)}
+                      disabled={i === righe.length - 1}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
+                        i === righe.length - 1
+                          ? "bg-zinc-700 text-zinc-500 cursor-not-allowed"
+                          : "bg-blue-600 hover:bg-blue-500 text-white"
+                      }`}
+                      title="Sposta giù"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+
+                    {/* Duplica */}
+                    <button
+                      type="button"
+                      onClick={() => duplicaRiga(i)}
+                      className="w-8 h-8 flex items-center justify-center bg-purple-600 hover:bg-purple-500 rounded-lg text-white transition-all"
+                      title="Duplica riga"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+
+                    {/* Elimina */}
+                    {righe.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => rimuoviRiga(i)}
+                        className="w-8 h-8 flex items-center justify-center bg-red-600 hover:bg-red-500 rounded-lg text-white transition-all"
+                        title="Elimina riga"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Numero riga */}
+                  <div className="absolute top-3 left-3 w-6 h-6 bg-zinc-700 rounded-full flex items-center justify-center text-xs font-bold text-zinc-300">
+                    {i + 1}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 pt-6 pr-36">
                     <input
                       type="text"
                       placeholder="ASIN"
@@ -494,7 +602,7 @@ const DDTDettaglio = () => {
                     />
                   </div>
 
-                  <div className="mt-3">
+                  <div className="mt-3 pr-36">
                     <input
                       type="text"
                       placeholder="N° Pacco (lettere e numeri)"
