@@ -28,6 +28,7 @@ import DDTDettaglio from "./pages/DDTDettaglio";
 import DDTStorico from "./pages/DDTStorico";
 import StoricoSpedizioni from "./components/spedizioni/StoricoSpedizioni";
 import DDTPrebolle from "./pages/DDTPrebolle";
+import DDTScomposizione from "./pages/DDTScomposizione";
 
 // ==================== 🏭 FORNITORI E ORDINI ==================== //
 import Fornitori from "./pages/Fornitori";
@@ -89,6 +90,15 @@ function App() {
         <Route path="/uffici/ddt/nuovo" element={<DDTNuovo />} />
         <Route path="/uffici/ddt/storico" element={<DDTStorico />} />
         <Route path="/uffici/ddt/:idSpedizione" element={<DDTDettaglio />} />
+        
+        {/* DDT Uffici */}
+        <Route path="/uffici/ddt" element={<DDTIndex />} />
+        <Route path="/uffici/ddt/prebolle" element={<DDTPrebolle />} />
+        <Route path="/uffici/ddt/scomponi/:idSpedizione" element={<DDTScomposizione />} />
+        <Route path="/uffici/ddt/:idSpedizione" element={<DDTDettaglio />} />
+        <Route path="/uffici/ddt/:idSpedizione/:ddtNumero" element={<DDTDettaglio />} />
+        <Route path="/uffici/ddt/nuovo" element={<DDTNuovo />} />
+        <Route path="/uffici/ddt/storico" element={<DDTStorico />} />
 
         <Route path="/uffici/fornitori" element={<Fornitori />} />
         <Route path="/uffici/ordini" element={<Ordini />} />

@@ -210,7 +210,7 @@ const DDTPrebolle = () => {
               {prebolleFiltrate.map((prebolla) => (
                 <button
                   key={prebolla.id}
-                  onClick={() => navigate(`/uffici/ddt/${prebolla.id}`)}
+                  onClick={() => navigate(`/uffici/ddt/scomponi/${prebolla.id}`)}
                   className="group bg-zinc-800 border border-zinc-700 hover:border-purple-500/50 rounded-xl p-5 text-left transition-all hover:shadow-lg hover:shadow-purple-500/10"
                 >
                   <div className="flex items-start justify-between mb-4">

@@ -99,7 +99,7 @@ const DashboardAmazon = () => {
                     >
                         <motion.button
                             variants={itemVariants}
-                            onClick={() => navigate("/uffici/listing")}
+                            onClick={() => navigate("/europe")}
                             className="group flex flex-col items-start gap-4 p-6 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-blue-500/50 rounded-2xl transition-all hover:shadow-lg hover:shadow-blue-500/10"
                         >
                             <div className="w-14 h-14 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">

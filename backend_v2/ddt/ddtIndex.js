@@ -14,6 +14,8 @@ const prebolleRouter = require("./prebolle");   // ⬅️ IMPORT CORRETTO
 
 const router = express.Router();
 
+const ddtAssegnazioniRouter = require("./ddtAssegnazioni");
+
 /* ============================================================
    📦 PREBOLLE (confermate, pronte per compilare DDT)
 ============================================================ */
@@ -153,7 +155,10 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
       .status(500)
       .json({ error: "Errore generazione PDF", details: err.message });
   }
+  
 });
+
+router.use("/assegnazioni", ddtAssegnazioniRouter);
 
 /* ============================================================
    🧪 TEST PDF (debug)
