@@ -103,11 +103,78 @@ async function getNomiProdotti(req, res, next) {
   }
 }
 
+/** 🆕 POST /api/v2/magazzino - Crea nuovo prodotto */
+function createProdotto(req, res, next) {
+  try {
+    const payload = req.body;
+
+    // Validazione minima
+    if (!payload.nome && !payload.nome_prodotto) {
+      return res.status(400).json({
+        ok: false,
+        message: "Il nome del prodotto è obbligatorio"
+      });
+    }
+
+    const result = magazzinoService.createProdotto(payload);
+
+    res.status(201).json({
+      ok: true,
+      message: "Prodotto creato con successo",
+      ...result
+    });
+
+  } catch (err) {
+    // Gestione errore ASIN duplicato
+    if (err.message.includes("UNIQUE constraint") || err.message.includes("già esiste")) {
+      return res.status(409).json({
+        ok: false,
+        message: "Un prodotto con questo ASIN esiste già"
+      });
+    }
+    next(err);
+  }
+}
+
+/** 🗑️ DELETE /api/v2/magazzino/:asin */
+function deleteProdotto(req, res, next) {
+  try {
+    const { asin } = req.params;
+
+    if (!asin) {
+      return res.status(400).json({
+        ok: false,
+        message: "ASIN obbligatorio"
+      });
+    }
+
+    const result = magazzinoService.deleteProdotto(asin);
+
+    if (result.changes === 0) {
+      return res.status(404).json({
+        ok: false,
+        message: `Prodotto con ASIN ${asin} non trovato`
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: `Prodotto ${asin} eliminato con successo`,
+      data: result
+    });
+
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAllProdotti,
   getAccessoriAssociati,
-  setProntoAssoluto,   // ✔ ora corretto e compatibile
+  setProntoAssoluto,
   produceDelta,
   aggiornaSfusoLitri,
-  getNomiProdotti
+  getNomiProdotti,
+  createProdotto,  // 🆕 NUOVO
+  deleteProdotto
 };

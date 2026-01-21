@@ -150,13 +150,16 @@ const DDTScomposizione = () => {
                 body: JSON.stringify({ assegnazioneId, nuovoDdtNumero }),
             });
 
+            // SOSTITUISCI CON:
             if (res.ok) {
-                // Aggiorna localmente
-                setAssegnazioni((prev) =>
-                    prev.map((a) =>
-                        a.id === assegnazioneId ? { ...a, ddt_numero: nuovoDdtNumero } : a
-                    )
-                );
+                // Ricarica dal server per evitare inconsistenze
+                const resAss = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}`);
+                const dataAss = await resAss.json();
+                if (dataAss.ok) {
+                    setAssegnazioni(dataAss.assegnazioni || []);
+                    const maxDdt = Math.max(1, ...dataAss.assegnazioni.map(a => a.ddt_numero));
+                    setDdtCount(Math.max(ddtCount, maxDdt));
+                }
             }
         } catch (err) {
             console.error("Errore spostamento:", err);

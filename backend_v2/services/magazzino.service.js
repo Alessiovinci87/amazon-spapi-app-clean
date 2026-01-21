@@ -115,7 +115,7 @@ function setProntoAssoluto({ asin, nuovoPronto, note = "", operatore = "system" 
     return { asin, pronto: nuovo, delta, tipo: tipoMovimento };
   });
 
-  return tx(); // ✅ Restituisce solo l’oggetto risultato
+  return tx(); // ✅ Restituisce solo l'oggetto risultato
 }
 
 /** ➕ Produzione a delta */
@@ -153,18 +153,83 @@ function getNomiProdotti() {
 }
 
 /** ✅ SERVICE: getAllProdottiNomi */
-const getAllProdottiNomi = async () => { // Usiamo 'const' invece di 'exports.fn' per poterla esportare in basso
+const getAllProdottiNomi = async () => {
   const db = getDb();
-  // CORREZIONE 1: Rimossa la colonna 'prezzo'
   const stmt = db.prepare(`
     SELECT asin, nome, formato, categoria, pronto
     FROM prodotti
     ORDER BY nome ASC
   `);
 
-  // CORREZIONE 2: Usa .all() per restituire tutti i risultati (NON .get())
   return stmt.all();
 };
+
+/** 🆕 CREATE: Crea nuovo prodotto */
+function createProdotto(payload) {
+  const db = getDb();
+  
+  // Normalizza i campi dal payload
+  const nome = payload.nome || payload.nome_prodotto || "Nuovo Prodotto";
+  const asin = payload.asin || `TEMP_${Date.now()}`; // Genera ASIN temporaneo se non fornito
+  const sku = payload.sku || "";
+  const formato = payload.formato || "";
+  const categoria = payload.categoria || "";
+  const pronto = Number(payload.pronto) || 0;
+  const immagine = payload.immagine || payload.immagine_main || "";
+  
+  console.log(`🆕 Creazione prodotto: ${nome} (ASIN: ${asin})`);
+  
+  // Verifica se ASIN esiste già
+  const existing = db.prepare("SELECT asin FROM prodotti WHERE asin = ?").get(asin);
+  if (existing) {
+    throw new Error(`Prodotto con ASIN ${asin} già esiste`);
+  }
+  
+  // INSERT nel database (senza colonna giacenza che non esiste)
+  const result = db.prepare(`
+    INSERT INTO prodotti (asin, sku, nome, formato, categoria, pronto, immagine_main)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(asin, sku, nome, formato, categoria, pronto, immagine);
+  
+  console.log(`✅ Prodotto creato con ID: ${result.lastInsertRowid}`);
+  
+  return {
+    id: result.lastInsertRowid,
+    asin,
+    sku,
+    nome,
+    formato,
+    categoria,
+    pronto,
+    immagine_main: immagine
+  };
+}
+
+/** 🗑️ DELETE: Elimina prodotto per ASIN */
+function deleteProdotto(asin) {
+  const db = getDb();
+  
+  console.log(`🗑️ Eliminazione prodotto: ${asin}`);
+  
+  // Verifica che il prodotto esista
+  const prodotto = db.prepare("SELECT * FROM prodotti WHERE asin = ?").get(asin);
+  
+  if (!prodotto) {
+    console.log(`❌ Prodotto non trovato: ${asin}`);
+    return { changes: 0, asin };
+  }
+  
+  // Esegui la DELETE
+  const result = db.prepare("DELETE FROM prodotti WHERE asin = ?").run(asin);
+  
+  console.log(`✅ Prodotto eliminato: ${asin}, changes: ${result.changes}`);
+  
+  return {
+    changes: result.changes,
+    asin,
+    nome: prodotto.nome
+  };
+}
 
 module.exports = {
   getAllProdotti,
@@ -175,6 +240,7 @@ module.exports = {
   produceDelta,
   aggiornaSfusoLitri,
   getNomiProdotti,
-  // CORREZIONE 3: Esportiamo la funzione in modo che il controller possa usarla
   getAllProdottiNomi,
+  createProdotto,  // 🆕 NUOVO
+  deleteProdotto,
 };

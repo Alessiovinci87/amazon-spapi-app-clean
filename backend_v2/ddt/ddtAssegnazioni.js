@@ -1,4 +1,4 @@
-// backend_v2/ddt/ddtAssegnazioni.js
+// backend_v2/ddt/ddtAssegnazioni.js - VERSIONE CORRETTA CON FIX ENDPOINT
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
@@ -46,28 +46,38 @@ router.get("/:spedizioneId", (req, res) => {
 /**
  * GET /api/v2/ddt/assegnazioni/:spedizioneId/:ddtNumero
  * Recupera le righe assegnate a uno specifico DDT
+ * 
+ * FIX: Ora legge da ddt_assegnazioni filtrato per ddt_numero
+ *      invece che da spedizioni_righe (che aveva TUTTI i prodotti)
  */
 router.get("/:spedizioneId/:ddtNumero", (req, res) => {
   try {
     const { spedizioneId, ddtNumero } = req.params;
     const db = getDb();
 
+    // FIX: Legge da ddt_assegnazioni con filtro ddt_numero
     const righe = db
-  .prepare(`
-    SELECT r.id, r.spedizione_id, r.asin, 
-           COALESCE(p.sku, r.sku) as sku,
-           r.prodotto_nome, r.quantita
-    FROM spedizioni_righe r
-    LEFT JOIN prodotti p ON p.asin = r.asin
-    WHERE r.spedizione_id = ?
-  `)
-  .all(spedizioneId);
+      .prepare(`
+        SELECT 
+          a.id,
+          a.spedizione_id,
+          a.asin,
+          COALESCE(p.sku, a.sku) as sku,
+          a.prodotto_nome,
+          a.quantita
+        FROM ddt_assegnazioni a
+        LEFT JOIN prodotti p ON p.asin = a.asin
+        WHERE a.spedizione_id = ? AND a.ddt_numero = ?
+        ORDER BY a.id
+      `)
+      .all(spedizioneId, ddtNumero);
 
     res.json({
       ok: true,
       spedizioneId: parseInt(spedizioneId),
       ddtNumero: parseInt(ddtNumero),
       righe,
+      totaleUnita: righe.reduce((sum, r) => sum + (r.quantita || 0), 0),
     });
   } catch (err) {
     console.error("❌ Errore recupero righe DDT:", err);
@@ -138,6 +148,9 @@ router.post("/:spedizioneId/crea", (req, res) => {
  * POST /api/v2/ddt/assegnazioni/:spedizioneId/sposta
  * Sposta un prodotto da un DDT a un altro
  * Body: { assegnazioneId, nuovoDdtNumero }
+ * 
+ * FIX: Ora unisce automaticamente le righe se lo stesso prodotto
+ *      esiste già nel DDT destinazione
  */
 router.post("/:spedizioneId/sposta", (req, res) => {
   try {
@@ -145,22 +158,66 @@ router.post("/:spedizioneId/sposta", (req, res) => {
     const { assegnazioneId, nuovoDdtNumero } = req.body;
     const db = getDb();
 
-    const result = db
-      .prepare(
-        `UPDATE ddt_assegnazioni 
-         SET ddt_numero = ? 
-         WHERE id = ? AND spedizione_id = ?`
-      )
-      .run(nuovoDdtNumero, assegnazioneId, spedizioneId);
+    // 1. Recupera l'assegnazione da spostare
+    const assegnazione = db
+      .prepare("SELECT * FROM ddt_assegnazioni WHERE id = ? AND spedizione_id = ?")
+      .get(assegnazioneId, spedizioneId);
 
-    if (result.changes === 0) {
+    if (!assegnazione) {
       return res.status(404).json({ ok: false, error: "Assegnazione non trovata" });
     }
 
-    res.json({
-      ok: true,
-      message: `Prodotto spostato a DDT ${nuovoDdtNumero}`,
-    });
+    // 2. Verifica se si sta spostando nello stesso DDT
+    if (assegnazione.ddt_numero === nuovoDdtNumero) {
+      return res.json({
+        ok: true,
+        message: "Prodotto già presente in questo DDT",
+        merged: false,
+      });
+    }
+
+    // 3. Verifica se esiste già una riga per lo stesso prodotto nel DDT destinazione
+    const esistenteDestinazione = db
+      .prepare(
+        `SELECT * FROM ddt_assegnazioni 
+         WHERE spedizione_id = ? AND ddt_numero = ? AND riga_id = ? AND id != ?`
+      )
+      .get(spedizioneId, nuovoDdtNumero, assegnazione.riga_id, assegnazioneId);
+
+    if (esistenteDestinazione) {
+      // CASO MERGE: Somma alla riga esistente e elimina quella spostata
+      console.log(`🔄 Merge: ${assegnazione.quantita} pz → riga esistente (${esistenteDestinazione.quantita} pz)`);
+      
+      db.prepare("UPDATE ddt_assegnazioni SET quantita = quantita + ? WHERE id = ?")
+        .run(assegnazione.quantita, esistenteDestinazione.id);
+      
+      db.prepare("DELETE FROM ddt_assegnazioni WHERE id = ?")
+        .run(assegnazioneId);
+
+      res.json({
+        ok: true,
+        message: `Prodotto unito a DDT ${nuovoDdtNumero} (totale: ${esistenteDestinazione.quantita + assegnazione.quantita} pz)`,
+        merged: true,
+        nuovaQuantita: esistenteDestinazione.quantita + assegnazione.quantita,
+      });
+    } else {
+      // CASO SEMPLICE: Semplicemente aggiorna il ddt_numero
+      const result = db
+        .prepare(
+          `UPDATE ddt_assegnazioni SET ddt_numero = ? WHERE id = ? AND spedizione_id = ?`
+        )
+        .run(nuovoDdtNumero, assegnazioneId, spedizioneId);
+
+      if (result.changes === 0) {
+        return res.status(404).json({ ok: false, error: "Assegnazione non trovata" });
+      }
+
+      res.json({
+        ok: true,
+        message: `Prodotto spostato a DDT ${nuovoDdtNumero}`,
+        merged: false,
+      });
+    }
   } catch (err) {
     console.error("❌ Errore spostamento:", err);
     res.status(500).json({ ok: false, error: err.message });

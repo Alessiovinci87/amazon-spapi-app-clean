@@ -1,10 +1,18 @@
 // frontend/src/utils/creaNuovaCard.js
 /**
  * 🔧 Funzione universale per creare una nuova card (Sfuso, Prodotto, Accessorio, Etichetta, ecc.)
- * @param {string} tipo - Tipo di elemento ("sfuso", "prodotti", "accessori", "etichette", ecc.)
+ * @param {string} tipo - Tipo di elemento ("sfuso", "prodotti", "accessori", "etichette", "inventario", "magazzino", ecc.)
  * @param {object} payload - Dati da inviare al backend
  * @returns {object|null} newItem - Oggetto normalizzato pronto da aggiungere allo state
  */
+
+const API_BASE = "http://localhost:3005/api/v2";
+
+// Mappa per retrocompatibilità endpoint
+const ENDPOINT_MAP = {
+  inventario: "magazzino",
+  prodotti: "magazzino",
+};
 
 export async function creaNuovaCard(tipo, payload) {
   if (!tipo || typeof tipo !== "string") {
@@ -13,7 +21,13 @@ export async function creaNuovaCard(tipo, payload) {
   }
 
   try {
-    const endpoint = `/api/v2/${tipo.toLowerCase()}`;
+    // Mappa il tipo all'endpoint corretto
+    const tipoNormalizzato = tipo.toLowerCase();
+    const endpointTipo = ENDPOINT_MAP[tipoNormalizzato] || tipoNormalizzato;
+    
+    const endpoint = `${API_BASE}/${endpointTipo}`;
+    console.log(`📡 POST ${endpoint}`, payload);
+    
     const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

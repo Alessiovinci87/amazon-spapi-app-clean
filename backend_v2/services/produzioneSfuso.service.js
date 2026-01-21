@@ -33,7 +33,8 @@ function creaProduzione({ id_sfuso, asin_prodotto, nome_prodotto, formato, quant
   // Calcolo litri stimati
   const litriStimati = calcolaLitriDaProduzione(formato, quantita, nome_prodotto);
 
-  console.log("📌 [DEBUG] Sto per eseguire INSERT storico_produzioni_sfuso:", payload);
+  // 🔧 FIX: Rimosso riferimento a 'payload' non definito
+  console.log("📌 [DEBUG] Sto per eseguire INSERT produzioni_sfuso:", { id_sfuso, asin_prodotto, nome_prodotto, quantita, litriStimati });
 
   // Inserisci produzione
   const stmt = db.prepare(`
@@ -74,17 +75,65 @@ function creaProduzione({ id_sfuso, asin_prodotto, nome_prodotto, formato, quant
 function creaProduzioneDaPrenotazione(prenotazione) {
   const db = getDb();
 
+  console.log("📌 [DEBUG] creaProduzioneDaPrenotazione - PAYLOAD RICEVUTO:", JSON.stringify(prenotazione, null, 2));
+
+  // 🔧 Normalizzazione campi (accetta varianti di nomi)
+  const id_sfuso = prenotazione.id_sfuso || prenotazione.idSfuso || prenotazione.sfuso_id;
+  let asin_prodotto = prenotazione.asin_prodotto || prenotazione.asinProdotto || prenotazione.asin;
+  const prodotti = prenotazione.prodotti || prenotazione.quantita || prenotazione.pezzi || prenotazione.qty;
+  const formato = prenotazione.formato || "";
+  let nome_prodotto = prenotazione.nome_prodotto || prenotazione.nomeProdotto || prenotazione.nome || "";
+  const note = prenotazione.note || prenotazione.nota || "";
+  const operatore = prenotazione.operatore || "system";
+
+  // 🔧 Se manca asin_prodotto o nome_prodotto, recuperali dalla tabella sfuso
+  if ((!asin_prodotto || !nome_prodotto) && id_sfuso) {
+    console.log("📌 [DEBUG] asin_prodotto o nome_prodotto mancanti, recupero da sfuso...");
+    
+    const sfusoRow = db.prepare(`
+      SELECT nome_prodotto, asin_collegati 
+      FROM sfuso 
+      WHERE id = ?
+    `).get(id_sfuso);
+    
+    if (sfusoRow) {
+      // Recupera nome_prodotto
+      if (!nome_prodotto && sfusoRow.nome_prodotto) {
+        nome_prodotto = sfusoRow.nome_prodotto;
+        console.log("📌 [DEBUG] nome_prodotto recuperato da sfuso:", nome_prodotto);
+      }
+      
+      // Recupera asin_prodotto dagli asin_collegati
+      if (!asin_prodotto && sfusoRow.asin_collegati) {
+        try {
+          const asinList = JSON.parse(sfusoRow.asin_collegati || "[]");
+          if (asinList.length > 0) {
+            asin_prodotto = asinList[0]; // Prende il primo ASIN collegato
+            console.log("📌 [DEBUG] asin_prodotto recuperato da sfuso:", asin_prodotto);
+          }
+        } catch (e) {
+          console.warn("⚠️ Errore parsing asin_collegati:", e.message);
+        }
+      }
+    }
+  }
+
+  console.log("📌 [DEBUG] Campi normalizzati:", { id_sfuso, asin_prodotto, prodotti, formato, nome_prodotto });
+
   // 🛑 Validazione campi prenotazione
-  if (!prenotazione.id_sfuso || !prenotazione.asin_prodotto || !prenotazione.prodotti) {
-    throw new Error("Prenotazione incompleta, impossibile creare la produzione");
+  if (!id_sfuso || !asin_prodotto || !prodotti) {
+    console.error("❌ Campi mancanti:", { id_sfuso, asin_prodotto, prodotti });
+    throw new Error(`Prenotazione incompleta: id_sfuso=${id_sfuso}, asin_prodotto=${asin_prodotto}, prodotti=${prodotti}`);
   }
 
   // 🧮 Calcolo litri stimati
   const litriStimati = calcolaLitriDaProduzione(
-    prenotazione.formato,
-    prenotazione.prodotti,
-    prenotazione.nome_prodotto
+    formato,
+    prodotti,
+    nome_prodotto
   );
+
+  console.log("📌 [DEBUG] litriStimati calcolati:", litriStimati);
 
   // 🏭 Inserimento nuova produzione
   const stmt = db.prepare(`
@@ -94,40 +143,42 @@ function creaProduzioneDaPrenotazione(prenotazione) {
   `);
 
   const result = stmt.run(
-    prenotazione.id_sfuso,
-    prenotazione.asin_prodotto,
-    prenotazione.nome_prodotto,
-    prenotazione.formato,
-    prenotazione.prodotti,
+    id_sfuso,
+    asin_prodotto,
+    nome_prodotto,
+    formato,
+    prodotti,
     litriStimati,
-    prenotazione.note || "",
-    prenotazione.operatore || "system"
+    note,
+    operatore
   );
+
+  console.log("📌 [DEBUG] INSERT completato, lastInsertRowid:", result.lastInsertRowid);
 
   // 📝 Storico — CREATA (quantità iniziale e finale registrate correttamente)
   registraStoricoProduzione({
     id_produzione: result.lastInsertRowid,
-    id_sfuso: prenotazione.id_sfuso,
-    asin_prodotto: prenotazione.asin_prodotto,
-    nome_prodotto: prenotazione.nome_prodotto,
-    formato: prenotazione.formato,
+    id_sfuso: id_sfuso,
+    asin_prodotto: asin_prodotto,
+    nome_prodotto: nome_prodotto,
+    formato: formato,
 
     // Quantità iniziale esatta
-    quantita_iniziale: prenotazione.quantita_iniziale ?? prenotazione.prodotti,
+    quantita_iniziale: prenotazione.quantita_iniziale ?? prodotti,
 
     // La quantità finale al momento della prenotazione coincide con quella iniziale
-    quantita_finale: prenotazione.quantita_finale ?? prenotazione.prodotti,
+    quantita_finale: prenotazione.quantita_finale ?? prodotti,
 
     // Campo legacy usato ancora dal frontend
-    quantita: prenotazione.quantita_finale ?? prenotazione.prodotti,
+    quantita: prenotazione.quantita_finale ?? prodotti,
 
     litri_usati: litriStimati,
     evento: "CREATA",
 
     // Nota chiara: "da X a Y"
-    note: `da ${prenotazione.quantita_iniziale ?? prenotazione.prodotti} a ${prenotazione.quantita_finale ?? prenotazione.prodotti}`,
+    note: `da ${prenotazione.quantita_iniziale ?? prodotti} a ${prenotazione.quantita_finale ?? prodotti}`,
 
-    operatore: prenotazione.operatore || "system"
+    operatore: operatore
   });
 
 
@@ -136,11 +187,11 @@ function creaProduzioneDaPrenotazione(prenotazione) {
   return {
     ok: true,
     id_produzione: result.lastInsertRowid,
-    id_sfuso: prenotazione.id_sfuso,
-    asin_prodotto: prenotazione.asin_prodotto,
-    nome_prodotto: prenotazione.nome_prodotto,
-    formato: prenotazione.formato,
-    quantita: prenotazione.prodotti
+    id_sfuso: id_sfuso,
+    asin_prodotto: asin_prodotto,
+    nome_prodotto: nome_prodotto,
+    formato: formato,
+    quantita: prodotti
   };
 }
 

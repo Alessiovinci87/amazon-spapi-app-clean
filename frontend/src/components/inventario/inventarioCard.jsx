@@ -29,7 +29,8 @@ const InventarioCard = ({
     if (!window.confirm(`Vuoi davvero eliminare ${nome}?`)) return;
 
     try {
-      const res = await fetch(`/api/v2/inventario/${asin}`, { method: "DELETE" });
+      // FIX: Endpoint corretto /magazzino/ invece di /inventario/
+      const res = await fetch(`http://localhost:3005/api/v2/magazzino/${asin}`, { method: "DELETE" });
       const data = await res.json();
 
       if (res.ok) {
@@ -38,7 +39,7 @@ const InventarioCard = ({
         if (typeof onAggiornamentoCompletato === "function")
           onAggiornamentoCompletato();
       } else {
-        alert(`❌ Errore eliminazione: ${data.message}`);
+        alert(`❌ Errore eliminazione: ${data.message || data.error || "Errore sconosciuto"}`);
       }
     } catch (err) {
       console.error("❌ Errore eliminazione:", err);
