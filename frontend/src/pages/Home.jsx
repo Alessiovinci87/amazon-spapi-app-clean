@@ -35,14 +35,7 @@ const Home = () => {
   const [isMagazzino, setIsMagazzino] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    const auth = localStorage.getItem("auth");
-    if (auth === "magazzino") {
-      setIsMagazzino(true);
-    } else if (auth === "amazon") {
-      navigate("/dashboard");
-    }
-  }, [navigate]);
+ 
 
   const handleAmazonAccess = () => {
     localStorage.clear();

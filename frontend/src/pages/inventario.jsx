@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import FiltroSezioni from "../components/inventario/FiltroSezioni";
 import SearchBarInventario from "../components/inventario/SearchBarInventario";
 import PulsantiConfermaModifiche from "../components/inventario/PulsantiConfermaModifiche";
@@ -115,6 +115,8 @@ const is5litriProdotto = (prodotto) =>
 
 const Inventario = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isMagazzino = location.pathname.startsWith("/magazzino");
   const {
     prodotti,
     setProdotti,
@@ -474,13 +476,14 @@ const Inventario = () => {
 
             <div className="flex gap-3 flex-wrap">
               <button
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")}
                 className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
                 type="button"
               >
                 <ArrowLeft className="w-4 h-4" />
-                Dashboard
+                {isMagazzino ? "Magazzino" : "Dashboard"}
               </button>
+
               <button
                 onClick={() => setShowNuovoProdotto(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
@@ -490,13 +493,20 @@ const Inventario = () => {
                 Nuovo Prodotto
               </button>
               <button
-                onClick={() => navigate("/storico")}
+                onClick={() =>
+                  navigate(
+                    isMagazzino
+                      ? "/magazzino/storici/movimenti"
+                      : "/storico"
+                  )
+                }
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
                 type="button"
               >
                 <FileText className="w-4 h-4" />
                 Storico Globale
               </button>
+
             </div>
           </div>
         </div>
