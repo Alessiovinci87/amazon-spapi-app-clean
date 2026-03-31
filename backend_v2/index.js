@@ -77,6 +77,7 @@ const bilancioRouter = require("./routes/bilancio");
 
 
 const configRoutes = require("./routes/config");
+const appAuthRoutes = require("./routes/appAuth");
 
 const scatoletteRoutes = require("./routes/scatolette");
 
@@ -109,7 +110,8 @@ async function bootstrap() {
   // 🗂️ MIGRAZIONI AUTOMATICHE
   // =========================================================
   console.log("📦 Applicazione migrazioni database…");
-  runMigrations("./db/inventario.db");
+  const { getDbPath } = require("./db/database");
+  runMigrations(getDbPath());
 
   // =========================================================
   // 🧱 MIDDLEWARE
@@ -203,6 +205,7 @@ async function bootstrap() {
   // =========================================================
 
   app.use("/api/v2/config", configRoutes);
+  app.use("/api/v2/app-auth", appAuthRoutes);
 
   app.use("/api/statistiche", require("./routes/statistiche"));
 

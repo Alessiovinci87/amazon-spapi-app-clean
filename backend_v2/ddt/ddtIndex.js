@@ -10,7 +10,17 @@ try {
 }
 
 const { getDb } = require("../db/database");
-const prebolleRouter = require("./prebolle");   // ⬅️ IMPORT CORRETTO
+const prebolleRouter = require("./prebolle");
+
+function esc(val) {
+  if (val === null || val === undefined) return "";
+  return String(val)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 const router = express.Router();
 
@@ -94,9 +104,9 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
 
         return `
           <tr>
-            <td>${r.quantita}</td>
-            <td>${r.prodotto_nome}<br><small>ASIN: ${r.asin}</small></td>
-            <td>${r.sku || "-"}</td>
+            <td>${esc(r.quantita)}</td>
+            <td>${esc(r.prodotto_nome)}<br><small>ASIN: ${esc(r.asin)}</small></td>
+            <td>${esc(r.sku) || "-"}</td>
             <td>${listaCartoni}</td>
             <td>${listaPacchi}</td>
           </tr>
@@ -107,7 +117,8 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
     const templatePath = path.join(__dirname, "templates", "ddtTemplate.html");
     let html = fs.readFileSync(templatePath, "utf8");
 
-    const logoUrl = "http://localhost:3005/static/images/logo.png";
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:3005";
+    const logoUrl = `${backendUrl}/static/images/logo.png`;
 
     const dataIT = new Date(data).toLocaleDateString("it-IT");
 
@@ -123,16 +134,14 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
       .replace(/{{\s*TRASPORTATORE\s*}}/gi, trasportatore)
       .replace(/{{\s*TRACKING\s*}}/gi, tracking);
 
-    const browser = await puppeteer.launch({
+    const launchOptions = {
       headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--allow-file-access-from-files",
-      ],
-      executablePath:
-        "C:/Users/aless/.cache/puppeteer/chrome/win64-140.0.7339.82/chrome-win64/chrome.exe",
-    });
+      args: ["--no-sandbox", "--disable-setuid-sandbox", "--allow-file-access-from-files"],
+    };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    const browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
     await page.setContent(html, {
@@ -173,12 +182,14 @@ router.get("/test", async (req, res) => {
       </html>
     `;
 
-    const browser = await puppeteer.launch({
+    const testLaunchOptions = {
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      executablePath:
-        "C:/Users/aless/.cache/puppeteer/chrome/win64-140.0.7339.82/chrome-win64/chrome.exe",
-    });
+    };
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      testLaunchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    }
+    const browser = await puppeteer.launch(testLaunchOptions);
 
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "networkidle0" });

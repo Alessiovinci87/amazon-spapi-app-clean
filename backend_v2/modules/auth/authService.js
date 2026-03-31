@@ -19,7 +19,6 @@ async function getAccessToken() {
     }
 
     console.log("🔄 Richiesta nuovo access_token a Amazon...");
-    console.log("   ↳ Uso refresh_token (preview):", LWA_REFRESH_TOKEN.substring(0, 10) + "...");
 
     const response = await axios.post(
       LWA_ENDPOINT,
@@ -34,11 +33,7 @@ async function getAccessToken() {
 
     const { access_token, expires_in, token_type } = response.data;
 
-    console.log("✅ Access token ottenuto:", {
-      preview: access_token ? access_token.substring(0, 25) + "..." : null,
-      expires_in,
-      token_type,
-    });
+    console.log(`✅ Access token ottenuto (expires_in: ${expires_in}s, type: ${token_type})`);
 
     return response.data; // { access_token, token_type, expires_in }
   } catch (err) {

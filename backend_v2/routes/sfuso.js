@@ -1109,6 +1109,8 @@ router.patch("/prenotazione/:id", async (req, res) => {
     };
 
     // 🔁 Funzione retry in caso di database locked
+    // Usa Atomics.wait per una pausa sincrona senza bloccare l'event loop
+    const _retryBuf = new Int32Array(new SharedArrayBuffer(4));
     function runWithRetry(fn, maxRetries = 5, delay = 200) {
       let attempts = 0;
       while (true) {
@@ -1118,8 +1120,7 @@ router.patch("/prenotazione/:id", async (req, res) => {
           if (err.code === "SQLITE_BUSY" && attempts < maxRetries) {
             attempts++;
             console.warn(`⚠️ DB locked, retry ${attempts}/${maxRetries}`);
-            const end = Date.now() + delay;
-            while (Date.now() < end) { } // breve pausa bloccante
+            Atomics.wait(_retryBuf, 0, 0, delay);
           } else {
             throw err;
           }
@@ -1311,44 +1312,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
 
     // 🔹 Conferma o Annulla
     if (stato === "Confermata" || stato === "Annullata") {
-
-      if (stato === "COMPLETATA") {
-        console.log("➡️ PATCH COMPLETATA", { id });
-
-        runWithRetry(() =>
-          db.prepare(`
-      UPDATE prenotazioni_sfuso
-      SET stato = 'COMPLETATA',
-          dataFine = datetime('now','localtime')
-      WHERE id = ?
-    `).run(id)
-        );
-
-        // Registrazione storico
-        runWithRetry(() =>
-          db.prepare(`
-      INSERT INTO storico_sfuso
-      (tipo, campo, nuovoValore, nota, operatore, formato, stato, lotto,
-        prodotti, boccette, tappini, pennellini, priorita, id_sfuso, id_prenotazione)
-      VALUES ('PRODUZIONE','stato','COMPLETATA', ?, ?, ?, 'COMPLETATA',
-        ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-            "Produzione completata",
-            operatore || "admin",
-            pren.formato,
-            prenAgg.lotto,
-            prenAgg.prodotti,
-            prenAgg.boccette,
-            prenAgg.tappini,
-            prenAgg.pennellini,
-            prenAgg.priorita,
-            prenAgg.id_sfuso,
-            id
-          )
-        );
-
-        return res.json({ ok: true, message: "Produzione COMPLETATA", id });
-      }
 
       console.log("➡️ PATCH CONFERMA/ANNULLA", { id, stato });
 
@@ -1760,15 +1723,32 @@ router.delete("/:id", (req, res) => {
 });
 
 
-router.delete("/storico-inventario/reset", async (req, res) => {
+router.delete("/storico-inventario/reset", (req, res) => {
+  const { password } = req.body;
+
+  if (!password || typeof password !== "string") {
+    return res.status(400).json({ ok: false, message: "Password richiesta." });
+  }
+
+  const db = getDb();
+  const { verifyPassword } = require("../utils/password");
+
+  const row = db.prepare("SELECT valore FROM impostazioni WHERE chiave = 'admin_password'").get();
+  if (!row) {
+    return res.status(500).json({ ok: false, message: "Password admin non configurata nel DB." });
+  }
+
+  if (!verifyPassword(password, row.valore)) {
+    return res.status(401).json({ ok: false, message: "Password errata." });
+  }
+
   try {
-    const db = getDb();
-    await db.exec("DELETE FROM storico_sfuso");
+    db.prepare("DELETE FROM storico_sfuso").run();
     console.log("✅ Storico sfuso inventario svuotato con successo");
-    res.json({ message: "Storico cancellato con successo" });
+    res.json({ ok: true, message: "Storico cancellato con successo" });
   } catch (err) {
     console.error("❌ Errore reset storico:", err.message);
-    res.status(500).json({ message: "Errore nel reset dello storico", error: err.message });
+    res.status(500).json({ ok: false, message: "Errore nel reset dello storico", error: err.message });
   }
 });
 
@@ -1841,30 +1821,6 @@ router.get("/liberi", (req, res) => {
     res.status(500).json({ error: "Errore nel recupero sfusi liberi" });
   }
 });
-
-// ============================================================
-// GET /api/v2/sfuso/liberi → restituisce gli sfusi non collegati
-// ============================================================
-router.get("/liberi", (req, res) => {
-  try {
-    const db = getDb();
-    const sfusiLiberi = db.prepare(`
-      SELECT id, nome_prodotto, litri_disponibili
-      FROM sfuso
-      WHERE id NOT IN (
-        SELECT id_sfuso_collegato FROM prodotti WHERE id_sfuso_collegato IS NOT NULL
-      )
-      AND stato = 'attivo'
-      ORDER BY nome_prodotto
-    `).all();
-
-    res.json({ ok: true, sfusiLiberi });
-  } catch (err) {
-    console.error("❌ Errore GET /sfuso/liberi:", err.message);
-    res.status(500).json({ ok: false, message: "Errore recupero sfusi liberi" });
-  }
-});
-
 
 
 module.exports = router;

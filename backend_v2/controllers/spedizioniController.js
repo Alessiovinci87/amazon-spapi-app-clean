@@ -11,14 +11,9 @@ function getSpedizioni(req, res) {
     const dati = service.getAll();
     res.json(dati);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore nel recupero delle spedizioni" });
   }
 }
-
-exports.getSpedizioni = (req, res) => {
-  const data = service.getAll(); // già filtrato in BOZZA
-  res.json(data);
-};
 
 
 // 🟦 GET dettaglio spedizione + righe
@@ -32,7 +27,7 @@ function getDettaglio(req, res) {
 
     res.json(spedizione);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -43,7 +38,7 @@ function getRighe(req, res) {
     const righe = service.getRighe(id);
     res.json(righe);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -53,7 +48,7 @@ function creaSpedizione(req, res) {
     const nuova = service.crea(req.body);
     res.json(nuova);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -65,7 +60,7 @@ function aggiungiRighe(req, res) {
     const updated = service.addRighe(id, righe);
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -76,7 +71,7 @@ function aggiornaSpedizione(req, res) {
     const updated = service.update(id, req.body);
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -87,7 +82,7 @@ function confermaSpedizione(req, res) {
     const updated = service.conferma(id);
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -99,7 +94,7 @@ function getStorico(req, res) {
     res.json(storico);
   } catch (err) {
     console.error("❌ Errore GET storico:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -110,7 +105,7 @@ function eliminaSpedizione(req, res) {
     const ok = service.delete(id);
     res.json(ok);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 
@@ -120,7 +115,7 @@ function eliminaTutte(req, res) {
     const ok = service.deleteAll();
     res.json(ok);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 }
 

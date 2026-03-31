@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-// 📌 metodo corretto per ottenere il DB
 const { getDb } = require("../db/database");
-const db = getDb(); // <- QUI era il problema
 
 router.get("/", (req, res) => {
     try {
+        const db = getDb();
+
         // 1. Totale prodotti in inventario
         const prodottiTotali =
             db.prepare(`

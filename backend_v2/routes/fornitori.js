@@ -1,5 +1,4 @@
 // backend_v2/routes/fornitori.js
-console.log("✅ File fornitori.js caricato correttamente");
 
 const express = require("express");
 const router = express.Router();
@@ -44,7 +43,7 @@ router.get("/ordini-tutti", (req, res) => {
     res.json(ordini || []);
   } catch (err) {
     console.error("❌ Errore caricamento ordini:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Errore interno del server" });
   }
 });
 
@@ -72,7 +71,7 @@ router.delete("/ordini/:idOrdine", (req, res) => {
     res.json({ ok: true, message: "Ordine eliminato correttamente" });
   } catch (err) {
     console.error("❌ Errore eliminazione ordine:", err);
-    res.status(500).json({ ok: false, message: err.message });
+    res.status(500).json({ ok: false, message: "Errore durante l'eliminazione dell'ordine." });
   }
 });
 
@@ -159,7 +158,6 @@ router.get("/:id/prodotti", (req, res) => {
       note: r.note
     }));
 
-    console.log("📦 Prodotti restituiti al frontend:", prodotti);
     res.json(prodotti || []);
   } catch (err) {
     console.error("❌ Errore caricamento prodotti fornitore:", err);
@@ -223,7 +221,6 @@ router.post("/:idFornitore/ordini", (req, res) => {
     const transaction = db.transaction(() => {
       for (const p of prodotti) {
         const quantita = Number(p.quantita || p.quantita_litri || 0);
-        console.log("🧾 INSERT ORDINE → id_sfuso:", p.id_sfuso, "quantità:", quantita);
         insertStmt.run(
           idFornitore,
           p.id_sfuso || null,         // ✅ salva l'id_sfuso
@@ -300,7 +297,6 @@ router.get("/:id/ordini", (req, res) => {
 
 
     const ordini = db.prepare(query).all(id);
-    console.log("🧾 ORDINI RESTITUITI PER FORNITORE", id, ordini);
     res.json(ordini || []);
   } catch (err) {
     console.error("❌ Errore caricamento ordini per fornitore:", err);
@@ -396,7 +392,7 @@ router.delete("/:id/ordini", (req, res) => {
     res.json({ ok: true, message: `Eliminati ${count} ordini del fornitore`, count });
   } catch (err) {
     console.error("❌ Errore eliminazione ordini del fornitore:", err);
-    res.status(500).json({ ok: false, message: err.message });
+    res.status(500).json({ ok: false, message: "Errore durante l'eliminazione degli ordini." });
   }
 });
 

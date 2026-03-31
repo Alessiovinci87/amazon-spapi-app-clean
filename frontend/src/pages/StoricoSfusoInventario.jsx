@@ -33,18 +33,21 @@ const StoricoSfusoInventario = () => {
     // 🔹 Funzione reset storico
     const handleResetStorico = async () => {
         const password = prompt("Inserisci la password per cancellare lo storico:");
-        if (password !== "1234") {
-            alert("❌ Password errata!");
-            return;
-        }
+        if (!password) return;
 
         if (!window.confirm("⚠️ Sei sicuro di voler cancellare tutto lo storico?")) return;
 
         try {
             const res = await fetch("/api/v2/sfuso/storico-inventario/reset", {
                 method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password }),
             });
-            if (!res.ok) throw new Error("Errore durante la cancellazione dello storico");
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.message || "Errore durante la cancellazione dello storico.");
+                return;
+            }
             alert("✅ Storico cancellato con successo!");
             setMovimenti([]);
         } catch (err) {

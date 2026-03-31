@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 
 const produzioneController = require("../controllers/produzioneSfuso.controller");
+const storicoService = require("../services/storicoProduzioniSfuso.service");
 
 /* =========================================================
    🚀 PRODUZIONE SFUSO – Rotte principali
@@ -31,13 +32,11 @@ router.delete("/:id", produzioneController.eliminaProduzione);
 router.get("/storico", (req, res) => {
   try {
     const { asin, stato } = req.query;
-    const data = require("../services/storicoProduzioniSfuso.service")
-      .getStorico({ asin, stato });
-
+    const data = storicoService.getStorico({ asin, stato });
     res.json({ ok: true, data });
   } catch (err) {
     console.error("❌ Errore getStoricoProduzioniSfuso:", err);
-    res.status(500).json({ ok: false, message: err.message });
+    res.status(500).json({ ok: false, message: "Errore nel recupero dello storico" });
   }
 });
 

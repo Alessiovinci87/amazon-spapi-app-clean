@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { verifyPassword } = require("../utils/password");
 
 const storicoController = require("../controllers/scatoletteStorico.controller.js");
 
@@ -13,16 +14,12 @@ router.get("/storico", storicoController.getStorico);
  */
 router.get("/", (req, res) => {
   try {
-    console.log("➡️ GET /api/v2/scatolette chiamata");
-
     const db = getDb();
     const rows = db.prepare("SELECT * FROM scatolette ORDER BY nome_prodotto ASC").all();
-
-    console.log("📦 Risultato query:", rows);
     res.json(rows);
   } catch (err) {
     console.error("❌ ERRORE SQL /scatolette:", err);
-    res.status(500).json({ message: "Errore SQL", error: err.message });
+    res.status(500).json({ message: "Errore nel recupero delle scatolette" });
   }
 });
 
@@ -135,30 +132,28 @@ router.delete("/:id", (req, res) => {
 });
 
 /**
- * DELETE – reset storico scatolette + azzera contatori
+ * DELETE – reset storico scatolette (richiede password admin)
  */
 router.delete("/storico/reset", (req, res) => {
-  try {
-    const db = getDb();
+  const { password } = req.body;
 
-    // Reset tabella storico
+  if (!password) {
+    return res.status(401).json({ ok: false, message: "Password richiesta." });
+  }
+
+  const db = getDb();
+  const row = db.prepare("SELECT valore FROM impostazioni WHERE chiave = 'admin_password'").get();
+  if (!row || !verifyPassword(password, row.valore)) {
+    return res.status(401).json({ ok: false, message: "Password non valida." });
+  }
+
+  try {
     db.prepare(`DELETE FROM storico_movimenti_scatolette`).run();
 
-    // Reset ID autoincrement
-    db.prepare(`DELETE FROM sqlite_sequence WHERE name = 'storico_movimenti_scatolette'`).run();
-
-    // Reset contatori (se in futuro ne aggiungeremo, li azzeriamo qui)
-    // Esempio:
-    // db.prepare(`UPDATE config SET value = 0 WHERE key = 'scatolette_counter'`).run();
-
-    res.json({
-      ok: true,
-      message: "Storico scatolette resettato con successo",
-    });
-
+    res.json({ ok: true, message: "Storico scatolette resettato con successo" });
   } catch (err) {
     console.error("❌ Errore RESET storico scatolette:", err);
-    res.status(500).json({ error: "Errore reset storico" });
+    res.status(500).json({ ok: false, error: "Errore reset storico" });
   }
 });
 
