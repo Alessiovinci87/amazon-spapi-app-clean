@@ -9,9 +9,9 @@ const RettificaSfusoModal = ({ nome, tipo, onConferma, onAnnulla }) => {
 
   const handleSubmit = () => {
     const valore = parseFloat(quantita);
-    if (isNaN(valore) || valore < 0) return alert("Inserisci una quantità valida.");
-    if (!nota.trim()) return alert("Inserisci una nota.");
-    if (!operatore) return alert("Seleziona un operatore.");
+    if (isNaN(valore) || valore < 0) return toast.info("Inserisci una quantità valida.");
+    if (!nota.trim()) return toast.info("Inserisci una nota.");
+    if (!operatore) return toast.info("Seleziona un operatore.");
     onConferma({ quantita: valore, nota: nota.trim(), operatore });
   };
 

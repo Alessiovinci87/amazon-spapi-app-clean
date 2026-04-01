@@ -1,8 +1,6 @@
 const express = require("express");
-console.log("📍 File sfuso.js in uso:", __filename);
 
 const router = express.Router();
-console.log("✅ File sfuso.js caricato");
 const { getDb } = require("../db/database");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
 const { registraStoricoProduzione } = require("../services/storicoProduzioniSfuso.service");
@@ -83,7 +81,6 @@ router.get("/storico", (req, res) => {
       .prepare("SELECT * FROM storico_sfuso ORDER BY data DESC")
       .all();
 
-    console.log("📜 Record storico estratti:", rows.slice(0, 5));
 
 
 
@@ -204,7 +201,6 @@ router.get("/storico-inventario", (req, res) => {
       `)
       .all();
 
-    console.log(`📜 Storico Sfuso Inventario — ${rows.length} record trovati`);
 
     const mapped = rows.map((r) => ({
       id: r.id,
@@ -298,7 +294,6 @@ router.post("/prenotazione", (req, res) => {
       );
 
       const newId = info.lastInsertRowid;
-      console.log("🆕 ID prenotazione generato:", newId);
 
       if (!newId) throw new Error("Impossibile ottenere ID prenotazione");
 
@@ -324,13 +319,11 @@ router.post("/prenotazione", (req, res) => {
       );
 
       const row = db.prepare("SELECT * FROM prenotazioni_sfuso WHERE id = ?").get(newId);
-      console.log("📦 Record prenotazione creato:", row);
       return row;
     })();
 
     if (!newRow) throw new Error("Insert fallita: nessuna riga restituita");
 
-    console.log("✅ Prenotazione inserita con ID:", newRow.id);
 
     const prenotazioneCompleta = {
       ...newRow,
@@ -392,10 +385,8 @@ router.get("/prenotazione/:id", (req, res) => {
 // 🔹 Popola il DB con tutti i prodotti 12ml, 10ml e oli cuticole (senza duplicati)
 // ===============================
 router.post("/popola-default", (req, res) => {
-  console.log("🚀 Richiesta ricevuta su /api/v2/sfuso/popola-default");
   try {
     const db = getDb();
-    console.log("✅ Connessione DB aperta correttamente");
 
     const sfusiDefault = [
       // --- 12ML ---
@@ -464,7 +455,6 @@ router.post("/popola-default", (req, res) => {
 
     const countAfter = db.prepare("SELECT COUNT(*) AS count FROM sfuso").get().count;
 
-    console.log("✅ Popolamento completato senza errori");
 
     res.json({
       ok: true,
@@ -532,7 +522,6 @@ router.patch("/:id/asin", (req, res) => {
   const { id } = req.params;
   const { asin } = req.body;
 
-  console.log("🟣 PATCH /api/v2/sfuso/:id/asin", { id, asin });
 
   if (!asin) {
     return res.status(400).json({ ok: false, message: "ASIN mancante" });
@@ -550,7 +539,6 @@ router.patch("/:id/asin", (req, res) => {
     }
 
     const updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
-    console.log(`✅ ASIN ${asin} associato allo sfuso ID ${id}`);
 
     res.json({
       ok: true,
@@ -601,11 +589,6 @@ router.patch("/ricevi/:id", (req, res) => {
 
       const updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
 
-      console.log("✅ Ricezione sfuso completata:", {
-        id: updated.id,
-        nome: updated.nome_prodotto,
-        disponibili: updated.litri_disponibili
-      });
 
       return res.json({
         ok: true,
@@ -733,7 +716,6 @@ router.patch("/:id/rettifica-old", (req, res) => {
         if (check) idSfusoValido = Number(sfusoRow.id);
       }
 
-      console.log("🧩 Rettifica-old → idSfusoValido finale:", idSfusoValido);
 
       // Se non esiste davvero nel DB, impostiamo NULL
       if (!idSfusoValido) {
@@ -922,7 +904,6 @@ router.patch("/:id/rettifica-lotto-old", (req, res) => {
 // ===============================
 router.patch("/:id", (req, res) => {
 
-  console.log("PATCH sfuso → id:", req.params.id, "body:", req.body);
   const { id } = req.params;
   const { campo, nuovoValore, operatore, nota } = req.body;
 
@@ -1060,7 +1041,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
 
   let stato = normalizeStato(nuovoStato);
 
-  console.log("PATCH prenotazione", id, { nuovoStato, normalizzato: stato, operatore });
 
   try {
     const db = getDb();
@@ -1130,7 +1110,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
 
     // 🔹 In lavorazione con logica FIFO
     if (stato === "In lavorazione") {
-      console.log("🟡 Entrato nel ramo 'In lavorazione'");
       let gruppoFIFO = null;
 
       // ✅ Recupera prenotazione/sfuso aggiornati
@@ -1202,7 +1181,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
         ));
 
         const nuovoId = info.lastInsertRowid;
-        console.log("✅ Prenotazione (lotto NEW) creata con ID:", nuovoId);
 
         runWithRetry(() => db.prepare(`
       UPDATE sfuso 
@@ -1313,7 +1291,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
     // 🔹 Conferma o Annulla
     if (stato === "Confermata" || stato === "Annullata") {
 
-      console.log("➡️ PATCH CONFERMA/ANNULLA", { id, stato });
 
       // ✅ Aggiorna stato e data fine
       runWithRetry(() => db.prepare(`
@@ -1324,7 +1301,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
 
       // ✅ In caso di annullamento → reintegro FIFO
       if (stato === "Annullata") {
-        console.log("↩️ Annullo FIFO: reintegro tutti i lotti dello stesso gruppo");
 
         const prenAgg = db
           .prepare("SELECT * FROM prenotazioni_sfuso WHERE id = ?")
@@ -1457,10 +1433,8 @@ router.patch("/prenotazione/:id", async (req, res) => {
         // Se non esiste id_produzione → assegno un valore univoco fittizio
 
 
-        console.log("📝 Storico PRODUZIONI_sfuso → ANNULLATA registrato");
 
 
-        console.log("🟠 Prenotazione annullata e reintegrata correttamente");
       }
 
 
@@ -1469,12 +1443,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
       if (stato && stato.toLowerCase() === "confermata") stato = "Confermata";
       if (stato && stato.toLowerCase() === "annullata") stato = "Annullata";
 
-      console.log("🔥 DEBUG CONFERMATA:", {
-        stato,
-        prenAgg_asin: prenAgg?.asin_prodotto,
-        prenAgg_nome: prenAgg?.nome_prodotto,
-        prenAgg_prodotti: prenAgg?.prodotti
-      });
 
       // ✅ Se Confermata → aggiorna inventario prodotti
       if (stato === "Confermata") {
@@ -1483,7 +1451,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
             .prepare(`SELECT * FROM prodotti WHERE asin = ?`)
             .get(prenAgg.asin_prodotto);
 
-          console.log("🔥 PRODOTTO TROVATO:", prodotto);
 
           if (prodotto) {
             runWithRetry(() =>
@@ -1494,7 +1461,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
 
             );
 
-            console.log("🔥 UPDATE PRONTO ESEGUITO");
 
             runWithRetry(() =>
               db.prepare(`
@@ -1550,7 +1516,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
       // Log specifico per annullamento
 
       if (stato === "Annullata") {
-        console.log("📝 Registro storico ANNULLAMENTO");
 
         runWithRetry(() =>
           db
@@ -1580,7 +1545,6 @@ router.patch("/prenotazione/:id", async (req, res) => {
 
 
 
-      console.log("✅ Prenotazione aggiornata:", stato);
       return res.json({ ok: true, message: `Prenotazione ${stato}`, id });
     }
 
@@ -1608,7 +1572,6 @@ router.patch("/prenotazione/:id/conferma", (req, res) => {
       .get(id);
 
 
-    console.log("📦 Prenotazione trovata:", prenotazione);
 
     if (!prenotazione)
       return res.status(404).json({ error: "Prenotazione non trovata" });
@@ -1621,7 +1584,6 @@ router.patch("/prenotazione/:id/conferma", (req, res) => {
         const asinFallback = JSON.parse(sfusoRow.asin_collegati || "[]")[0] || null;
         if (asinFallback) {
           prenotazione.asin_prodotto = asinFallback;
-          console.log("✅ ASIN recuperato automaticamente:", asinFallback);
           // aggiorno anche la prenotazione nel DB
           db.prepare("UPDATE prenotazioni_sfuso SET asin_prodotto = ? WHERE id = ?").run(asinFallback, prenotazione.id);
         } else {
@@ -1665,9 +1627,6 @@ router.patch("/prenotazione/:id/conferma", (req, res) => {
       prenotazione.id_sfuso
     );
 
-    console.log(
-      `✅ Produzione confermata per ASIN ${prenotazione.asin_prodotto}: +${prenotazione.prodotti} pezzi`
-    );
 
     res.json({
       ok: true,
@@ -1690,7 +1649,6 @@ router.delete("/:id", (req, res) => {
     const db = getDb();
     const { id } = req.params;
 
-    console.log("🧩 DELETE sfuso id:", id);
 
     // Verifica se esiste
     const sfuso = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
@@ -1707,7 +1665,6 @@ router.delete("/:id", (req, res) => {
     db.prepare("DELETE FROM sfuso WHERE id = ?").run(id);
 
     // Log su console
-    console.log(`🗑️ Sfuso "${sfuso.nome_prodotto}" eliminato definitivamente`);
 
     // Risposta al client
     return res.json({
@@ -1744,7 +1701,6 @@ router.delete("/storico-inventario/reset", (req, res) => {
 
   try {
     db.prepare("DELETE FROM storico_sfuso").run();
-    console.log("✅ Storico sfuso inventario svuotato con successo");
     res.json({ ok: true, message: "Storico cancellato con successo" });
   } catch (err) {
     console.error("❌ Errore reset storico:", err.message);

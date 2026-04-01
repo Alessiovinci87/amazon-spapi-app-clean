@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Box
 } from "lucide-react";
+import { CORRIERI_PREDEFINITI as corrieriPredefiniti } from "../../constants/ddt";
 
 const centriLogistici = {
   Italia: [
@@ -29,8 +30,6 @@ const centriLogistici = {
     { codice: "BER3", indirizzo: "Brieselang, Germania" },
   ],
 };
-
-const corrieriPredefiniti = ["GLS", "BRT", "DHL", "SDA", "TNT", "AMAZON"];
 
 // stessa logica backend
 function getPezziPerBox(nomeProdotto = "") {

@@ -2,11 +2,9 @@
 const { getDb } = require("../db/database");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
 const magazzinoService = require("./magazzino.service");
-
 const { registraStoricoProduzione } = require("./storicoProduzioniSfuso.service");
-
 const { registraMovimentoScatolette } = require("./scatoletteStorico.service");
-
+const { getAccessoriPerFormato } = require("./accessoriMapping.service");
 
 /* =========================================================
    🎛️ SERVICE PRODUZIONI SFUSO
@@ -30,20 +28,13 @@ function creaProduzione({ id_sfuso, asin_prodotto, nome_prodotto, formato, quant
     throw new Error("Campi obbligatori mancanti: id_sfuso, asin_prodotto, quantita");
   }
 
-  // Calcolo litri stimati
   const litriStimati = calcolaLitriDaProduzione(formato, quantita, nome_prodotto);
 
-  // 🔧 FIX: Rimosso riferimento a 'payload' non definito
-  console.log("📌 [DEBUG] Sto per eseguire INSERT produzioni_sfuso:", { id_sfuso, asin_prodotto, nome_prodotto, quantita, litriStimati });
-
-  // Inserisci produzione
-  const stmt = db.prepare(`
+  const result = db.prepare(`
     INSERT INTO produzioni_sfuso (id_sfuso, asin_prodotto, nome_prodotto, quantita, litri_usati, stato, note, operatore)
     VALUES (?, ?, ?, ?, ?, 'Pianificata', ?, ?)
-  `);
-  const result = stmt.run(id_sfuso, asin_prodotto, nome_prodotto, quantita, litriStimati, note, operatore);
+  `).run(id_sfuso, asin_prodotto, nome_prodotto, quantita, litriStimati, note, operatore);
 
-  // 📜 Registra evento storico
   registraStoricoProduzione({
     id_produzione: result.lastInsertRowid,
     id_sfuso,
@@ -55,8 +46,6 @@ function creaProduzione({ id_sfuso, asin_prodotto, nome_prodotto, formato, quant
     note,
     operatore,
   });
-
-
 
   return {
     id: result.lastInsertRowid,
@@ -75,8 +64,6 @@ function creaProduzione({ id_sfuso, asin_prodotto, nome_prodotto, formato, quant
 function creaProduzioneDaPrenotazione(prenotazione) {
   const db = getDb();
 
-  console.log("📌 [DEBUG] creaProduzioneDaPrenotazione - PAYLOAD RICEVUTO:", JSON.stringify(prenotazione, null, 2));
-
   // 🔧 Normalizzazione campi (accetta varianti di nomi)
   const id_sfuso = prenotazione.id_sfuso || prenotazione.idSfuso || prenotazione.sfuso_id;
   let asin_prodotto = prenotazione.asin_prodotto || prenotazione.asinProdotto || prenotazione.asin;
@@ -88,28 +75,21 @@ function creaProduzioneDaPrenotazione(prenotazione) {
 
   // 🔧 Se manca asin_prodotto o nome_prodotto, recuperali dalla tabella sfuso
   if ((!asin_prodotto || !nome_prodotto) && id_sfuso) {
-    console.log("📌 [DEBUG] asin_prodotto o nome_prodotto mancanti, recupero da sfuso...");
-    
     const sfusoRow = db.prepare(`
-      SELECT nome_prodotto, asin_collegati 
-      FROM sfuso 
+      SELECT nome_prodotto, asin_collegati
+      FROM sfuso
       WHERE id = ?
     `).get(id_sfuso);
-    
+
     if (sfusoRow) {
-      // Recupera nome_prodotto
       if (!nome_prodotto && sfusoRow.nome_prodotto) {
         nome_prodotto = sfusoRow.nome_prodotto;
-        console.log("📌 [DEBUG] nome_prodotto recuperato da sfuso:", nome_prodotto);
       }
-      
-      // Recupera asin_prodotto dagli asin_collegati
       if (!asin_prodotto && sfusoRow.asin_collegati) {
         try {
           const asinList = JSON.parse(sfusoRow.asin_collegati || "[]");
           if (asinList.length > 0) {
-            asin_prodotto = asinList[0]; // Prende il primo ASIN collegato
-            console.log("📌 [DEBUG] asin_prodotto recuperato da sfuso:", asin_prodotto);
+            asin_prodotto = asinList[0];
           }
         } catch (e) {
           console.warn("⚠️ Errore parsing asin_collegati:", e.message);
@@ -118,85 +98,44 @@ function creaProduzioneDaPrenotazione(prenotazione) {
     }
   }
 
-  console.log("📌 [DEBUG] Campi normalizzati:", { id_sfuso, asin_prodotto, prodotti, formato, nome_prodotto });
-
   // 🛑 Validazione campi prenotazione
   if (!id_sfuso || !asin_prodotto || !prodotti) {
-    console.error("❌ Campi mancanti:", { id_sfuso, asin_prodotto, prodotti });
     throw new Error(`Prenotazione incompleta: id_sfuso=${id_sfuso}, asin_prodotto=${asin_prodotto}, prodotti=${prodotti}`);
   }
 
-  // 🧮 Calcolo litri stimati
-  const litriStimati = calcolaLitriDaProduzione(
-    formato,
-    prodotti,
-    nome_prodotto
-  );
+  const litriStimati = calcolaLitriDaProduzione(formato, prodotti, nome_prodotto);
 
-  console.log("📌 [DEBUG] litriStimati calcolati:", litriStimati);
-
-  // 🏭 Inserimento nuova produzione
-  const stmt = db.prepare(`
+  const result = db.prepare(`
     INSERT INTO produzioni_sfuso
       (id_sfuso, asin_prodotto, nome_prodotto, formato, quantita, litri_usati, stato, note, operatore)
     VALUES (?, ?, ?, ?, ?, ?, 'Pianificata', ?, ?)
-  `);
+  `).run(id_sfuso, asin_prodotto, nome_prodotto, formato, prodotti, litriStimati, note, operatore);
 
-  const result = stmt.run(
+  registraStoricoProduzione({
+    id_produzione: result.lastInsertRowid,
     id_sfuso,
     asin_prodotto,
     nome_prodotto,
     formato,
-    prodotti,
-    litriStimati,
-    note,
-    operatore
-  );
-
-  console.log("📌 [DEBUG] INSERT completato, lastInsertRowid:", result.lastInsertRowid);
-
-  // 📝 Storico — CREATA (quantità iniziale e finale registrate correttamente)
-  registraStoricoProduzione({
-    id_produzione: result.lastInsertRowid,
-    id_sfuso: id_sfuso,
-    asin_prodotto: asin_prodotto,
-    nome_prodotto: nome_prodotto,
-    formato: formato,
-
-    // Quantità iniziale esatta
     quantita_iniziale: prenotazione.quantita_iniziale ?? prodotti,
-
-    // La quantità finale al momento della prenotazione coincide con quella iniziale
     quantita_finale: prenotazione.quantita_finale ?? prodotti,
-
-    // Campo legacy usato ancora dal frontend
     quantita: prenotazione.quantita_finale ?? prodotti,
-
     litri_usati: litriStimati,
     evento: "CREATA",
-
-    // Nota chiara: "da X a Y"
     note: `da ${prenotazione.quantita_iniziale ?? prodotti} a ${prenotazione.quantita_finale ?? prodotti}`,
-
-    operatore: operatore
+    operatore,
   });
-
-
-
 
   return {
     ok: true,
     id_produzione: result.lastInsertRowid,
-    id_sfuso: id_sfuso,
-    asin_prodotto: asin_prodotto,
-    nome_prodotto: nome_prodotto,
-    formato: formato,
-    quantita: prodotti
+    id_sfuso,
+    asin_prodotto,
+    nome_prodotto,
+    formato,
+    quantita: prodotti,
   };
 }
-
-
-
 
 /* =========================================================
    ✏️ AGGIORNA PRODUZIONE
@@ -209,22 +148,19 @@ function aggiornaProduzione(id, data) {
 
   const after = { ...before, ...data };
 
-  // 📝 Registra storico AGGIORNATA includendo quantita precedente e nuova
   registraStoricoProduzione({
     id_produzione: id,
     id_sfuso: before.id_sfuso,
     asin_prodotto: before.asin_prodotto,
     nome_prodotto: before.nome_prodotto,
     formato: before.formato,
-    quantita: after.quantita,           // quantità nuova
+    quantita: after.quantita,
     litri_usati: after.litri_usati,
     evento: "AGGIORNATA",
     note: data.note || "",
     operatore: data.operatore || before.operatore || "system",
-    quantita_precedente: before.quantita   // ✨ IMPORTANTE (campo extra, anche se DB non lo salva)
   });
 
-  // 🔄 Aggiorna tabella produzioni_sfuso
   db.prepare(`
     UPDATE produzioni_sfuso
     SET quantita = ?, litri_usati = ?, note = ?, stato = ?, updated_at = datetime('now','localtime')
@@ -234,13 +170,11 @@ function aggiornaProduzione(id, data) {
   return after;
 }
 
-
-
+/* =========================================================
+   ✅ COMPLETA PRODUZIONE
+========================================================= */
 function completaProduzione(id, operatore = "system") {
   const db = getDb();
-
-  console.log("==== ENTRA IN COMPLETA PRODUZIONE ====");
-
 
   const produzione = db.prepare(`SELECT * FROM produzioni_sfuso WHERE id = ?`).get(id);
   if (!produzione) throw new Error("Produzione non trovata");
@@ -249,20 +183,18 @@ function completaProduzione(id, operatore = "system") {
   const sfuso = db.prepare(`SELECT * FROM sfuso WHERE id = ?`).get(produzione.id_sfuso);
   if (!sfuso) throw new Error("Sfuso collegato non trovato");
 
-  // 🔥 Aggiorna immediatamente la prenotazione collegata
+  // Aggiorna la prenotazione collegata
   db.prepare(`
-  UPDATE prenotazioni_sfuso
-  SET stato = 'Confermata',
-      dataFine = datetime('now','localtime')
-  WHERE id_produzione = ?
-`).run(id);
-
+    UPDATE prenotazioni_sfuso
+    SET stato = 'Confermata', dataFine = datetime('now','localtime')
+    WHERE id_produzione = ?
+  `).run(id);
 
   const prodotto = db.prepare(`
-  SELECT asin, nome, formato, pezzi_per_kit, isKit
-  FROM prodotti
-  WHERE asin = ?
-`).get(produzione.asin_prodotto);
+    SELECT asin, nome, formato, pezzi_per_kit, isKit
+    FROM prodotti
+    WHERE asin = ?
+  `).get(produzione.asin_prodotto);
 
   if (!prodotto) {
     throw new Error(`Prodotto non trovato per ASIN: ${produzione.asin_prodotto}`);
@@ -271,56 +203,38 @@ function completaProduzione(id, operatore = "system") {
   const pezziPerKit = prodotto.isKit ? (prodotto.pezzi_per_kit || 1) : 1;
   const quantitaTotalePezzi = produzione.quantita * pezziPerKit;
 
-  // STEP 4 - Recupero accessori
-  const { getAccessoriPerFormato } = require("./accessoriMapping.service");
   const accessoriDaUsare = getAccessoriPerFormato(produzione.formato);
-
   const accessoriCalcolati = accessoriDaUsare.map(acc => ({
     asin_accessorio: acc.asin_accessorio,
-    quantita: quantitaTotalePezzi
+    quantita: quantitaTotalePezzi,
   }));
 
-  // ============================================
-  // STEP 6B - SCALATURA SCATOLETTE
-  // ============================================
-
-  // recupero scatoletta del prodotto
+  // Scalatura scatolette
   const scatoletta = db.prepare(`
-  SELECT scatoletta, quantita
-  FROM scatolette
-  WHERE asin_prodotto = ?
-`).get(produzione.asin_prodotto);
+    SELECT scatoletta, quantita
+    FROM scatolette
+    WHERE asin_prodotto = ?
+  `).get(produzione.asin_prodotto);
 
   if (!scatoletta) {
     throw new Error(`Scatoletta non trovata per ASIN: ${produzione.asin_prodotto}`);
   }
 
-  // controllo disponibilità scatoletta
   if (scatoletta.quantita < quantitaTotalePezzi) {
     throw new Error(
       `Scatolette insufficienti: richieste ${quantitaTotalePezzi}, disponibili ${scatoletta.quantita}`
     );
   }
 
-  // scalatura scatoletta
   db.prepare(`
-  UPDATE scatolette
-  SET quantita = quantita - ?
-  WHERE asin_prodotto = ?
-`).run(quantitaTotalePezzi, produzione.asin_prodotto);
+    UPDATE scatolette
+    SET quantita = quantita - ?
+    WHERE asin_prodotto = ?
+  `).run(quantitaTotalePezzi, produzione.asin_prodotto);
 
-  // storico scatoletta
   const quantitaFinale = db
     .prepare("SELECT quantita FROM scatolette WHERE asin_prodotto = ?")
     .get(produzione.asin_prodotto).quantita;
-
-  console.log("📦 STO REGISTRANDO MOVIMENTO SCATOLETTE:", {
-    asin: produzione.asin_prodotto,
-    scatoletta: scatoletta.scatoletta,
-    delta: -quantitaTotalePezzi,
-    quantita_finale: quantitaFinale,
-  });
-
 
   registraMovimentoScatolette({
     asin_prodotto: produzione.asin_prodotto,
@@ -331,21 +245,7 @@ function completaProduzione(id, operatore = "system") {
     operatore,
   });
 
-
-
-
-  // ============================
-  // STEP 3 - Informazioni prodotto
-  // ============================
-  // STEP 3 - Informazioni prodotto
-
-
-
-  console.log("ACCESSORI DA SCALARE:", accessoriCalcolati);
-
-  // ============================
-  // STEP 5 - Controllo scorte accessori
-  // ============================
+  // Controllo scorte accessori
   for (const acc of accessoriCalcolati) {
     const row = db.prepare(`
       SELECT quantita, nome
@@ -353,10 +253,7 @@ function completaProduzione(id, operatore = "system") {
       WHERE asin_accessorio = ?
     `).get(acc.asin_accessorio);
 
-    if (!row) {
-      throw new Error(`Accessorio non trovato in DB: ${acc.asin_accessorio}`);
-    }
-
+    if (!row) throw new Error(`Accessorio non trovato in DB: ${acc.asin_accessorio}`);
     if (row.quantita < acc.quantita) {
       throw new Error(
         `Scorte insufficienti per l'accessorio ${row.nome}: richiesti ${acc.quantita}, disponibili ${row.quantita}`
@@ -364,42 +261,28 @@ function completaProduzione(id, operatore = "system") {
     }
   }
 
-  // ============================
   // Verifica litri
-  // ============================
-  const litriEffettivi = calcolaLitriDaProduzione(
-    sfuso.formato,
-    produzione.quantita,
-    produzione.nome_prodotto
-  );
+  const litriEffettivi = calcolaLitriDaProduzione(sfuso.formato, produzione.quantita, produzione.nome_prodotto);
   if (sfuso.litri_disponibili < litriEffettivi) {
     throw new Error(
       `Litri insufficienti: disponibili ${sfuso.litri_disponibili}, necessari ${litriEffettivi}`
     );
   }
 
-  // ============================
-  // TRANSAZIONE PRINCIPALE
-  // ============================
+  // Transazione principale
   const tx = db.transaction(() => {
-
-    // 🔻 Scala litri sfuso
     db.prepare(`
-    UPDATE sfuso
-    SET litri_disponibili = litri_disponibili - ?, updated_at = datetime('now','localtime')
-    WHERE id = ?
-  `).run(litriEffettivi, produzione.id_sfuso);
+      UPDATE sfuso
+      SET litri_disponibili = litri_disponibili - ?, updated_at = datetime('now','localtime')
+      WHERE id = ?
+    `).run(litriEffettivi, produzione.id_sfuso);
 
-    // ============================================
-    // STEP 6 - SCALATURA ACCESSORI
-    // ============================================
     for (const acc of accessoriCalcolati) {
-
       db.prepare(`
-      UPDATE accessori
-      SET quantita = quantita - ?
-      WHERE asin_accessorio = ?
-    `).run(acc.quantita, acc.asin_accessorio);
+        UPDATE accessori
+        SET quantita = quantita - ?
+        WHERE asin_accessorio = ?
+      `).run(acc.quantita, acc.asin_accessorio);
 
       db.prepare(`
         INSERT INTO storico_movimenti
@@ -416,47 +299,23 @@ function completaProduzione(id, operatore = "system") {
       `).run(
         acc.asin_accessorio,
         acc.asin_accessorio,
-        -acc.quantita, // delta negativo
+        -acc.quantita,
         `Scalatura per produzione ${produzione.asin_prodotto}`,
         operatore
       );
-
-
     }
 
-    // 📦 Movimento prodotti
     db.prepare(`
-    INSERT INTO movimenti (tipo, asin_prodotto, delta_pronto, note, operatore)
-    VALUES ('PRODUZIONE', ?, ?, ?, ?)
-  `).run(
-      produzione.asin_prodotto,
-      produzione.quantita,
-      produzione.note || "Completamento produzione",
-      operatore
-    );
+      INSERT INTO movimenti (tipo, asin_prodotto, delta_pronto, note, operatore)
+      VALUES ('PRODUZIONE', ?, ?, ?, ?)
+    `).run(produzione.asin_prodotto, produzione.quantita, produzione.note || "Completamento produzione", operatore);
 
-    // 🧾 Aggiorna produzione
     db.prepare(`
-    UPDATE produzioni_sfuso
-    SET stato = 'Completata', litri_usati = ?, data_effettiva = datetime('now','localtime')
-    WHERE id = ?
-  `).run(litriEffettivi, id);
+      UPDATE produzioni_sfuso
+      SET stato = 'Completata', litri_usati = ?, data_effettiva = datetime('now','localtime')
+      WHERE id = ?
+    `).run(litriEffettivi, id);
 
-    console.log("📌 [DEBUG] COMPLETA PRODUZIONE → chiamo registraStoricoProduzione", {
-      id_produzione: id,
-      id_sfuso: produzione.id_sfuso,
-      asin_prodotto: produzione.asin_prodotto,
-      nome_prodotto: produzione.nome_prodotto,
-      formato: produzione.formato,
-      quantita: produzione.quantita,
-      litri_usati: litriEffettivi,
-      evento: "COMPLETATA"
-    });
-
-
-    console.log("📌 [DEBUG] Entrato in registraStoricoProduzione");
-
-    // 📝 Storico produzione
     registraStoricoProduzione({
       id_produzione: id,
       id_sfuso: produzione.id_sfuso,
@@ -470,47 +329,30 @@ function completaProduzione(id, operatore = "system") {
       operatore,
     });
 
-
     return {
       ok: true,
       produzioneAggiornata: {
         ...produzione,
         stato: "Completata",
         litri_usati: litriEffettivi,
-      }
+      },
     };
-
   });
 
   const risultato = tx();
 
-  console.log("✔ Transazione completata con successo:", risultato);
-
   db.prepare(`
-    UPDATE config 
-    SET value = value + 1 
+    UPDATE config
+    SET value = value + 1
     WHERE key = 'produzione_counter'
-`).run();
+  `).run();
 
-
-
-  // Recupera la prenotazione collegata
+  // Aggiorna magazzino solo del delta rispetto alla prenotazione
   const pren = db.prepare(`
-  SELECT prodotti
-  FROM prenotazioni_sfuso
-  WHERE id_produzione = ?
-`).get(id);
+    SELECT prodotti FROM prenotazioni_sfuso WHERE id_produzione = ?
+  `).get(id);
 
-  // Calcola il delta reale
   const delta = pren ? (produzione.quantita - pren.prodotti) : produzione.quantita;
-
-  console.log("📌 DELTA PRODOTTO:", {
-    quantita_prodotta: produzione.quantita,
-    quantita_prenotata: pren?.prodotti,
-    delta
-  });
-
-  // Aggiorna magazzino SOLO del delta
   let resultMagazzino = null;
 
   if (delta > 0) {
@@ -520,19 +362,13 @@ function completaProduzione(id, operatore = "system") {
       note: `Produzione completata - ${produzione.nome_prodotto}`,
       operatore,
     });
-
-    console.log("✔ produceDelta completata:", resultMagazzino);
-  } else {
-    console.log("⚪ Nessun aggiornamento magazzino (delta = 0)");
   }
 
   return {
     ...risultato,
     magazzino: resultMagazzino,
   };
-
 }
-
 
 /* =========================================================
    ❌ ELIMINA PRODUZIONE
@@ -545,7 +381,6 @@ function eliminaProduzione(id) {
 
   db.prepare(`DELETE FROM produzioni_sfuso WHERE id = ?`).run(id);
 
-  // 📜 Registra evento storico
   registraStoricoProduzione({
     id_produzione: id,
     id_sfuso: prod.id_sfuso,
@@ -560,10 +395,6 @@ function eliminaProduzione(id) {
 
   return true;
 }
-
-
-
-
 
 /* =========================================================
    EXPORT

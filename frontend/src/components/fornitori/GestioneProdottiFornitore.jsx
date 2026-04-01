@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const GestioneProdottiFornitore = () => {
   const [fornitori, setFornitori] = useState([]);
@@ -12,12 +13,12 @@ const GestioneProdottiFornitore = () => {
 
   // 🔹 Carica fornitori e prodotti sfuso
   useEffect(() => {
-    fetch("http://localhost:3005/api/v2/fornitori")
+    fetch("/api/v2/fornitori")
       .then((r) => r.json())
       .then(setFornitori)
       .catch((e) => console.error("Errore fornitori:", e));
 
-    fetch("http://localhost:3005/api/v2/prodotti-sfuso")
+    fetch("/api/v2/prodotti-sfuso")
       .then((r) => r.json())
       .then(setProdottiSfuso)
       .catch((e) => console.error("Errore prodotti sfuso:", e));
@@ -26,7 +27,7 @@ const GestioneProdottiFornitore = () => {
   // 🔹 Quando seleziono un fornitore, carico i suoi prodotti collegati
   const caricaProdottiAssociati = async (idFornitore) => {
     if (!idFornitore) return;
-    const res = await fetch(`http://localhost:3005/api/v2/fornitori-prodotti/${idFornitore}/catalogo`);
+    const res = await fetch(`/api/v2/fornitori-prodotti/${idFornitore}/catalogo`);
     const data = await res.json();
     setProdottiAssociati(data.associati);
     setProdottiSfuso(data.disponibili);
@@ -34,7 +35,7 @@ const GestioneProdottiFornitore = () => {
 
   const handleAssocia = async () => {
     if (!fornitoreSelezionato || !prodottoSelezionato) {
-      alert("Seleziona fornitore e prodotto!");
+      toast.warning("Seleziona fornitore e prodotto!");
       return;
     }
 
@@ -51,14 +52,14 @@ const GestioneProdottiFornitore = () => {
     });
 
     if (res.ok) {
-      alert("✅ Prodotto associato con successo!");
+      toast.success("Prodotto associato con successo!");
       setPrezzo("");
       setNote("");
       setProdottoSelezionato(null);
       setRicercaProdotto(""); // pulisce solo il campo ricerca
       caricaProdottiAssociati(fornitoreSelezionato);
     } else {
-      alert("❌ Errore durante l'associazione");
+      toast.error("Errore durante l'associazione");
     }
   };
 

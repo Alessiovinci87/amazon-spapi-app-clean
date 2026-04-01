@@ -1,5 +1,6 @@
 // frontend/components/fornitori/ListaFornitori.jsx
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const ListaFornitori = () => {
   const [fornitori, setFornitori] = useState([]);
@@ -12,7 +13,7 @@ const ListaFornitori = () => {
 
   // 🔹 Carica lista fornitori all'avvio
   useEffect(() => {
-    fetch("http://localhost:3005/api/v2/fornitori")
+    fetch("/api/v2/fornitori")
       .then((res) => res.json())
       .then((data) => setFornitori(data))
       .catch((err) => console.error("❌ Errore caricamento fornitori:", err));
@@ -29,8 +30,8 @@ const ListaFornitori = () => {
 
     try {
       const [ordiniRes, prodottiRes] = await Promise.all([
-        fetch(`http://localhost:3005/api/v2/fornitori/${id}/ordini`),
-        fetch(`http://localhost:3005/api/v2/fornitori/${id}/prodotti`),
+        fetch(`/api/v2/fornitori/${id}/ordini`),
+        fetch(`/api/v2/fornitori/${id}/prodotti`),
       ]);
 
       const [ordiniData, prodottiData] = await Promise.all([
@@ -54,16 +55,16 @@ const ListaFornitori = () => {
     if (!window.confirm("Vuoi eliminare tutti gli ordini di questo fornitore?")) return;
 
     try {
-      const res = await fetch(`http://localhost:3005/api/v2/fornitori/${idFornitore}/ordini`, {
+      const res = await fetch(`/api/v2/fornitori/${idFornitore}/ordini`, {
         method: "DELETE",
       });
       const data = await res.json();
 
       if (data.ok) {
-        alert("✅ Ordini del fornitore eliminati");
+        toast.success("Ordini del fornitore eliminati");
         setOrdiniFornitore((prev) => ({ ...prev, [idFornitore]: [] }));
       } else {
-        alert("❌ Errore durante l'eliminazione degli ordini");
+        toast.error("Errore durante l'eliminazione degli ordini");
       }
     } catch (err) {
       console.error("❌ Errore eliminazione ordini fornitore:", err);
@@ -85,7 +86,7 @@ const ListaFornitori = () => {
   // 🔹 Salva modifiche
   const salvaModifiche = async () => {
     try {
-      const res = await fetch(`http://localhost:3005/api/v2/fornitori/${editId}`, {
+      const res = await fetch(`/api/v2/fornitori/${editId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formEdit),
@@ -93,15 +94,15 @@ const ListaFornitori = () => {
 
       const data = await res.json();
       if (data.ok) {
-        alert("✅ Fornitore aggiornato correttamente");
+        toast.success("Fornitore aggiornato correttamente");
         setEditId(null);
         // Aggiorna lista
-        const updated = await fetch("http://localhost:3005/api/v2/fornitori").then((r) =>
+        const updated = await fetch("/api/v2/fornitori").then((r) =>
           r.json()
         );
         setFornitori(updated);
       } else {
-        alert("❌ Errore durante l'aggiornamento");
+        toast.error("Errore durante l'aggiornamento");
       }
     } catch (err) {
       console.error("❌ Errore aggiornamento fornitore:", err);
@@ -114,15 +115,14 @@ const ListaFornitori = () => {
     if (!window.confirm("Sei sicuro di voler eliminare questo ordine?")) return;
 
     try {
-      console.log("🟡 ID ordine da cancellare:", idOrdine);
-      const response = await fetch(`http://localhost:3005/api/v2/fornitori/ordini/${idOrdine}`, {
+      const response = await fetch(`/api/v2/fornitori/ordini/${idOrdine}`, {
         method: "DELETE",
       });
 
       const data = await response.json();
 
       if (data.ok) {
-        alert("✅ Ordine eliminato correttamente");
+        toast.success("Ordine eliminato correttamente");
         // Rimuovi l'ordine dallo stato locale
         setOrdiniFornitore((prev) => {
           const nuovo = { ...prev };
@@ -138,11 +138,11 @@ const ListaFornitori = () => {
         });
 
       } else {
-        alert(`❌ ${data.message || "Errore durante l'eliminazione"}`);
+        toast.error(data.message || "Errore durante l'eliminazione");
       }
     } catch (err) {
       console.error("❌ Errore eliminazione ordine:", err);
-      alert("Errore imprevisto durante l'eliminazione");
+      toast.error("Errore imprevisto durante l'eliminazione");
     }
   };
 
@@ -254,7 +254,7 @@ const ListaFornitori = () => {
                               e.stopPropagation();
                               const lista = ordiniFornitore[f.id] || [];
                               if (!lista.length) {
-                                alert("Nessun ordine per questo fornitore.");
+                                toast.info("Nessun ordine per questo fornitore.");
                                 return;
                               }
                               const ordineTarget =
@@ -344,12 +344,12 @@ const ListaFornitori = () => {
                                                   )
                                                 ) {
                                                   const res = await fetch(
-                                                    `http://localhost:3005/api/v2/fornitori/ordini/${o.id}`,
+                                                    `/api/v2/fornitori/ordini/${o.id}`,
                                                     { method: "DELETE" }
                                                   );
                                                   const data = await res.json();
                                                   if (data.ok) {
-                                                    alert("✅ Riga d'ordine eliminata");
+                                                    toast.success("Riga d'ordine eliminata");
                                                     setOrdiniFornitore((prev) => ({
                                                       ...prev,
                                                       [f.id]: prev[f.id].filter(
@@ -357,7 +357,7 @@ const ListaFornitori = () => {
                                                       ),
                                                     }));
                                                   } else {
-                                                    alert("❌ Errore eliminazione ordine");
+                                                    toast.error("Errore eliminazione ordine");
                                                   }
                                                 }
                                               }}

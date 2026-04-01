@@ -2,7 +2,7 @@
 
 export const confermaModificaAccessorio = async ({ asin, nome, quantitaPerProdotto }) => {
   try {
-    const response = await fetch(`http://localhost:3005/api/accessori/${asin}`, {
+    const response = await fetch(`/api/accessori/${asin}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ quantitaPerProdotto }),
@@ -16,7 +16,7 @@ export const confermaModificaAccessorio = async ({ asin, nome, quantitaPerProdot
     }
 
     // Storico (facoltativo ma utile)
-    await fetch("http://localhost:3005/api/storico/salva", {
+    await fetch("/api/storico/salva", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

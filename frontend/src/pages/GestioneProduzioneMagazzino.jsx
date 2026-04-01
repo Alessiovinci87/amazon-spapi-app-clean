@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { triggerReloadInventario } from "../utils/globalEvents";
 import { fetchJSON, buildUrl } from "../utils/api";
+import { normalizeState } from "../utils/statoUtils";
 
 // ========== FUNZIONE ACCESSORI ==========
 function getAccessoryList(formato) {
@@ -59,23 +60,6 @@ const GestioneProduzioneMagazzino = () => {
   const [prenotazioni, setPrenotazioni] = useState([]);
   const [sfusoData, setSfusoData] = useState([]);
   const [filterSearchTerm, setFilterSearchTerm] = useState("");
-
-  // ========== NORMALIZZAZIONE STATI ==========
-  const normalizeState = (value) => {
-    if (!value) return "pending";
-    const normalized = value.toString().toLowerCase().trim();
-    const stateMap = {
-      "prenotazione": "pending",
-      "in lavorazione": "in_corso",
-      "confermata": "completato",
-      "completato": "completato",
-      "annullata": "annullato",
-      "annullato": "annullato",
-      "pending": "pending",
-      "in_corso": "in_corso"
-    };
-    return stateMap[normalized] || "pending";
-  };
 
   // ========== FETCH ==========
   const fetchSfuso = async () => {
@@ -148,7 +132,7 @@ const GestioneProduzioneMagazzino = () => {
       await ricaricaDati();
     } catch (err) {
       console.error("❌ Errore aggiornamento stato:", err);
-      alert("Errore durante aggiornamento stato");
+      toast.error("Errore durante aggiornamento stato");
     }
   };
 
@@ -157,7 +141,7 @@ const GestioneProduzioneMagazzino = () => {
     try {
       const quantitaNumerica = Number(nuovaQuantita);
       if (isNaN(quantitaNumerica) || quantitaNumerica <= 0) {
-        alert("Quantità non valida");
+        toast.info("Quantità non valida");
         return;
       }
       const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
@@ -183,7 +167,7 @@ const GestioneProduzioneMagazzino = () => {
       const dataCrea = await resCrea.json();
       const idProduzione = dataCrea?.id_produzione;
       if (!idProduzione) {
-        alert("❌ ID produzione mancante");
+        toast.error("ID produzione mancante");
         return;
       }
       const res = await fetch(buildUrl(`produzioni-sfuso/${idProduzione}/completa`), {
@@ -198,7 +182,7 @@ const GestioneProduzioneMagazzino = () => {
       triggerReloadInventario();
     } catch (err) {
       console.error("❌ Errore conferma produzione:", err);
-      alert("Errore conferma produzione");
+      toast.error("Errore conferma produzione");
     }
   };
 

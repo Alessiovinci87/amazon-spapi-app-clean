@@ -93,7 +93,7 @@ const DDTScomposizione = () => {
                 setSpedizione(found);
 
                 // 2. Carica assegnazioni esistenti
-                const resAss = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}`);
+                const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
                 const dataAss = await resAss.json();
 
                 if (dataAss.ok && dataAss.assegnazioni.length > 0) {
@@ -118,14 +118,14 @@ const DDTScomposizione = () => {
     // Crea assegnazioni iniziali (tutti al DDT 1)
     const creaAssegnazioniIniziali = async () => {
         try {
-            const res = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}/crea`, {
+            const res = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/crea`, {
                 method: "POST",
             });
             const data = await res.json();
 
             if (data.ok) {
                 // Ricarica assegnazioni
-                const resAss = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}`);
+                const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
                 const dataAss = await resAss.json();
                 setAssegnazioni(dataAss.assegnazioni || []);
                 setDdtCount(1);
@@ -144,7 +144,7 @@ const DDTScomposizione = () => {
     const spostaProdotto = async (assegnazioneId, nuovoDdtNumero) => {
         setSaving(true);
         try {
-            const res = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}/sposta`, {
+            const res = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/sposta`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ assegnazioneId, nuovoDdtNumero }),
@@ -153,7 +153,7 @@ const DDTScomposizione = () => {
             // SOSTITUISCI CON:
             if (res.ok) {
                 // Ricarica dal server per evitare inconsistenze
-                const resAss = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}`);
+                const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
                 const dataAss = await resAss.json();
                 if (dataAss.ok) {
                     setAssegnazioni(dataAss.assegnazioni || []);
@@ -201,13 +201,13 @@ const DDTScomposizione = () => {
 
         // Verifica che la somma sia corretta
         if (dividiQty1 + dividiQty2 !== dividiTarget.quantita) {
-            alert(`La somma deve essere ${dividiTarget.quantita}`);
+            toast.info(`La somma deve essere ${dividiTarget.quantita}`);
             return;
         }
 
         setSaving(true);
         try {
-            const res = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}/dividi`, {
+            const res = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/dividi`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -220,7 +220,7 @@ const DDTScomposizione = () => {
 
             if (res.ok) {
                 // Ricarica assegnazioni
-                const resAss = await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}`);
+                const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
                 const dataAss = await resAss.json();
                 setAssegnazioni(dataAss.assegnazioni || []);
                 setDdtCount(Math.max(ddtCount, dividiDdtDestinazione));
@@ -239,7 +239,7 @@ const DDTScomposizione = () => {
 
         setSaving(true);
         try {
-            await fetch(`http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}/reset`, {
+            await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/reset`, {
                 method: "DELETE",
             });
 

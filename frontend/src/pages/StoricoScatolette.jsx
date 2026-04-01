@@ -12,7 +12,7 @@ const StoricoScatolette = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const res = await fetch("http://localhost:3005/api/v2/scatolette/storico");
+                const res = await fetch("/api/v2/scatolette/storico");
                 const data = await res.json();
                 setRows(data);
                 setFiltered(data);
@@ -103,22 +103,22 @@ const StoricoScatolette = () => {
         }
 
         try {
-            const res = await fetch("http://localhost:3005/api/v2/scatolette/storico/reset", {
+            const res = await fetch("/api/v2/scatolette/storico/reset", {
                 method: "DELETE",
             });
 
             const data = await res.json();
 
             if (data.ok) {
-                alert("✅ Storico resettato con successo");
+                toast.success("Storico resettato con successo");
                 setRows([]);
                 setFiltered([]);
             } else {
-                alert("❌ Errore nel reset dello storico");
+                toast.error("Errore nel reset dello storico");
             }
         } catch (err) {
             console.error("Errore reset storico:", err);
-            alert("❌ Errore durante il reset");
+            toast.error("Errore durante il reset");
         }
     };
 

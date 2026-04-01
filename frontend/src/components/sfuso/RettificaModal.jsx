@@ -7,11 +7,11 @@ const RettificaModal = ({ titolo, campo, valoreAttuale, onClose, onConferma }) =
 
   const handleConferma = () => {
     if (!nota.trim()) {
-      alert("⚠️ La nota è obbligatoria");
+      toast.warning("️ La nota è obbligatoria");
       return;
     }
     if (!operatore.trim()) {
-      alert("⚠️ L'operatore è obbligatorio");
+      toast.warning("️ L'operatore è obbligatorio");
       return;
     }
     onConferma({ campo, nuovoValore: valore, nota, operatore });

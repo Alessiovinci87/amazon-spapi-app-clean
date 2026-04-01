@@ -14,11 +14,11 @@ const StoricoOrdini = () => {
   const [filtroPagamenti, setFiltroPagamenti] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:3005/api/v2/fornitori")
+    fetch("/api/v2/fornitori")
       .then((res) => res.json())
       .then(setFornitori);
 
-    fetch("http://localhost:3005/api/v2/fornitori/ordini-tutti")
+    fetch("/api/v2/fornitori/ordini-tutti")
       .then((res) => res.json())
       .then(setOrdini);
   }, []);

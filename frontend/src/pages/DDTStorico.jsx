@@ -9,7 +9,7 @@ const DDTStorico = () => {
     useEffect(() => {
         async function fetchData() {
             try {
-                const res = await fetch("http://localhost:3005/api/v2/ddt/storico");
+                const res = await fetch("/api/v2/ddt/storico");
                 if (!res.ok) throw new Error("Errore fetch storico DDT");
                 const data = await res.json();
                 setStorico(data);
@@ -55,7 +55,7 @@ const DDTStorico = () => {
                             <td className="p-2 border border-gray-700">{ddt.totColli}</td>
                             <td className="p-2 border border-gray-700">
                                 <a
-                                    href={`http://localhost:3005/api/v2/ddt/storico/${ddt.id}/pdf`}
+                                    href={`/api/v2/ddt/storico/${ddt.id}/pdf`}
                                     target="_blank"
                                     rel="noreferrer"
                                     className="text-blue-400 hover:underline"

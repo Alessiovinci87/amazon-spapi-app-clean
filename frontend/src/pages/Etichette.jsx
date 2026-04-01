@@ -71,7 +71,7 @@ const Etichette = () => {
     
     if (nuovaQuantita !== null) {
       handleChange(row.id, "quantita", nuovaQuantita);
-      alert(`✅ Quantità aggiornata per "${row.nome}": ${nuovaQuantita}`);
+      toast.info(`✅ Quantità aggiornata per "${row.nome}": ${nuovaQuantita}`);
     }
   };
 

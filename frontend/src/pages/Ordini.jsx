@@ -21,11 +21,11 @@ const Ordini = () => {
   const [fornitoriDisponibili, setFornitoriDisponibili] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:3001/api/ordini")
+    fetch("/api/ordini")
       .then((res) => res.json())
       .then((data) => setOrdini(data));
 
-    fetch("http://localhost:3001/api/fornitori")
+    fetch("/api/fornitori")
       .then((res) => res.json())
       .then((data) => setFornitoriDisponibili(data));
   }, []);
@@ -35,7 +35,7 @@ const Ordini = () => {
   };
 
   const aggiungiOrdine = () => {
-    fetch("http://localhost:3001/api/ordini", {
+    fetch("/api/ordini", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -53,7 +53,7 @@ const Ordini = () => {
           stato: "In attesa",
           note: "",
         });
-        return fetch("http://localhost:3001/api/ordini");
+        return fetch("/api/ordini");
       })
       .then((res) => res.json())
       .then((data) => setOrdini(data));

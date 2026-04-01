@@ -10,7 +10,7 @@ const RettificaLottoModal = ({ nome, onConferma, onAnnulla }) => {
 
   const handleSubmit = () => {
     if (!lotto || !data || !operatore) {
-      alert("Tutti i campi sono obbligatori.");
+      toast.info("Tutti i campi sono obbligatori.");
       return;
     }
     onConferma({ lotto, data, operatore });

@@ -6,7 +6,7 @@
  * @returns {object|null} newItem - Oggetto normalizzato pronto da aggiungere allo state
  */
 
-const API_BASE = "http://localhost:3005/api/v2";
+const API_BASE = "/api/v2";
 
 // Mappa per retrocompatibilità endpoint
 const ENDPOINT_MAP = {
@@ -76,7 +76,7 @@ export async function creaNuovaCard(tipo, payload) {
     return newItem;
   } catch (err) {
     console.error(`❌ Errore creazione ${tipo}:`, err);
-    alert(`Errore durante la creazione del nuovo ${tipo}: ${err.message}`);
+    toast.error(`Errore durante la creazione del nuovo ${tipo}: ${err.message}`);
     return null;
   }
 }

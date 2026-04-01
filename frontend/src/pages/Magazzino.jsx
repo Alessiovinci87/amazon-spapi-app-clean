@@ -35,7 +35,7 @@ const Magazzino = () => {
   });
 
   useEffect(() => {
-    fetch("http://localhost:3005/api/statistiche")
+    fetch("/api/statistiche")
       .then(res => res.json())
       .then(data => setStats(data))
       .catch(err => console.error("Errore statistiche:", err));

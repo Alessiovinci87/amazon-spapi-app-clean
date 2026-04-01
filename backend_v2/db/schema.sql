@@ -231,28 +231,6 @@ CREATE TABLE IF NOT EXISTS produzioni_sfuso (
   updated_at TEXT DEFAULT (datetime('now','localtime'))
 );
 
--- =========================================================
--- 🧾 STORICO PRODUZIONI SFUSO
--- =========================================================
-CREATE TABLE IF NOT EXISTS storico_produzioni_sfuso (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  id_produzione INTEGER NOT NULL,
-  id_sfuso INTEGER,
-  asin_prodotto TEXT,
-  nome_prodotto TEXT,
-  formato TEXT,
-  quantita INTEGER,
-  litri_usati REAL,
-  stato TEXT,
-  operatore TEXT,
-  azione TEXT CHECK(azione IN ('CREATA','AGGIORNATA','COMPLETATA','ANNULLATA')),
-  note TEXT,
-  data_evento TEXT DEFAULT (datetime('now','localtime')),
-  FOREIGN KEY (id_produzione) REFERENCES produzioni_sfuso(id) ON DELETE CASCADE
-);
-
-
-
 
 -- ============================================================
 -- 🔹 TABELLA: SFUSO_MOVIMENTI
@@ -308,6 +286,7 @@ CREATE TABLE IF NOT EXISTS storico_produzioni_sfuso (
   id_sfuso INTEGER,
   asin_prodotto TEXT,
   nome_prodotto TEXT,
+  formato TEXT,
   quantita INTEGER,
   litri_usati REAL,
   evento TEXT NOT NULL CHECK (evento IN ('CREATA', 'AGGIORNATA', 'COMPLETATA', 'ELIMINATA')),

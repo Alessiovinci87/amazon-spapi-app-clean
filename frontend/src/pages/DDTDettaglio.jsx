@@ -21,7 +21,7 @@ import {
   Box,
 } from "lucide-react";
 
-const corrieriPredefiniti = ["GLS", "BRT", "DHL", "SDA", "TNT", "AMAZON", "UPS"];
+import { CORRIERI_PREDEFINITI as corrieriPredefiniti } from "../constants/ddt";
 
 const paesiOrdinati = [
   "Italia",
@@ -152,7 +152,7 @@ const DDTDettaglio = () => {
           // DDT specifico: carica da assegnazioni
           try {
             const resAss = await fetch(
-              `http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}/${ddtNumero}`
+              `/api/v2/ddt/assegnazioni/${idSpedizione}/${ddtNumero}`
             );
             const dataAss = await resAss.json();
 
@@ -267,7 +267,7 @@ const DDTDettaglio = () => {
     };
 
     try {
-      const res = await fetch("http://localhost:3005/api/v2/ddt/pics-nails/pdf", {
+      const res = await fetch("/api/v2/ddt/pics-nails/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -278,11 +278,11 @@ const DDTDettaglio = () => {
         const url = window.URL.createObjectURL(blob);
         window.open(url, "_blank");
       } else {
-        alert("❌ Errore nella generazione del PDF");
+        toast.error("Errore nella generazione del PDF");
       }
     } catch (err) {
       console.error("Errore generazione PDF:", err);
-      alert("❌ Errore durante la generazione del PDF");
+      toast.error("Errore durante la generazione del PDF");
     }
   };
 

@@ -86,19 +86,14 @@ function App() {
         <Route path="/uffici/spedizioni" element={<GestioneSpedizioni />} />
         <Route path="/uffici/spedizioni/storico" element={<StoricoSpedizioni />} />
 
+        {/* DDT Uffici */}
         <Route path="/uffici/ddt" element={<DDTIndex />} />
         <Route path="/uffici/ddt/nuovo" element={<DDTNuovo />} />
         <Route path="/uffici/ddt/storico" element={<DDTStorico />} />
-        <Route path="/uffici/ddt/:idSpedizione" element={<DDTDettaglio />} />
-        
-        {/* DDT Uffici */}
-        <Route path="/uffici/ddt" element={<DDTIndex />} />
         <Route path="/uffici/ddt/prebolle" element={<DDTPrebolle />} />
         <Route path="/uffici/ddt/scomponi/:idSpedizione" element={<DDTScomposizione />} />
         <Route path="/uffici/ddt/:idSpedizione" element={<DDTDettaglio />} />
         <Route path="/uffici/ddt/:idSpedizione/:ddtNumero" element={<DDTDettaglio />} />
-        <Route path="/uffici/ddt/nuovo" element={<DDTNuovo />} />
-        <Route path="/uffici/ddt/storico" element={<DDTStorico />} />
 
         <Route path="/uffici/fornitori" element={<Fornitori />} />
         <Route path="/uffici/ordini" element={<Ordini />} />
@@ -147,9 +142,6 @@ function App() {
         <Route path="/ddt-index" element={<Navigate to="/uffici/ddt" replace />} />
         <Route path="/ddt-storico" element={<Navigate to="/uffici/ddt/storico" replace />} />
         <Route path="/ddt/:idSpedizione" element={<Navigate to="/uffici/ddt/:idSpedizione" replace />} />
-        <Route path="/uffici/ddt" element={<DDTIndex />} />
-        <Route path="/uffici/ddt/prebolle" element={<DDTPrebolle />} />  // ← AGGIUNGI QUESTA
-        <Route path="/uffici/ddt/nuovo" element={<DDTNuovo />} />
 
         <Route path="/fornitori" element={<Navigate to="/uffici/fornitori" replace />} />
         <Route path="/ordini" element={<Navigate to="/uffici/ordini" replace />} />

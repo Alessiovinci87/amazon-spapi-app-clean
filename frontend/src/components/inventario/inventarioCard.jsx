@@ -25,12 +25,12 @@ const InventarioCard = ({
 
   // 🧩 Funzione elimina prodotto
   const handleDelete = async () => {
-    if (!asin) return alert("ASIN mancante");
+    if (!asin) return toast.info("ASIN mancante");
     if (!window.confirm(`Vuoi davvero eliminare ${nome}?`)) return;
 
     try {
       // FIX: Endpoint corretto /magazzino/ invece di /inventario/
-      const res = await fetch(`http://localhost:3005/api/v2/magazzino/${asin}`, { method: "DELETE" });
+      const res = await fetch(`/api/v2/magazzino/${asin}`, { method: "DELETE" });
       const data = await res.json();
 
       if (res.ok) {
@@ -39,11 +39,11 @@ const InventarioCard = ({
         if (typeof onAggiornamentoCompletato === "function")
           onAggiornamentoCompletato();
       } else {
-        alert(`❌ Errore eliminazione: ${data.message || data.error || "Errore sconosciuto"}`);
+        toast.error();
       }
     } catch (err) {
       console.error("❌ Errore eliminazione:", err);
-      alert("Errore durante la cancellazione del prodotto");
+      toast.error("Errore durante la cancellazione del prodotto");
     }
   };
 

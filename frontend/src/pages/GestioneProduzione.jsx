@@ -1,10 +1,12 @@
 
 import React, { useState, useEffect } from "react";
+import { toast } from 'sonner';
 import { useNavigate } from "react-router-dom";
 import SfusoCard from "../components/sfuso/SfusoCard";
 import ProduzioneCard from "../components/produzione/ProduzioneCard";
 import { triggerReloadInventario } from "../utils/globalEvents";
 import { fetchJSON, buildUrl } from "../utils/api";
+import { normalizeState, getStateLabel } from "../utils/statoUtils";
 
 const GestioneProduzione = () => {
   const navigate = useNavigate();
@@ -13,43 +15,12 @@ const GestioneProduzione = () => {
   const [selectedProdotto, setSelectedProdotto] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [prodotti, setProdotti] = useState([]);
-  const [filterSearchTerm, setFilterSearchTerm] = useState(""); // 🔍 Filtro ricerca in alto
-
-  // ========== NORMALIZZAZIONE STATI ==========
-  const normalizeState = (value) => {
-    if (!value) return "pending";
-    const normalized = value.toString().toLowerCase().trim();
-
-    // Mappa valori legacy → stati normalizzati
-    const stateMap = {
-      "prenotazione": "pending",
-      "in lavorazione": "in_corso",
-      "confermata": "completato",
-      "completato": "completato",
-      "annullata": "annullato",
-      "annullato": "annullato",
-      "pending": "pending",
-      "in_corso": "in_corso"
-    };
-
-    return stateMap[normalized] || "pending";
-  };
-
-  const getStateLabel = (normalizedState) => {
-    const labels = {
-      "pending": "Prenotazione",
-      "in_corso": "In Lavorazione",
-      "completato": "Completato",
-      "annullato": "Annullato"
-    };
-    return labels[normalizedState] || normalizedState;
-  };
+  const [filterSearchTerm, setFilterSearchTerm] = useState("");
 
   // ========== FETCH DATI ==========
   const fetchSfuso = async () => {
     try {
       const data = await fetchJSON("sfuso");
-      console.log("📊 Dati SFUSO ricevuti:", data);
       setSfusoData(data);
     } catch (err) {
       console.error("❌ Errore fetch sfuso:", err);
@@ -59,7 +30,6 @@ const GestioneProduzione = () => {
   const fetchPrenotazioni = async () => {
     try {
       const data = await fetchJSON("sfuso/prenotazioni");
-      console.log("📦 Prenotazioni dal backend:", data);
       setPrenotazioni(data);
     } catch (err) {
       console.error("❌ Errore fetch prenotazioni:", err);
@@ -118,7 +88,6 @@ const GestioneProduzione = () => {
         operatore: "admin"
       };
 
-      console.log("📌 [DEBUG] ➜ Storico payload finale:", payload);
 
       const res = await fetch(buildUrl("storico-produzioni-sfuso"), {
         method: "POST",
@@ -132,7 +101,6 @@ const GestioneProduzione = () => {
         return;
       }
 
-      console.log("✅ Storico registrato:", text);
     } catch (err) {
       console.error("❌ Errore registraStoricoProduzione:", err);
     }
@@ -151,7 +119,6 @@ const GestioneProduzione = () => {
     }
 
     const statoNormalizzato = normalizeState(nuovoStato);
-    console.log("🧩 handleAggiornaStato chiamato con:", { id, nuovoStato, statoNormalizzato });
 
     try {
       const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
@@ -170,12 +137,10 @@ const GestioneProduzione = () => {
         throw new Error("Errore aggiornamento stato");
       }
 
-      console.log("✅ Stato aggiornato con successo:", data.message || data);
 
       // 📝 Registra nello storico se annullamento
       if (statoNormalizzato === "annullato") {
         const prenotazione = prenotazioni.find(p => p.id === id);
-        console.log("🔍 Prenotazione trovata:", prenotazione);
         if (prenotazione) {
           if (statoNormalizzato === "annullato") {
             const pren = prenotazioni.find(p => p.id === id);
@@ -207,7 +172,7 @@ const GestioneProduzione = () => {
 
     } catch (err) {
       console.error("❌ Errore aggiornamento stato:", err);
-      alert("Errore durante l'aggiornamento dello stato");
+      toast.error("Errore durante l'aggiornamento dello stato");
     }
   };
 
@@ -216,7 +181,7 @@ const GestioneProduzione = () => {
     try {
       const quantitaNumerica = Number(nuovaQuantita);
       if (isNaN(quantitaNumerica) || quantitaNumerica <= 0) {
-        alert("⚠️ Quantità non valida");
+        toast.warning("️ Quantità non valida");
         return;
       }
 
@@ -225,7 +190,7 @@ const GestioneProduzione = () => {
       const oldData = await oldRes.json();
 
       if (!oldData || !oldData.data) {
-        alert("Errore: impossibile recuperare la prenotazione iniziale");
+        toast.error("Errore: impossibile recuperare la prenotazione iniziale");
         return;
       }
 
@@ -248,7 +213,7 @@ const GestioneProduzione = () => {
       const prenAgg = await resPren.json();
 
       if (!prenAgg || !prenAgg.data) {
-        alert("Errore recupero prenotazione aggiornata");
+        toast.error("Errore recupero prenotazione aggiornata");
         return;
       }
 
@@ -266,11 +231,11 @@ const GestioneProduzione = () => {
       );
 
       await ricaricaDati();
-      alert("✅ Quantità aggiornata e registrata nello storico");
+      toast.success("Quantità aggiornata e registrata nello storico");
 
     } catch (err) {
       console.error("❌ Errore modifica quantità:", err);
-      alert("Errore durante la modifica della quantità");
+      toast.error("Errore durante la modifica della quantità");
     }
   };
 
@@ -285,7 +250,7 @@ const GestioneProduzione = () => {
       const prenAgg = await resPren.json();
 
       if (!prenAgg || !prenAgg.data) {
-        alert("Errore recupero prenotazione aggiornata");
+        toast.error("Errore recupero prenotazione aggiornata");
         return;
       }
 
@@ -301,7 +266,7 @@ const GestioneProduzione = () => {
 
       if (!resCrea.ok) {
         const text = await resCrea.text();
-        alert("Errore creazione produzione:\n" + text);
+        toast.info("Errore creazione produzione:\n" + text);
         return;
       }
 
@@ -310,7 +275,7 @@ const GestioneProduzione = () => {
         dataCrea?.id_produzione || dataCrea?.data?.id_produzione;
 
       if (!idProduzione) {
-        alert("❌ Errore: ID produzione mancante.");
+        toast.error("Errore: ID produzione mancante.");
         return;
       }
 
@@ -327,7 +292,7 @@ const GestioneProduzione = () => {
 
       if (!resCompleta.ok) {
         const errText = await resCompleta.text();
-        alert("Errore completamento produzione:\n" + errText);
+        toast.info("Errore completamento produzione:\n" + errText);
         return;
       }
 
@@ -340,7 +305,7 @@ const GestioneProduzione = () => {
 
 
       if (!prenAggUpdated || !prenAggUpdated.data) {
-        alert("Errore nel ricaricare la prenotazione aggiornata");
+        toast.error("Errore nel ricaricare la prenotazione aggiornata");
         return;
       }
 
@@ -373,11 +338,11 @@ const GestioneProduzione = () => {
         prev.filter(p => p.id !== prenotazione.id)
       );
 
-      alert("✅ Produzione completata");
+      toast.success("Produzione completata");
 
     } catch (err) {
       console.error("❌ Errore generale handleConfermaProduzione:", err);
-      alert("Errore durante la conferma produzione");
+      toast.error("Errore durante la conferma produzione");
     }
   };
 
@@ -408,7 +373,6 @@ const GestioneProduzione = () => {
       if (!res.ok) throw new Error("Errore creazione prenotazione");
 
       const data = await res.json();
-      console.log("✅ Prenotazione creata:", data);
 
       if (data?.prenotazione) {
         setPrenotazioni((prev) => {
@@ -423,7 +387,7 @@ const GestioneProduzione = () => {
       await ricaricaDati();
     } catch (err) {
       console.error("❌ Errore handlePrenota:", err);
-      alert("Errore durante la creazione della prenotazione");
+      toast.error("Errore durante la creazione della prenotazione");
     }
   };
 
@@ -437,10 +401,10 @@ const GestioneProduzione = () => {
       });
       if (!res.ok) throw new Error("Errore salvataggio nota");
       await fetchPrenotazioni();
-      alert("✅ Nota salvata");
+      toast.success("Nota salvata");
     } catch (err) {
       console.error("❌ Errore salvataggio nota:", err);
-      alert("Errore salvataggio nota");
+      toast.error("Errore salvataggio nota");
     }
   };
 

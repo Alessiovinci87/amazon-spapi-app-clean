@@ -17,24 +17,7 @@ function registraStoricoProduzione({
   operatore = "system"
 }) {
 
-  // 🟦 DEBUG 1 — Funzione chiamata
-  console.log("📌 [DEBUG] ➜ Entrato in registraStoricoProduzione");
-
   const db = getDb();
-
-  // 🟦 DEBUG 2 — Payload completo
-  console.log("📌 [DEBUG] ➜ Sto per inserire storico con payload:", {
-    id_produzione,
-    id_sfuso,
-    asin_prodotto,
-    nome_prodotto,
-    formato,
-    quantita,
-    litri_usati,
-    evento,
-    note,
-    operatore
-  });
 
   // 📝 INSERT storico
   db.prepare(`
@@ -63,9 +46,6 @@ function registraStoricoProduzione({
     note,
     operatore
   );
-
-  // 🟦 DEBUG 3 — Conferma INSERT
-  console.log("📌 [DEBUG] ✔ INSERT storico_produzioni_sfuso COMPLETATO");
 
   return { ok: true };
 }
