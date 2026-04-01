@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { triggerReloadInventario } from "../utils/globalEvents";
 import { fetchJSON, buildUrl } from "../utils/api";
+import { normalizeState } from "../utils/statoUtils";
 
 // ========== FUNZIONE ACCESSORI ==========
 function getAccessoryList(formato) {
@@ -59,23 +60,6 @@ const GestioneProduzioneMagazzino = () => {
   const [prenotazioni, setPrenotazioni] = useState([]);
   const [sfusoData, setSfusoData] = useState([]);
   const [filterSearchTerm, setFilterSearchTerm] = useState("");
-
-  // ========== NORMALIZZAZIONE STATI ==========
-  const normalizeState = (value) => {
-    if (!value) return "pending";
-    const normalized = value.toString().toLowerCase().trim();
-    const stateMap = {
-      "prenotazione": "pending",
-      "in lavorazione": "in_corso",
-      "confermata": "completato",
-      "completato": "completato",
-      "annullata": "annullato",
-      "annullato": "annullato",
-      "pending": "pending",
-      "in_corso": "in_corso"
-    };
-    return stateMap[normalized] || "pending";
-  };
 
   // ========== FETCH ==========
   const fetchSfuso = async () => {

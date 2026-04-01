@@ -18,7 +18,6 @@ async function keepAlive() {
       }
     );
 
-    console.log("✅ Keep-alive eseguito con successo:", res.status);
   } catch (err) {
     console.error("❌ Errore keep-alive:", err.response?.data || err.message);
   }
@@ -26,7 +25,6 @@ async function keepAlive() {
 
 // ⚙️ Pianificazione: il 1° giorno di ogni mese a mezzanotte
 cron.schedule("0 0 1 * *", () => {
-  console.log("⏳ Eseguo keep-alive SP-API...");
   keepAlive();
 });
 

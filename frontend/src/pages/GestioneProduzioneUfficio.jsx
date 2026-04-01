@@ -22,6 +22,7 @@ import {
 import ProduzioneCard from "../components/produzione/ProduzioneCard";
 import { triggerReloadInventario } from "../utils/globalEvents";
 import { fetchJSON, buildUrl } from "../utils/api";
+import { normalizeState, getStateLabel } from "../utils/statoUtils";
 
 const GestioneProduzione = () => {
     const navigate = useNavigate();
@@ -35,38 +36,10 @@ const GestioneProduzione = () => {
     const [filterSearchTerm, setFilterSearchTerm] = useState("");
     const [produzioneCounter, setProduzioneCounter] = useState(0);
 
-    // ========== NORMALIZZAZIONE STATI ==========
-    const normalizeState = (value) => {
-        if (!value) return "pending";
-        const normalized = value.toString().toLowerCase().trim();
-        const stateMap = {
-            "prenotazione": "pending",
-            "in lavorazione": "in_corso",
-            "confermata": "completato",
-            "completato": "completato",
-            "annullata": "annullato",
-            "annullato": "annullato",
-            "pending": "pending",
-            "in_corso": "in_corso"
-        };
-        return stateMap[normalized] || "pending";
-    };
-
-    const getStateLabel = (normalizedState) => {
-        const labels = {
-            "pending": "Prenotazione",
-            "in_corso": "In Lavorazione",
-            "completato": "Completato",
-            "annullato": "Annullato"
-        };
-        return labels[normalizedState] || normalizedState;
-    };
-
     // ========== FETCH DATI ==========
     const fetchSfuso = async () => {
         try {
             const data = await fetchJSON("sfuso");
-            console.log("📊 Dati SFUSO ricevuti:", data);
             setSfusoData(data);
         } catch (err) {
             console.error("❌ Errore fetch sfuso:", err);
@@ -76,7 +49,6 @@ const GestioneProduzione = () => {
     const fetchPrenotazioni = async () => {
         try {
             const data = await fetchJSON("sfuso/prenotazioni");
-            console.log("📦 Prenotazioni dal backend:", data);
             setPrenotazioni(data);
         } catch (err) {
             console.error("❌ Errore fetch prenotazioni:", err);
@@ -138,7 +110,6 @@ const GestioneProduzione = () => {
                 operatore: "admin"
             };
 
-            console.log("📌 [DEBUG] ➜ Storico payload finale:", payload);
 
             const res = await fetch(buildUrl("storico-produzioni-sfuso"), {
                 method: "POST",
@@ -152,7 +123,6 @@ const GestioneProduzione = () => {
                 return;
             }
 
-            console.log("✅ Storico registrato:", text);
         } catch (err) {
             console.error("❌ Errore registraStoricoProduzione:", err);
         }
@@ -166,7 +136,6 @@ const GestioneProduzione = () => {
         }
 
         const statoNormalizzato = normalizeState(nuovoStato);
-        console.log("🧩 handleAggiornaStato chiamato con:", { id, nuovoStato, statoNormalizzato });
 
         try {
             const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
@@ -185,11 +154,9 @@ const GestioneProduzione = () => {
                 throw new Error("Errore aggiornamento stato");
             }
 
-            console.log("✅ Stato aggiornato con successo:", data.message || data);
 
             if (statoNormalizzato === "annullato") {
                 const prenotazione = prenotazioni.find(p => p.id === id);
-                console.log("🔍 Prenotazione trovata:", prenotazione);
                 if (prenotazione) {
                     if (statoNormalizzato === "annullato") {
                         const pren = prenotazioni.find(p => p.id === id);
@@ -379,7 +346,6 @@ const GestioneProduzione = () => {
             if (!res.ok) throw new Error("Errore creazione prenotazione");
 
             const data = await res.json();
-            console.log("✅ Prenotazione creata:", data);
 
             if (data?.prenotazione) {
                 setPrenotazioni((prev) => {
