@@ -16,28 +16,7 @@ import {
   Download
 } from "lucide-react";
 
-const brandConfig = {
-  lookink: {
-    nome: "Lookink",
-    logo: "/images/LOOKINK-Logo.png",
-    intestazione:
-      "Dissimile Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02963100900 – info@lookink.net",
-  },
-  cside: {
-    nome: "C-Side",
-    logo: "/images/C-Side-logo.png",
-    intestazione:
-      "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com",
-  },
-  pics: {
-    nome: "Pics",
-    logo: "/images/logo.png",
-    intestazione:
-      "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com",
-  },
-};
-
-const corrieriPredefiniti = ["GLS", "BRT", "DHL", "SDA", "TNT", "AMAZON", "UPS"];
+import { BRAND_CONFIG as brandConfig, CORRIERI_PREDEFINITI as corrieriPredefiniti } from "../constants/ddt";
 
 const DDTNuovo = () => {
   const navigate = useNavigate();

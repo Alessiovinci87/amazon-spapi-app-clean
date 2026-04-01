@@ -21,7 +21,7 @@ import {
   Box,
 } from "lucide-react";
 
-const corrieriPredefiniti = ["GLS", "BRT", "DHL", "SDA", "TNT", "AMAZON", "UPS"];
+import { CORRIERI_PREDEFINITI as corrieriPredefiniti } from "../constants/ddt";
 
 const paesiOrdinati = [
   "Italia",
