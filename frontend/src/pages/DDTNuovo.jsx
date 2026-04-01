@@ -92,7 +92,7 @@ const DDTNuovo = () => {
 
     console.log("Nuovo DDT generico:", body);
 
-    const res = await fetch("http://localhost:3005/api/v2/ddt/generico/pdf", {
+    const res = await fetch("/api/v2/ddt/generico/pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

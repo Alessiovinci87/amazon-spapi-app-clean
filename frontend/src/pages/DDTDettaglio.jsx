@@ -152,7 +152,7 @@ const DDTDettaglio = () => {
           // DDT specifico: carica da assegnazioni
           try {
             const resAss = await fetch(
-              `http://localhost:3005/api/v2/ddt/assegnazioni/${idSpedizione}/${ddtNumero}`
+              `/api/v2/ddt/assegnazioni/${idSpedizione}/${ddtNumero}`
             );
             const dataAss = await resAss.json();
 
@@ -267,7 +267,7 @@ const DDTDettaglio = () => {
     };
 
     try {
-      const res = await fetch("http://localhost:3005/api/v2/ddt/pics-nails/pdf", {
+      const res = await fetch("/api/v2/ddt/pics-nails/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

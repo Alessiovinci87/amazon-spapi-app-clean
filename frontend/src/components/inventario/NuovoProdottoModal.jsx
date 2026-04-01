@@ -18,7 +18,7 @@ const NuovoProdottoModal = ({ onClose, onSuccess }) => {
     useEffect(() => {
         console.log("🔁 Avvio fetch per /api/v2/sfuso/liberi...");
 
-        fetch("http://localhost:3005/api/v2/sfuso/liberi")
+        fetch("/api/v2/sfuso/liberi")
             .then(async (res) => {
                 const text = await res.text();
                 console.log("📡 Risposta raw:", text);
@@ -102,7 +102,7 @@ const NuovoProdottoModal = ({ onClose, onSuccess }) => {
             if (form.asin && id_sfuso) {
                 try {
                     console.log(`🟣 Invio PATCH /api/v2/sfuso/${id_sfuso}/asin per ASIN ${form.asin}`);
-                    const res = await fetch(`http://localhost:3005/api/v2/sfuso/${id_sfuso}/asin`, {
+                    const res = await fetch(`/api/v2/sfuso/${id_sfuso}/asin`, {
                         method: "PATCH",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ asin: form.asin }),

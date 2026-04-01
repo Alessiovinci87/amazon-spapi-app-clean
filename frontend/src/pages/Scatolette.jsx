@@ -26,7 +26,7 @@ const Scatolette = () => {
   useEffect(() => {
     const fetchScatolette = async () => {
       try {
-        const res = await fetch("http://localhost:3005/api/v2/scatolette"); // ⬅️ PERCORSO COMPLETO
+        const res = await fetch("/api/v2/scatolette"); // ⬅️ PERCORSO COMPLETO
         const data = await res.json();
         console.log("📦 Dati ricevuti:", data); // ⬅️ DEBUG
         setRows(data);
@@ -63,7 +63,7 @@ const Scatolette = () => {
     if (nuovaQuantita === null) return;
 
     try {
-      const res = await fetch(`http://localhost:3005/api/v2/scatolette/${row.id}`, { // ⬅️ PERCORSO COMPLETO
+      const res = await fetch(`/api/v2/scatolette/${row.id}`, { // ⬅️ PERCORSO COMPLETO
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quantita: Number(nuovaQuantita) }),

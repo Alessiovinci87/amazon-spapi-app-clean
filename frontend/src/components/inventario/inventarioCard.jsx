@@ -30,7 +30,7 @@ const InventarioCard = ({
 
     try {
       // FIX: Endpoint corretto /magazzino/ invece di /inventario/
-      const res = await fetch(`http://localhost:3005/api/v2/magazzino/${asin}`, { method: "DELETE" });
+      const res = await fetch(`/api/v2/magazzino/${asin}`, { method: "DELETE" });
       const data = await res.json();
 
       if (res.ok) {

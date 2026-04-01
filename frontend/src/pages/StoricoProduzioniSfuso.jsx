@@ -47,7 +47,7 @@ const StoricoProduzioniSfuso = () => {
   const fetchProduzioni = async () => {
     try {
       setLoading(true);
-      const response = await fetch("http://localhost:3005/api/v2/produzioni-sfuso/storico/");
+      const response = await fetch("/api/v2/produzioni-sfuso/storico/");
       if (!response.ok) throw new Error("Errore nel caricamento");
       
       const json = await response.json();
@@ -186,7 +186,7 @@ const StoricoProduzioniSfuso = () => {
   const handleResetStorico = async () => {
     try {
       setResetInCorso(true);
-      const res = await fetch("http://localhost:3005/api/v2/storico/reset", {
+      const res = await fetch("/api/v2/storico/reset", {
         method: "DELETE",
       });
       

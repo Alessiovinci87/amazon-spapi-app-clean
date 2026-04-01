@@ -30,10 +30,10 @@ const SfusoCard = ({
 
         if (selectedProdotto?.asin) {
           // se il prodotto ha asin, usa la rotta per ASIN
-          url = `http://localhost:3005/api/v2/fornitori/ordini/asin/${selectedProdotto.asin}`;
+          url = `/api/v2/fornitori/ordini/asin/${selectedProdotto.asin}`;
         } else if (id) {
           // altrimenti usa la rotta per ID sfuso
-          url = `http://localhost:3005/api/v2/sfuso/${id}/ordini`;
+          url = `/api/v2/sfuso/${id}/ordini`;
         }
 
         if (!url) return;
@@ -167,7 +167,7 @@ const SfusoCard = ({
   // 🔹 Conferma rettifica (PATCH al backend)
   const handleConfermaRettifica = async ({ campo, nuovoValore, nota, operatore }) => {
     try {
-      const res = await fetch(`http://localhost:3005/api/v2/sfuso/${id}`, {
+      const res = await fetch(`/api/v2/sfuso/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -200,7 +200,7 @@ const SfusoCard = ({
   const handleConfermaArrivo = async (idOrdine) => {
     if (!window.confirm("Confermare l’arrivo di questo ordine?")) return;
     try {
-      const res = await fetch(`http://localhost:3005/api/v2/ordini-fornitori/${idOrdine}/conferma`, {
+      const res = await fetch(`/api/v2/ordini-fornitori/${idOrdine}/conferma`, {
         method: "PATCH",
       });
       const data = await res.json();

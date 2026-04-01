@@ -1,6 +1,6 @@
 
 const API_BASE =
-  import.meta.env?.VITE_API_BASE || "http://localhost:3005/api/v2";
+  import.meta.env?.VITE_API_BASE || "/api/v2";
 
 const trimTrailingSlash = (value = "") => value.replace(/\/+$/, "");
 const trimLeadingSlash = (value = "") => value.replace(/^\/+/, "");

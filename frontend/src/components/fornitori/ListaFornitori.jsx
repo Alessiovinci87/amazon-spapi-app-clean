@@ -13,7 +13,7 @@ const ListaFornitori = () => {
 
   // 🔹 Carica lista fornitori all'avvio
   useEffect(() => {
-    fetch("http://localhost:3005/api/v2/fornitori")
+    fetch("/api/v2/fornitori")
       .then((res) => res.json())
       .then((data) => setFornitori(data))
       .catch((err) => console.error("❌ Errore caricamento fornitori:", err));
@@ -30,8 +30,8 @@ const ListaFornitori = () => {
 
     try {
       const [ordiniRes, prodottiRes] = await Promise.all([
-        fetch(`http://localhost:3005/api/v2/fornitori/${id}/ordini`),
-        fetch(`http://localhost:3005/api/v2/fornitori/${id}/prodotti`),
+        fetch(`/api/v2/fornitori/${id}/ordini`),
+        fetch(`/api/v2/fornitori/${id}/prodotti`),
       ]);
 
       const [ordiniData, prodottiData] = await Promise.all([
@@ -55,7 +55,7 @@ const ListaFornitori = () => {
     if (!window.confirm("Vuoi eliminare tutti gli ordini di questo fornitore?")) return;
 
     try {
-      const res = await fetch(`http://localhost:3005/api/v2/fornitori/${idFornitore}/ordini`, {
+      const res = await fetch(`/api/v2/fornitori/${idFornitore}/ordini`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -86,7 +86,7 @@ const ListaFornitori = () => {
   // 🔹 Salva modifiche
   const salvaModifiche = async () => {
     try {
-      const res = await fetch(`http://localhost:3005/api/v2/fornitori/${editId}`, {
+      const res = await fetch(`/api/v2/fornitori/${editId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formEdit),
@@ -97,7 +97,7 @@ const ListaFornitori = () => {
         toast.success("Fornitore aggiornato correttamente");
         setEditId(null);
         // Aggiorna lista
-        const updated = await fetch("http://localhost:3005/api/v2/fornitori").then((r) =>
+        const updated = await fetch("/api/v2/fornitori").then((r) =>
           r.json()
         );
         setFornitori(updated);
@@ -115,8 +115,7 @@ const ListaFornitori = () => {
     if (!window.confirm("Sei sicuro di voler eliminare questo ordine?")) return;
 
     try {
-      console.log("🟡 ID ordine da cancellare:", idOrdine);
-      const response = await fetch(`http://localhost:3005/api/v2/fornitori/ordini/${idOrdine}`, {
+      const response = await fetch(`/api/v2/fornitori/ordini/${idOrdine}`, {
         method: "DELETE",
       });
 
@@ -345,7 +344,7 @@ const ListaFornitori = () => {
                                                   )
                                                 ) {
                                                   const res = await fetch(
-                                                    `http://localhost:3005/api/v2/fornitori/ordini/${o.id}`,
+                                                    `/api/v2/fornitori/ordini/${o.id}`,
                                                     { method: "DELETE" }
                                                   );
                                                   const data = await res.json();

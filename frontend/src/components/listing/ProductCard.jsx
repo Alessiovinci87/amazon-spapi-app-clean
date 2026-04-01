@@ -27,7 +27,7 @@ const ProductCard = ({ asin, sku, image, prezzo, buyBox, stock, perPaese = {} })
   useEffect(() => {
     async function fetchImmagini() {
       try {
-        const res = await fetch(`http://localhost:3005/api/v2/inventario/${asin}/images`);
+        const res = await fetch(`/api/v2/inventario/${asin}/images`);
         if (!res.ok) throw new Error("Errore fetch immagini");
         const data = await res.json();
         setImmagini(data.images || []);

@@ -24,7 +24,7 @@ const STORAGE_KEY = "inventario_prodotti";
 const STORAGE_KEY_ACCESSORI = "inventario_accessori";
 const STORAGE_KEY_STORICO = "inventario_storico";
 const API_BASE =
-  import.meta.env?.VITE_API_BASE || "http://localhost:3005/api/v2";
+  import.meta.env?.VITE_API_BASE || "/api/v2";
 const CATEGORIE_12ML = [
   "PREPARATORI UNGHIE",
   "OLI CUTICOLE",
