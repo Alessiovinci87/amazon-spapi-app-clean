@@ -16,12 +16,7 @@ export default defineConfig({
         target: "http://localhost:3005",  // ✅ Backend Express
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path,  // ✅ Mantiene intatto /api
-        configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq, req) => {
-            console.log(`➡️ Proxying ${req.method} ${req.url}`);
-          });
-        },
+        rewrite: (path) => path,
       },
     },
   },

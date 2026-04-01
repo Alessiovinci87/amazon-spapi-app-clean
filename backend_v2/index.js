@@ -9,6 +9,7 @@ if (process.env.NODE_ENV !== "production") {
 
 const express = require("express");
 const cors = require("cors");
+const rateLimit = require("express-rate-limit");
 const path = require("path");
 const { ensureDatabaseReady } = require("./db/database");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
@@ -119,7 +120,29 @@ async function bootstrap() {
 
   const app = express();
 
-  app.use(cors());
+  // CORS — accetta solo origini configurate in ALLOWED_ORIGINS
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:5174")
+    .split(",")
+    .map((o) => o.trim());
+
+  app.use(cors({
+    origin(origin, cb) {
+      // Permetti richieste senza origin (es. Postman, curl, server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      cb(new Error(`CORS: origine non permessa — ${origin}`));
+    },
+    credentials: true,
+  }));
+
+  // Rate limiting globale — 300 richieste per IP ogni 15 minuti
+  app.use(rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Troppe richieste, riprova tra qualche minuto." },
+  }));
+
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true }));
 
@@ -153,7 +176,7 @@ async function bootstrap() {
 
   app.use("/api/v2/storico-scatolette", require("./routes/scatoletteStorico"));
 
-  app.use("/api/v2/scatolette", require("./routes/scatolette"));
+  app.use("/api/v2/scatolette", scatoletteRoutes);
 
 
   // =========================================================
@@ -208,8 +231,6 @@ async function bootstrap() {
   app.use("/api/v2/app-auth", appAuthRoutes);
 
   app.use("/api/statistiche", require("./routes/statistiche"));
-
-  app.use("/api/v2/scatolette", scatoletteRoutes);
 
 
   
