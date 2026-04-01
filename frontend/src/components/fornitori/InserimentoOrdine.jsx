@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { toast } from "sonner";
 
 const InserimentoOrdine = () => {
   const [form, setForm] = useState({
     fornitore: "",
-    dataOrdine: new Date(), // 👈 imposta data odierna
+    dataOrdine: new Date(),
     pagamento: "",
     consegnaPrevista: null,
     consegnaEffettiva: null,
@@ -17,41 +18,34 @@ const InserimentoOrdine = () => {
   const [prodottiFornitore, setProdottiFornitore] = useState([]);
   const [mostraForm, setMostraForm] = useState(true);
 
-  // 🔹 Stati multiprodotto
   const [prodottoSelezionato, setProdottoSelezionato] = useState(null);
   const [quantita, setQuantita] = useState("");
   const [prezzo, setPrezzo] = useState("");
   const [ordineProdotti, setOrdineProdotti] = useState([]);
 
-  // 🔹 Carica fornitori
   useEffect(() => {
-    fetch("http://localhost:3005/api/v2/fornitori")
+    fetch("/api/v2/fornitori")
       .then((res) => res.json())
       .then(setFornitori)
       .catch((err) => console.error("❌ Errore caricamento fornitori:", err));
   }, []);
 
-  // 🔹 Carica prodotti del fornitore selezionato
   const caricaProdottiFornitore = async (idFornitore) => {
     if (!idFornitore) return;
     try {
-      const res = await fetch(
-        `http://localhost:3005/api/v2/fornitori/${idFornitore}/prodotti`
-      );
+      const res = await fetch(`/api/v2/fornitori/${idFornitore}/prodotti`);
       if (!res.ok) throw new Error("Errore nel caricamento prodotti fornitore");
       const data = await res.json();
       setProdottiFornitore(Array.isArray(data) ? data : []);
-      console.log("📦 Prodotti ricevuti dal backend:", data);
     } catch (err) {
       console.error("❌ Errore fetch prodotti fornitore:", err);
       setProdottiFornitore([]);
     }
   };
 
-  // 🔹 Aggiungi prodotto alla lista
   const aggiungiProdotto = () => {
     if (prodottoSelezionato == null || !quantita) {
-      alert("Seleziona un prodotto e inserisci la quantità");
+      toast.warning("Seleziona un prodotto e inserisci la quantità");
       return;
     }
 
@@ -59,16 +53,13 @@ const InserimentoOrdine = () => {
       (p) => String(p.id_sfuso) === String(prodottoSelezionato)
     );
 
-    console.log("🟡 selezione id_sfuso:", prodottoSelezionato);
-    console.log("🧾 INSERT ORDINE → id_sfuso:", prodotto?.id_sfuso, "quantità:", quantita);
-
     if (!prodotto) {
-      alert("Prodotto non trovato. Controlla l'associazione fornitore-prodotto.");
+      toast.error("Prodotto non trovato. Controlla l'associazione fornitore-prodotto.");
       return;
     }
 
     const nuovo = {
-      id_sfuso: Number(prodotto.id_sfuso), // ✅ corretto
+      id_sfuso: Number(prodotto.id_sfuso),
       asin: prodotto.asin || null,
       nome_prodotto: prodotto.nome || prodotto.nome_prodotto,
       formato: prodotto.formato || "",
@@ -83,20 +74,15 @@ const InserimentoOrdine = () => {
     setPrezzo("");
   };
 
-
-  // 🔹 Rimuovi prodotto dalla lista
   const rimuoviProdotto = (index) => {
-    const updated = ordineProdotti.filter((_, i) => i !== index);
-    setOrdineProdotti(updated);
+    setOrdineProdotti(ordineProdotti.filter((_, i) => i !== index));
   };
 
-  // 🔹 Salva ordine completo
   const salvaOrdine = async () => {
     if (!form.fornitore || ordineProdotti.length === 0) {
-      alert("Seleziona un fornitore e aggiungi almeno un prodotto.");
+      toast.warning("Seleziona un fornitore e aggiungi almeno un prodotto.");
       return;
     }
-
 
     const formatDateForSql = (date) => {
       if (!(date instanceof Date) || isNaN(date)) return null;
@@ -105,7 +91,6 @@ const InserimentoOrdine = () => {
       const dd = String(date.getDate()).padStart(2, "0");
       return `${yyyy}-${mm}-${dd}`;
     };
-
 
     const payload = {
       idFornitore: form.fornitore,
@@ -118,23 +103,17 @@ const InserimentoOrdine = () => {
       prodotti: ordineProdotti,
     };
 
-
-
-
     try {
-      const res = await fetch(
-        `http://localhost:3005/api/v2/fornitori/${form.fornitore}/ordini`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const res = await fetch(`/api/v2/fornitori/${form.fornitore}/ordini`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Errore salvataggio ordine");
 
-      alert("✅ Ordine fornitore salvato con successo!");
+      toast.success("Ordine fornitore salvato con successo!");
       setOrdineProdotti([]);
       setForm({
         fornitore: "",
@@ -147,22 +126,19 @@ const InserimentoOrdine = () => {
       });
     } catch (err) {
       console.error("❌ Errore salvataggio ordine:", err);
-      alert("Errore durante il salvataggio dell'ordine.");
+      toast.error("Errore durante il salvataggio dell'ordine.");
     }
   };
 
   return (
     <div className="mb-6 text-white">
-      {/* ======== FORM ORDINE ======== */}
       {mostraForm && (
         <div className="bg-zinc-900/60 p-6 rounded-lg space-y-8">
 
-          {/* 📋 DATI ORDINE */}
           <section>
             <h3 className="text-xl font-semibold mb-3">📋 Dati Ordine</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-              {/* Fornitore */}
               <div>
                 <label className="block text-sm mb-1">Fornitore</label>
                 <select
@@ -182,18 +158,16 @@ const InserimentoOrdine = () => {
                 </select>
               </div>
 
-              {/* Data Ordine */}
               <div>
                 <label className="block text-sm mb-1">Data Ordine</label>
                 <DatePicker
                   selected={form.dataOrdine}
                   onChange={(date) => setForm({ ...form, dataOrdine: date })}
-                  dateFormat="dd/MM/yyyy"  // 👈 formato europeo
+                  dateFormat="dd/MM/yyyy"
                   className="p-2 w-full rounded bg-zinc-800 border border-zinc-700 text-white"
                 />
               </div>
 
-              {/* Stato */}
               <div>
                 <label className="block text-sm mb-1">Stato</label>
                 <select
@@ -208,7 +182,6 @@ const InserimentoOrdine = () => {
                 </select>
               </div>
 
-              {/* Pagamento */}
               <div>
                 <label className="block text-sm mb-1">Pagamento</label>
                 <select
@@ -225,7 +198,6 @@ const InserimentoOrdine = () => {
                 </select>
               </div>
 
-              {/* Consegna Prevista */}
               <div>
                 <label className="block text-sm mb-1">Consegna Prevista</label>
                 <DatePicker
@@ -236,7 +208,6 @@ const InserimentoOrdine = () => {
                 />
               </div>
 
-              {/* Consegna Effettiva */}
               <div>
                 <label className="block text-sm mb-1">Consegna Effettiva</label>
                 <DatePicker
@@ -249,20 +220,14 @@ const InserimentoOrdine = () => {
             </div>
           </section>
 
-          {/* 🧴 PRODOTTI ORDINE */}
           <section>
             <h3 className="text-xl font-semibold mb-3">🧴 Prodotti Ordine</h3>
             <div className="border border-zinc-700 rounded p-4 bg-zinc-900/50">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                 <select
-                  onChange={(e) => {
-                    console.log("🟡 selezione id_sfuso:", e.target.value); // 👈 LOG FRONTEND
-                    setProdottoSelezionato(e.target.value || null);
-                  }} // ← mai Number()
+                  onChange={(e) => setProdottoSelezionato(e.target.value || null)}
                   className="p-2 rounded bg-zinc-800 border border-zinc-700"
-
                 >
-
                   <option value="">Seleziona prodotto</option>
                   {prodottiFornitore.map((p) => (
                     <option
@@ -273,9 +238,6 @@ const InserimentoOrdine = () => {
                     </option>
                   ))}
                 </select>
-
-
-
 
                 <input
                   type="number"
@@ -337,7 +299,6 @@ const InserimentoOrdine = () => {
             </div>
           </section>
 
-          {/* 🗒️ NOTE E SALVATAGGIO */}
           <section>
             <h3 className="text-xl font-semibold mb-3">🗒️ Note</h3>
             <textarea
@@ -360,7 +321,6 @@ const InserimentoOrdine = () => {
       )}
     </div>
   );
-
 };
 
 export default InserimentoOrdine;

@@ -45,14 +45,14 @@ const StoricoSfusoInventario = () => {
             });
             const data = await res.json();
             if (!res.ok) {
-                alert(data.message || "Errore durante la cancellazione dello storico.");
+                toast.info(data.message || "Errore durante la cancellazione dello storico.");
                 return;
             }
-            alert("✅ Storico cancellato con successo!");
+            toast.success("Storico cancellato con successo!");
             setMovimenti([]);
         } catch (err) {
             console.error("❌ Errore reset storico:", err);
-            alert("Errore durante la cancellazione dello storico.");
+            toast.error("Errore durante la cancellazione dello storico.");
         }
     };
 

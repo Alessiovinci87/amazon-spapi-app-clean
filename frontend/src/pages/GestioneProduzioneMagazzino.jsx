@@ -132,7 +132,7 @@ const GestioneProduzioneMagazzino = () => {
       await ricaricaDati();
     } catch (err) {
       console.error("❌ Errore aggiornamento stato:", err);
-      alert("Errore durante aggiornamento stato");
+      toast.error("Errore durante aggiornamento stato");
     }
   };
 
@@ -141,7 +141,7 @@ const GestioneProduzioneMagazzino = () => {
     try {
       const quantitaNumerica = Number(nuovaQuantita);
       if (isNaN(quantitaNumerica) || quantitaNumerica <= 0) {
-        alert("Quantità non valida");
+        toast.info("Quantità non valida");
         return;
       }
       const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
@@ -167,7 +167,7 @@ const GestioneProduzioneMagazzino = () => {
       const dataCrea = await resCrea.json();
       const idProduzione = dataCrea?.id_produzione;
       if (!idProduzione) {
-        alert("❌ ID produzione mancante");
+        toast.error("ID produzione mancante");
         return;
       }
       const res = await fetch(buildUrl(`produzioni-sfuso/${idProduzione}/completa`), {
@@ -182,7 +182,7 @@ const GestioneProduzioneMagazzino = () => {
       triggerReloadInventario();
     } catch (err) {
       console.error("❌ Errore conferma produzione:", err);
-      alert("Errore conferma produzione");
+      toast.error("Errore conferma produzione");
     }
   };
 

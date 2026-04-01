@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const GestioneProdottiFornitore = () => {
   const [fornitori, setFornitori] = useState([]);
@@ -34,7 +35,7 @@ const GestioneProdottiFornitore = () => {
 
   const handleAssocia = async () => {
     if (!fornitoreSelezionato || !prodottoSelezionato) {
-      alert("Seleziona fornitore e prodotto!");
+      toast.warning("Seleziona fornitore e prodotto!");
       return;
     }
 
@@ -51,14 +52,14 @@ const GestioneProdottiFornitore = () => {
     });
 
     if (res.ok) {
-      alert("✅ Prodotto associato con successo!");
+      toast.success("Prodotto associato con successo!");
       setPrezzo("");
       setNote("");
       setProdottoSelezionato(null);
       setRicercaProdotto(""); // pulisce solo il campo ricerca
       caricaProdottiAssociati(fornitoreSelezionato);
     } else {
-      alert("❌ Errore durante l'associazione");
+      toast.error("Errore durante l'associazione");
     }
   };
 

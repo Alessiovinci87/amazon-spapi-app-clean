@@ -5,7 +5,7 @@ const ExportCSVButton = ({ spedizioni, cleanText, nextProgressivo, spedizioneInf
 
   const confermaSpedizione = () => {
     if (!spedizioni || spedizioni.length === 0) {
-      alert("Nessuna spedizione da confermare.");
+      toast.info("Nessuna spedizione da confermare.");
       return;
     }
 
@@ -15,13 +15,13 @@ const ExportCSVButton = ({ spedizioni, cleanText, nextProgressivo, spedizioneInf
 
     if (ok) {
       setConfermata(true);
-      alert("✅ Spedizione confermata. Ora puoi esportare il CSV.");
+      toast.success("Spedizione confermata. Ora puoi esportare il CSV.");
     }
   };
 
   const esportaCSV = () => {
     if (!confermata) {
-      alert("⚠️ Devi prima confermare la spedizione.");
+      toast.warning("️ Devi prima confermare la spedizione.");
       return;
     }
 

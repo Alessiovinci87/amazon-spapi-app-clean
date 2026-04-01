@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { fetchJSON } from "../../utils/api"; // tua funzione fetch
-import { API_BASE } from "../../utils/api";
+import { fetchJSON, API_BASE } from "../../utils/api";
+import { toast } from "sonner";
 
 import ModaleModificaCosto from "./ModaleModificaCosto";
 
@@ -52,10 +52,10 @@ export default function CatalogoCostiTable() {
 
             const out = await res.json();
             if (!out.ok) {
-                alert("Errore salvataggio: " + out.error);
+                toast.error("Errore salvataggio");
             }
         } catch (err) {
-            alert("Errore: " + err.message);
+            toast.error("Errore salvataggio");
         }
 
         setSavingId(null);

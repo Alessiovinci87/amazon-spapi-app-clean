@@ -28,17 +28,17 @@ const ProduzioneCard = ({ formato, selectedProdotto, sfusoData, onPrenota }) => 
   // 🔹 Gestione prenotazione
   const handlePrenota = () => {
     if (!selectedProdotto) {
-      alert("⚠️ Seleziona prima un prodotto dall'inventario.");
+      toast.warning("️ Seleziona prima un prodotto dall'inventario.");
       return;
     }
 
     if (!sfusoCollegato) {
-      alert("❌ Nessun sfuso collegato trovato per questo formato.");
+      toast.error("Nessun sfuso collegato trovato per questo formato.");
       return;
     }
 
     if (!pezzi || pezzi <= 0) {
-      alert("⚠️ Inserisci un numero valido di pezzi.");
+      toast.warning("️ Inserisci un numero valido di pezzi.");
       return;
     }
 

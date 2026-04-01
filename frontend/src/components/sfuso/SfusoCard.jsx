@@ -102,15 +102,15 @@ const SfusoCard = ({
   // 🔹 Prenotazione
   const handlePrenotaClick = async () => {
     if (!selectedProdotto) {
-      alert("⚠️ Seleziona prima un prodotto da produrre (in alto)!");
+      toast.warning("️ Seleziona prima un prodotto da produrre (in alto)!");
       return;
     }
     if (!sfusoLotto) {
-      alert("⚠️ Inserisci/definisci il lotto dello sfuso");
+      toast.warning("️ Inserisci/definisci il lotto dello sfuso");
       return;
     }
     if (!prodottiDaInviare || prodottiDaInviare <= 0) {
-      alert("⚠️ Inserisci una quantità valida da produrre");
+      toast.warning("️ Inserisci una quantità valida da produrre");
       return;
     }
 
@@ -148,7 +148,7 @@ const SfusoCard = ({
 
       if (!res.ok) {
         console.error("❌ Errore salvataggio prenotazione:", res.status, raw);
-        alert(`Errore ${res.status}: ${raw || "Salvataggio prenotazione fallito"}`);
+        toast.error();
         return;
       }
 
@@ -160,7 +160,7 @@ const SfusoCard = ({
       setPriorita("Media");
     } catch (err) {
       console.error("❌ Errore salvataggio prenotazione:", err);
-      alert("Errore nel salvataggio prenotazione");
+      toast.error("Errore nel salvataggio prenotazione");
     }
   };
 
@@ -188,10 +188,10 @@ const SfusoCard = ({
         setSfusoLotto(String(data.lotto ?? data?.updated?.lotto ?? nuovoValore));
       }
 
-      alert("✅ Rettifica salvata con successo!");
+      toast.success("Rettifica salvata con successo!");
     } catch (err) {
       console.error("❌ Errore PATCH rettifica:", err);
-      alert("Errore durante la rettifica");
+      toast.error("Errore durante la rettifica");
     }
   };
 
@@ -205,7 +205,7 @@ const SfusoCard = ({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Errore aggiornamento ordine");
-      alert("✅ Ordine confermato! Magazzino aggiornato.");
+      toast.success("Ordine confermato! Magazzino aggiornato.");
       // Ricarica elenco
       setOrdiniFornitore((prev) =>
         prev.map((o) =>
@@ -214,7 +214,7 @@ const SfusoCard = ({
       );
     } catch (err) {
       console.error("❌ Errore conferma ordine:", err);
-      alert("Errore nella conferma ordine");
+      toast.error("Errore nella conferma ordine");
     }
   };
 

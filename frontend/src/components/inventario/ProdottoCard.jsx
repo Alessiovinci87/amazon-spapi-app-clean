@@ -135,9 +135,9 @@ const ProdottoCard = ({
     const operatore = prompt("Inserisci il nome dell'operatore (Guido, David, Alessio, Tony):");
 
     const quantita = parseInt(input);
-    if (isNaN(quantita)) return alert("Valore non valido");
-    if (!note?.trim()) return alert("La nota è obbligatoria");
-    if (!operatore?.trim()) return alert("L'operatore è obbligatorio");
+    if (isNaN(quantita)) return toast.info("Valore non valido");
+    if (!note?.trim()) return toast.info("La nota è obbligatoria");
+    if (!operatore?.trim()) return toast.info("L'operatore è obbligatorio");
 
 
 
@@ -161,10 +161,10 @@ const ProdottoCard = ({
       const nuovoPronto = json.data?.pronto ?? json.pronto ?? quantita;
       handleChange(asin, "pronto", nuovoPronto);
 
-      alert(`✅ Rettifica completata. Nuovo Pronto: ${nuovoPronto}`);
+      toast.success(`Rettifica completata. Nuovo Pronto: ${nuovoPronto}`);
     } catch (err) {
       console.error("❌ Errore rettifica:", err);
-      alert("Errore nella rettifica: " + err.message);
+      toast.info("Errore nella rettifica: " + err.message);
     }
   };
 
@@ -403,13 +403,13 @@ const ProdottoCard = ({
                           body: JSON.stringify({ asin, quantita, formato, note }),
                         });
 
-                        alert(`✅ Produzione registrata: ${quantita} pz (${formato})`);
+                        toast.success(`Produzione registrata: ${quantita} pz (${formato})`);
 
                         const nuovoPronto = json.data?.pronto ?? json.pronto ?? pronto + quantita;
                         handleChange(asin, "pronto", nuovoPronto);
                       } catch (err) {
                         console.error("❌ Errore produzione:", err);
-                        alert("Errore nel salvataggio sfuso: " + err.message);
+                        toast.info("Errore nel salvataggio sfuso: " + err.message);
                       }
                     }}
                     className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-medium transition-all hover:scale-105"

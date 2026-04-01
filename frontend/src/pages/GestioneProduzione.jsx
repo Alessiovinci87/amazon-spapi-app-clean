@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from "react";
+import { toast } from 'sonner';
 import { useNavigate } from "react-router-dom";
 import SfusoCard from "../components/sfuso/SfusoCard";
 import ProduzioneCard from "../components/produzione/ProduzioneCard";
@@ -171,7 +172,7 @@ const GestioneProduzione = () => {
 
     } catch (err) {
       console.error("❌ Errore aggiornamento stato:", err);
-      alert("Errore durante l'aggiornamento dello stato");
+      toast.error("Errore durante l'aggiornamento dello stato");
     }
   };
 
@@ -180,7 +181,7 @@ const GestioneProduzione = () => {
     try {
       const quantitaNumerica = Number(nuovaQuantita);
       if (isNaN(quantitaNumerica) || quantitaNumerica <= 0) {
-        alert("⚠️ Quantità non valida");
+        toast.warning("️ Quantità non valida");
         return;
       }
 
@@ -189,7 +190,7 @@ const GestioneProduzione = () => {
       const oldData = await oldRes.json();
 
       if (!oldData || !oldData.data) {
-        alert("Errore: impossibile recuperare la prenotazione iniziale");
+        toast.error("Errore: impossibile recuperare la prenotazione iniziale");
         return;
       }
 
@@ -212,7 +213,7 @@ const GestioneProduzione = () => {
       const prenAgg = await resPren.json();
 
       if (!prenAgg || !prenAgg.data) {
-        alert("Errore recupero prenotazione aggiornata");
+        toast.error("Errore recupero prenotazione aggiornata");
         return;
       }
 
@@ -230,11 +231,11 @@ const GestioneProduzione = () => {
       );
 
       await ricaricaDati();
-      alert("✅ Quantità aggiornata e registrata nello storico");
+      toast.success("Quantità aggiornata e registrata nello storico");
 
     } catch (err) {
       console.error("❌ Errore modifica quantità:", err);
-      alert("Errore durante la modifica della quantità");
+      toast.error("Errore durante la modifica della quantità");
     }
   };
 
@@ -249,7 +250,7 @@ const GestioneProduzione = () => {
       const prenAgg = await resPren.json();
 
       if (!prenAgg || !prenAgg.data) {
-        alert("Errore recupero prenotazione aggiornata");
+        toast.error("Errore recupero prenotazione aggiornata");
         return;
       }
 
@@ -265,7 +266,7 @@ const GestioneProduzione = () => {
 
       if (!resCrea.ok) {
         const text = await resCrea.text();
-        alert("Errore creazione produzione:\n" + text);
+        toast.info("Errore creazione produzione:\n" + text);
         return;
       }
 
@@ -274,7 +275,7 @@ const GestioneProduzione = () => {
         dataCrea?.id_produzione || dataCrea?.data?.id_produzione;
 
       if (!idProduzione) {
-        alert("❌ Errore: ID produzione mancante.");
+        toast.error("Errore: ID produzione mancante.");
         return;
       }
 
@@ -291,7 +292,7 @@ const GestioneProduzione = () => {
 
       if (!resCompleta.ok) {
         const errText = await resCompleta.text();
-        alert("Errore completamento produzione:\n" + errText);
+        toast.info("Errore completamento produzione:\n" + errText);
         return;
       }
 
@@ -304,7 +305,7 @@ const GestioneProduzione = () => {
 
 
       if (!prenAggUpdated || !prenAggUpdated.data) {
-        alert("Errore nel ricaricare la prenotazione aggiornata");
+        toast.error("Errore nel ricaricare la prenotazione aggiornata");
         return;
       }
 
@@ -337,11 +338,11 @@ const GestioneProduzione = () => {
         prev.filter(p => p.id !== prenotazione.id)
       );
 
-      alert("✅ Produzione completata");
+      toast.success("Produzione completata");
 
     } catch (err) {
       console.error("❌ Errore generale handleConfermaProduzione:", err);
-      alert("Errore durante la conferma produzione");
+      toast.error("Errore durante la conferma produzione");
     }
   };
 
@@ -386,7 +387,7 @@ const GestioneProduzione = () => {
       await ricaricaDati();
     } catch (err) {
       console.error("❌ Errore handlePrenota:", err);
-      alert("Errore durante la creazione della prenotazione");
+      toast.error("Errore durante la creazione della prenotazione");
     }
   };
 
@@ -400,10 +401,10 @@ const GestioneProduzione = () => {
       });
       if (!res.ok) throw new Error("Errore salvataggio nota");
       await fetchPrenotazioni();
-      alert("✅ Nota salvata");
+      toast.success("Nota salvata");
     } catch (err) {
       console.error("❌ Errore salvataggio nota:", err);
-      alert("Errore salvataggio nota");
+      toast.error("Errore salvataggio nota");
     }
   };
 

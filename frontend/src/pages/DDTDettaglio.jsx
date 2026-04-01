@@ -278,11 +278,11 @@ const DDTDettaglio = () => {
         const url = window.URL.createObjectURL(blob);
         window.open(url, "_blank");
       } else {
-        alert("❌ Errore nella generazione del PDF");
+        toast.error("Errore nella generazione del PDF");
       }
     } catch (err) {
       console.error("Errore generazione PDF:", err);
-      alert("❌ Errore durante la generazione del PDF");
+      toast.error("Errore durante la generazione del PDF");
     }
   };
 

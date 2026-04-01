@@ -124,12 +124,12 @@ const NuovoProdottoModal = ({ onClose, onSuccess }) => {
 
             onClose();
         } else {
-            alert("Errore durante l'associazione dello sfuso al prodotto.");
+            toast.error("Errore durante l'associazione dello sfuso al prodotto.");
         }
 
     } catch (err) {
         console.error("❌ Errore associazione sfuso:", err);
-        alert("Errore durante la creazione del nuovo inventario.");
+        toast.error("Errore durante la creazione del nuovo inventario.");
     } finally {
         setLoading(false);
     }

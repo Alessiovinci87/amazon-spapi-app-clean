@@ -103,7 +103,7 @@ const DDTNuovo = () => {
       const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
     } else {
-      alert("❌ Errore nella generazione del PDF");
+      toast.error("Errore nella generazione del PDF");
     }
   };
 

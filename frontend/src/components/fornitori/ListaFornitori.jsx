@@ -1,5 +1,6 @@
 // frontend/components/fornitori/ListaFornitori.jsx
 import React, { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 const ListaFornitori = () => {
   const [fornitori, setFornitori] = useState([]);
@@ -60,10 +61,10 @@ const ListaFornitori = () => {
       const data = await res.json();
 
       if (data.ok) {
-        alert("✅ Ordini del fornitore eliminati");
+        toast.success("Ordini del fornitore eliminati");
         setOrdiniFornitore((prev) => ({ ...prev, [idFornitore]: [] }));
       } else {
-        alert("❌ Errore durante l'eliminazione degli ordini");
+        toast.error("Errore durante l'eliminazione degli ordini");
       }
     } catch (err) {
       console.error("❌ Errore eliminazione ordini fornitore:", err);
@@ -93,7 +94,7 @@ const ListaFornitori = () => {
 
       const data = await res.json();
       if (data.ok) {
-        alert("✅ Fornitore aggiornato correttamente");
+        toast.success("Fornitore aggiornato correttamente");
         setEditId(null);
         // Aggiorna lista
         const updated = await fetch("http://localhost:3005/api/v2/fornitori").then((r) =>
@@ -101,7 +102,7 @@ const ListaFornitori = () => {
         );
         setFornitori(updated);
       } else {
-        alert("❌ Errore durante l'aggiornamento");
+        toast.error("Errore durante l'aggiornamento");
       }
     } catch (err) {
       console.error("❌ Errore aggiornamento fornitore:", err);
@@ -122,7 +123,7 @@ const ListaFornitori = () => {
       const data = await response.json();
 
       if (data.ok) {
-        alert("✅ Ordine eliminato correttamente");
+        toast.success("Ordine eliminato correttamente");
         // Rimuovi l'ordine dallo stato locale
         setOrdiniFornitore((prev) => {
           const nuovo = { ...prev };
@@ -138,11 +139,11 @@ const ListaFornitori = () => {
         });
 
       } else {
-        alert(`❌ ${data.message || "Errore durante l'eliminazione"}`);
+        toast.error(data.message || "Errore durante l'eliminazione");
       }
     } catch (err) {
       console.error("❌ Errore eliminazione ordine:", err);
-      alert("Errore imprevisto durante l'eliminazione");
+      toast.error("Errore imprevisto durante l'eliminazione");
     }
   };
 
@@ -254,7 +255,7 @@ const ListaFornitori = () => {
                               e.stopPropagation();
                               const lista = ordiniFornitore[f.id] || [];
                               if (!lista.length) {
-                                alert("Nessun ordine per questo fornitore.");
+                                toast.info("Nessun ordine per questo fornitore.");
                                 return;
                               }
                               const ordineTarget =
@@ -349,7 +350,7 @@ const ListaFornitori = () => {
                                                   );
                                                   const data = await res.json();
                                                   if (data.ok) {
-                                                    alert("✅ Riga d'ordine eliminata");
+                                                    toast.success("Riga d'ordine eliminata");
                                                     setOrdiniFornitore((prev) => ({
                                                       ...prev,
                                                       [f.id]: prev[f.id].filter(
@@ -357,7 +358,7 @@ const ListaFornitori = () => {
                                                       ),
                                                     }));
                                                   } else {
-                                                    alert("❌ Errore eliminazione ordine");
+                                                    toast.error("Errore eliminazione ordine");
                                                   }
                                                 }
                                               }}

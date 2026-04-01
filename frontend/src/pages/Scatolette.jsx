@@ -78,10 +78,10 @@ const Scatolette = () => {
         )
       );
 
-      alert("✅ Quantità aggiornata");
+      toast.success("Quantità aggiornata");
     } catch (err) {
       console.error("Errore aggiornamento:", err);
-      alert("Errore aggiornamento quantità");
+      toast.error("Errore aggiornamento quantità");
     }
   };
 

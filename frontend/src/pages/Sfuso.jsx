@@ -53,7 +53,7 @@ const Sfuso = () => {
 
   const handleAggiungiSfuso = async () => {
     if (!newSfuso.nome || !newSfuso.formato) {
-      alert("Nome e formato sono obbligatori");
+      toast.info("Nome e formato sono obbligatori");
       return;
     }
 
@@ -83,10 +83,10 @@ const Sfuso = () => {
       if (!res.ok) throw new Error("Errore eliminazione sfuso");
 
       setSfusi((prev) => prev.filter((s) => s.id !== id));
-      alert(`🗑️ Sfuso "${nome}" eliminato con successo.`);
+      toast.info(`🗑️ Sfuso "${nome}" eliminato con successo.`);
     } catch (err) {
       console.error("❌ Errore DELETE sfuso:", err);
-      alert("Errore durante l'eliminazione dello sfuso.");
+      toast.error("Errore durante l'eliminazione dello sfuso.");
     }
   };
 
@@ -196,7 +196,7 @@ const Sfuso = () => {
       await fetchSfusi(); // 🔄 ricarica tutto
     } catch (err) {
       console.error("Errore prendi in carico:", err);
-      alert("Errore durante la presa in carico");
+      toast.error("Errore durante la presa in carico");
     }
   };
 
@@ -276,7 +276,7 @@ const Sfuso = () => {
       if (!res.ok) throw new Error("Errore nel salvataggio rettifica sfuso.");
       const dataRes = await res.json();
 
-      alert("✅ Rettifica sfuso completata!");
+      toast.success("Rettifica sfuso completata!");
       setSfusi((prev) =>
         prev.map((s) => {
           if (s.id !== id) return s;
@@ -302,7 +302,7 @@ const Sfuso = () => {
       );
     } catch (err) {
       console.error("❌ Errore rettifica sfuso:", err);
-      alert("Errore nella rettifica sfuso.");
+      toast.error("Errore nella rettifica sfuso.");
     } finally {
       setShowSfusoModal(false);
       setSfusoModalData(null);
@@ -337,7 +337,7 @@ const Sfuso = () => {
       if (!res.ok) throw new Error("Errore nel salvataggio lotto.");
       const dataRes = await res.json();
 
-      alert("✅ Lotto aggiornato con successo!");
+      toast.success("Lotto aggiornato con successo!");
       setSfusi((prev) =>
         prev.map((s) =>
           s.id === id
@@ -349,7 +349,7 @@ const Sfuso = () => {
       );
     } catch (err) {
       console.error("❌ Errore rettifica lotto:", err);
-      alert("Errore nella rettifica del lotto.");
+      toast.error("Errore nella rettifica del lotto.");
     } finally {
       setShowModal(false);
       setModalData(null);

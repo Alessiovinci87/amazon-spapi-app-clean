@@ -25,7 +25,7 @@ const InventarioCard = ({
 
   // 🧩 Funzione elimina prodotto
   const handleDelete = async () => {
-    if (!asin) return alert("ASIN mancante");
+    if (!asin) return toast.info("ASIN mancante");
     if (!window.confirm(`Vuoi davvero eliminare ${nome}?`)) return;
 
     try {
@@ -39,11 +39,11 @@ const InventarioCard = ({
         if (typeof onAggiornamentoCompletato === "function")
           onAggiornamentoCompletato();
       } else {
-        alert(`❌ Errore eliminazione: ${data.message || data.error || "Errore sconosciuto"}`);
+        toast.error();
       }
     } catch (err) {
       console.error("❌ Errore eliminazione:", err);
-      alert("Errore durante la cancellazione del prodotto");
+      toast.error("Errore durante la cancellazione del prodotto");
     }
   };
 

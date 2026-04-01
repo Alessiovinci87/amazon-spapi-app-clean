@@ -201,7 +201,7 @@ const DDTScomposizione = () => {
 
         // Verifica che la somma sia corretta
         if (dividiQty1 + dividiQty2 !== dividiTarget.quantita) {
-            alert(`La somma deve essere ${dividiTarget.quantita}`);
+            toast.info(`La somma deve essere ${dividiTarget.quantita}`);
             return;
         }
 

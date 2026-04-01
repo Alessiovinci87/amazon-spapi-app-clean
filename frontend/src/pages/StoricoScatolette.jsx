@@ -110,15 +110,15 @@ const StoricoScatolette = () => {
             const data = await res.json();
 
             if (data.ok) {
-                alert("✅ Storico resettato con successo");
+                toast.success("Storico resettato con successo");
                 setRows([]);
                 setFiltered([]);
             } else {
-                alert("❌ Errore nel reset dello storico");
+                toast.error("Errore nel reset dello storico");
             }
         } catch (err) {
             console.error("Errore reset storico:", err);
-            alert("❌ Errore durante il reset");
+            toast.error("Errore durante il reset");
         }
     };
 
