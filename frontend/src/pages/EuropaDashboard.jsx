@@ -1,0 +1,863 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft, Search, RefreshCw, Bell, Package,
+  TrendingUp, ChevronDown, ChevronUp,
+  Settings, Image, Star, FileText, Globe, LogOut
+} from "lucide-react";
+import AlertsPanel from "../components/europa/AlertsPanel";
+import { toast } from "sonner";
+
+const Flag = ({ code, className = "h-4 w-auto inline-block align-middle" }) => (
+  <img src={`https://flagcdn.com/24x18/${code.toLowerCase()}.png`} alt={code} className={className} />
+);
+
+// Tassi di cambio verso EUR (aggiornare periodicamente)
+const TO_EUR = { EUR: 1, GBP: 1.17, PLN: 0.23, SEK: 0.087 };
+const CURRENCY_SYMBOL = { EUR: '€', GBP: '£', PLN: 'zł', SEK: 'kr' };
+function formatPrice(prezzo, currency) {
+  const sym = CURRENCY_SYMBOL[currency] ?? currency;
+  const nativeStr = currency === 'EUR'
+    ? `${sym}${prezzo.toFixed(2)}`
+    : `${sym}${prezzo.toFixed(2)}`;
+  if (currency === 'EUR') return { native: nativeStr, eur: null };
+  const eur = (prezzo * (TO_EUR[currency] ?? 1)).toFixed(2);
+  return { native: nativeStr, eur: `≈€${eur}` };
+}
+
+const TABS = [
+  { id: "catalogo", label: "Catalogo", icon: Package },
+  { id: "alert",    label: "Alert",    icon: Bell },
+];
+
+export default function EuropaDashboard() {
+  const navigate = useNavigate();
+
+  const [tab, setTab] = useState("catalogo");
+  const [syncingImmagini, setSyncingImmagini] = useState(false);
+  const [syncingLedger, setSyncingLedger] = useState(false);
+  const [syncingPrezzi, setSyncingPrezzi] = useState(false);
+
+  // Catalogo (da DB)
+  const [catalogo, setCatalogo] = useState([]);
+  const [catalogoLoading, setCatalogoLoading] = useState(true);
+  const [searchCatalogo, setSearchCatalogo] = useState("");
+
+  // ASIN espanso nel catalogo
+  const [espanso, setEspanso] = useState(null);
+
+  // Sync stock di tutto il catalogo
+  const [syncingCatalogo, setSyncingCatalogo] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(null); // { done, total, label }
+  const [syncLabel, setSyncLabel] = useState("");
+
+  async function caricaCatalogo() {
+    setCatalogoLoading(true);
+    try {
+      const q = searchCatalogo ? `?search=${encodeURIComponent(searchCatalogo)}` : "";
+      const res = await fetch(`/api/v2/europa/catalogo${q}`);
+      const json = await res.json();
+      setCatalogo(Array.isArray(json) ? json : []);
+    } catch {
+      toast.error("Errore caricamento catalogo");
+    } finally {
+      setCatalogoLoading(false);
+    }
+  }
+
+  useEffect(() => { caricaCatalogo(); }, [searchCatalogo]);
+
+  async function pollJob(statoUrl, onProgress, onDone, onError) {
+    // Aspetta che il job risulti avviato (max 12s)
+    let started = false;
+    for (let i = 0; i < 6; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const json = await fetch(statoUrl).then(r => r.json());
+        if (json.avviato) { started = true; break; }
+      } catch { /* riprova */ }
+    }
+    if (!started) { onError({ error: "Job non avviato entro 12s" }); return; }
+
+    // Polling finché running === false
+    for (let i = 0; i < 400; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      try {
+        const json = await fetch(statoUrl).then(r => r.json());
+        // Backend riavviato: avviato torna false dopo essere stato true → stop
+        if (!json.avviato && !json.running) {
+          onError({ error: "Server riavviato durante il sync — riavvia il job" });
+          return;
+        }
+        if (onProgress) onProgress(json);
+        if (!json.running && json.avviato) {
+          if (json.error) onError(json);
+          else onDone(json);
+          return;
+        }
+      } catch { /* rete, riprova */ }
+    }
+    onError({ error: "Timeout polling (20 min)" });
+  }
+
+  async function syncLedger() {
+    if (!window.confirm("Il report Ledger richiede 5-15 minuti.\nPuoi continuare a usare l'app — riceverai una notifica al termine.\nContinuare?")) return;
+    setSyncingLedger(true);
+    toast.info("Report Ledger avviato — elaborazione in background…");
+    try {
+      const res = await fetch("/api/v2/europa/ledger-stock", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      if (!json.avviato && json.messaggio) { toast.warning(json.messaggio); setSyncingLedger(false); return; }
+      setSyncLabel("Stock per paese");
+      setSyncProgress({ done: 0, total: 1 });
+      pollJob(
+        "/api/v2/europa/ledger-stock/stato",
+        null,
+        (stato) => {
+          if (stato.righeAggiornate > 0) {
+            toast.success(`Stock per paese aggiornato — ${stato.righeAggiornate} righe`);
+            caricaCatalogo();
+          } else {
+            toast.warning(stato.avviso ?? "Nessun dato nel Ledger Amazon. Verifica su Seller Central > Rapporti > Inventory Ledger.");
+          }
+          setSyncingLedger(false);
+          setSyncProgress(null);
+        },
+        (stato) => {
+          toast.error(`Ledger fallito: ${stato.error}`);
+          setSyncingLedger(false);
+          setSyncProgress(null);
+        }
+      );
+    } catch (err) {
+      toast.error(`Ledger fallito: ${err.message}`);
+      setSyncingLedger(false);
+    }
+  }
+
+  async function syncImmagini() {
+    setSyncingImmagini(true);
+    toast.info("Sync immagini avviato in background…");
+    try {
+      const res = await fetch("/api/v2/europa/sync-catalog-info", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Errore server");
+      if (!json.avviato && json.messaggio) { toast.warning(json.messaggio); setSyncingImmagini(false); return; }
+      setSyncLabel("Sync immagini");
+      pollJob(
+        "/api/v2/europa/sync-catalog-info/stato",
+        (stato) => {
+          if (stato.running && stato.total > 0)
+            setSyncProgress({ done: stato.done, total: stato.total });
+        },
+        (stato) => {
+          toast.success(`Immagini aggiornate — ${stato.aggiornati}/${stato.total} ASIN`);
+          caricaCatalogo();
+          setSyncingImmagini(false);
+          setSyncProgress(null);
+        },
+        (stato) => {
+          toast.error(`Sync immagini fallito: ${stato.error}`);
+          setSyncingImmagini(false);
+          setSyncProgress(null);
+        }
+      );
+    } catch (err) {
+      toast.error(`Sync immagini fallito: ${err.message}`);
+      setSyncingImmagini(false);
+    }
+  }
+
+  async function syncPrezzi() {
+    setSyncingPrezzi(true);
+    toast.info("Sync prezzi avviato in background — può richiedere 10-20 minuti…");
+    try {
+      const res = await fetch("/api/v2/europa/sync-prezzi", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Errore server");
+      if (!json.avviato && json.messaggio) { toast.warning(json.messaggio); setSyncingPrezzi(false); return; }
+      setSyncLabel("Sync prezzi");
+      pollJob(
+        "/api/v2/europa/sync-prezzi/stato",
+        (stato) => {
+          if (stato.running && stato.total > 0)
+            setSyncProgress({ done: stato.done, total: stato.total });
+        },
+        (stato) => {
+          toast.success(`Prezzi aggiornati — ${stato.aggiornati}/${stato.total} ASIN`);
+          caricaCatalogo();
+          setSyncingPrezzi(false);
+          setSyncProgress(null);
+        },
+        (stato) => {
+          toast.error(`Sync prezzi fallito: ${stato.error}`);
+          setSyncingPrezzi(false);
+          setSyncProgress(null);
+        }
+      );
+    } catch (err) {
+      toast.error(`Sync prezzi fallito: ${err.message}`);
+      setSyncingPrezzi(false);
+    }
+  }
+
+  async function syncTuttoCatalogo() {
+    setSyncingCatalogo(true);
+
+    if (!catalogo.length) {
+      setSyncProgress({ fase: "Importazione stock da Amazon (può richiedere 1-2 min)…" });
+      try {
+        const res = await fetch("/api/v2/europa/import-inventario", { method: "POST" });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error);
+        toast.success(`Importati ${json.totaleAsins} ASIN da Amazon`);
+        await caricaCatalogo();
+      } catch (err) {
+        toast.error(`Importazione fallita: ${err.message}`);
+      } finally {
+        setSyncingCatalogo(false);
+        setSyncProgress(null);
+      }
+      return;
+    }
+
+    setSyncProgress({ fase: "Aggiornamento stock da Amazon (1-2 min)…" });
+    try {
+      const res = await fetch("/api/v2/europa/sync-all", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      toast.success(`Stock aggiornato — ${json.stockAggiornato} ASIN, ${json.alertsFired} alert`);
+      await caricaCatalogo();
+    } catch (err) {
+      toast.error(`Sync fallito: ${err.message}`);
+    } finally {
+      setSyncingCatalogo(false);
+      setSyncProgress(null);
+    }
+  }
+
+  const catalogoFiltrato = catalogo
+    .filter(item =>
+      !searchCatalogo ||
+      item.asin.includes(searchCatalogo.toUpperCase()) ||
+      (item.product_name ?? "").toLowerCase().includes(searchCatalogo.toLowerCase())
+    )
+    .sort((a, b) => {
+      const totA = (a.countries ?? []).reduce((s, c) => s + (c.quantity ?? 0), 0);
+      const totB = (b.countries ?? []).reduce((s, c) => s + (c.quantity ?? 0), 0);
+      return totB - totA;
+    });
+
+  return (
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid sottile */}
+      <div
+        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
+
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate("/europe")}
+              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
+              title="Indietro"
+              type="button"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center">
+              <Globe className="w-[18px] h-[18px] text-blue-400" />
+            </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-[15px] font-semibold tracking-tight text-white">Europa Dashboard</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">FBA · Listing · Alert</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              <span className="text-[11px] uppercase tracking-[0.12em] text-blue-400 font-medium">9 paesi</span>
+            </div>
+            <button
+              onClick={() => navigate("/")}
+              className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+              title="Home"
+              type="button"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Esci
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* === Hero compatto === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
+            Modulo
+          </div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            Europa <span className="text-slate-500">— marketplace EU.</span>
+          </h1>
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+            Inventario FBA, listing, prezzi, buy box e alert sui marketplace europei.
+          </p>
+        </div>
+      </section>
+
+      {/* === Tabs === */}
+      <div className="relative border-b border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16">
+          <div className="flex gap-1 overflow-x-auto -mb-px scrollbar-none">
+            {TABS.map(t => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setTab(t.id)}
+                  data-tab={t.id}
+                  className={`flex items-center gap-2 px-4 sm:px-5 py-3 text-[13px] font-medium border-b-2 whitespace-nowrap transition-colors ${
+                    active
+                      ? "border-blue-400 text-white"
+                      : "border-transparent text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-5">
+
+        {/* ===== TAB CATALOGO ===== */}
+        {tab === "catalogo" && (
+          <div className="space-y-5">
+            {/* Barra azioni */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="relative flex-1 min-w-48">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                <input
+                  value={searchCatalogo}
+                  onChange={e => setSearchCatalogo(e.target.value)}
+                  placeholder="Cerca per ASIN o nome prodotto…"
+                  className="w-full pl-10 pr-3 py-2.5 rounded-md bg-slate-950/60 border border-slate-800 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all"
+                />
+              </div>
+              <button
+                onClick={syncTuttoCatalogo}
+                disabled={syncingCatalogo}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-xs font-medium transition-all disabled:opacity-40"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncingCatalogo ? "animate-spin" : ""}`} />
+                {syncingCatalogo && syncProgress
+                  ? (syncProgress.fase ?? `Sync ${syncProgress.done}/${syncProgress.total}…`)
+                  : catalogo.length === 0 ? "Importa da Amazon" : "Sync tutto"}
+              </button>
+              <button
+                onClick={syncLedger}
+                disabled={syncingLedger || !catalogo.length}
+                title="Stock fisico per paese (report Ledger Amazon, ~10 min)"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-all disabled:opacity-40"
+              >
+                <TrendingUp className={`w-3.5 h-3.5 ${syncingLedger ? "animate-pulse" : ""}`} />
+                {syncingLedger ? "Generando…" : "Stock per paese"}
+              </button>
+              <button
+                onClick={syncImmagini}
+                disabled={syncingImmagini || !catalogo.length}
+                title="Sincronizza titoli e immagini da Amazon (~1 min)"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-all disabled:opacity-40"
+              >
+                <Image className={`w-3.5 h-3.5 ${syncingImmagini ? "animate-pulse" : ""}`} />
+                {syncingImmagini
+                  ? (syncProgress?.done != null ? `${syncProgress.done}/${syncProgress.total}` : "Immagini…")
+                  : "Sync immagini"}
+              </button>
+              <button
+                onClick={syncPrezzi}
+                disabled={syncingPrezzi || !catalogo.length}
+                title="Sincronizza prezzi e buy box per tutti i prodotti (~15 min)"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-all disabled:opacity-40"
+              >
+                <TrendingUp className={`w-3.5 h-3.5 ${syncingPrezzi ? "animate-pulse" : ""}`} />
+                {syncingPrezzi
+                  ? (syncProgress?.done != null ? `${syncProgress.done}/${syncProgress.total}` : "Prezzi…")
+                  : "Sync prezzi"}
+              </button>
+              <button
+                onClick={caricaCatalogo}
+                title="Ricarica"
+                className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Barra di avanzamento sync */}
+            {syncProgress && (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-md px-4 py-3 flex items-center gap-3">
+                <RefreshCw className="w-3.5 h-3.5 text-blue-400 animate-spin flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[11px] uppercase tracking-[0.12em] text-slate-500">{syncLabel}</span>
+                    {syncProgress.total > 1
+                      ? <span className="text-[11px] font-mono text-slate-500">{syncProgress.done}/{syncProgress.total}</span>
+                      : <span className="text-[11px] text-slate-500">in corso…</span>
+                    }
+                  </div>
+                  <div className="w-full bg-slate-800 rounded-full h-1">
+                    <div
+                      className="bg-blue-400 h-1 rounded-full transition-all duration-500"
+                      style={{ width: syncProgress.total > 1 ? `${Math.round((syncProgress.done / syncProgress.total) * 100)}%` : '100%',
+                               animation: syncProgress.total <= 1 ? 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' : 'none' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Statistiche rapide */}
+            {catalogo.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-3">Panoramica</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <StatCardEU label="ASIN catalogo"   value={catalogo.length} accent="slate" code="A" icon={Package} />
+                  <StatCardEU label="Unità pool EU"   value={catalogo.reduce((s, i) => s + (i.stock_eu_pool ?? 0), 0).toLocaleString("it-IT")} accent="blue" code="B" icon={TrendingUp} />
+                  <StatCardEU label="ASIN con stock"  value={catalogo.filter(i => (i.stock_eu_pool ?? 0) > 0).length} accent="emerald" code="C" icon={Package} />
+                  <StatCardEU label="Alert non letti" value={catalogo.reduce((s, i) => s + (i.unreadAlerts ?? 0), 0)} accent="amber" code="D" icon={Bell} />
+                </div>
+              </div>
+            )}
+
+            {/* Lista catalogo */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Catalogo</div>
+                {catalogoFiltrato.length > 0 && (
+                  <div className="text-[11px] font-mono text-slate-600">{catalogoFiltrato.length} prodotti</div>
+                )}
+              </div>
+
+              {catalogoLoading ? (
+                <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-16 text-center">
+                  <RefreshCw className="w-6 h-6 text-slate-600 mx-auto mb-3 animate-spin" />
+                  <p className="text-sm text-slate-500">Caricamento catalogo…</p>
+                </div>
+              ) : catalogoFiltrato.length === 0 ? (
+                <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-16 text-center">
+                  <Package className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+                  <p className="text-sm text-slate-400 mb-1">
+                    {searchCatalogo ? "Nessun prodotto trovato" : "Nessun prodotto nel catalogo"}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Usa il pulsante "Sync tutto" per sincronizzare lo stock
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {catalogoFiltrato.map(item => (
+                    <CatalogoRow
+                      key={item.asin}
+                      item={item}
+                      espanso={espanso === item.asin}
+                      onToggle={() => setEspanso(prev => prev === item.asin ? null : item.asin)}
+                      navigate={navigate}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ===== TAB ALERT ===== */}
+        {tab === "alert" && (
+          <AlertsPanel asinList={catalogo.map(i => i.asin)} />
+        )}
+      </div>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/40">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>© {new Date().getFullYear()} Nexus · Europa Dashboard</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// === StatCard EU ===
+const STAT_ACCENT_EU = {
+  slate:   "text-slate-200",
+  blue:    "text-blue-400",
+  emerald: "text-emerald-400",
+  amber:   "text-amber-400",
+};
+function StatCardEU({ label, value, accent, code, icon: Icon }) {
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg p-5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="w-10 h-10 rounded-md bg-slate-800/60 border border-slate-700 flex items-center justify-center">
+          <Icon className={`w-[18px] h-[18px] ${STAT_ACCENT_EU[accent]}`} />
+        </div>
+        <span className="text-[10px] font-mono text-slate-600">{code}</span>
+      </div>
+      <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">{label}</div>
+      <div className={`text-2xl sm:text-3xl font-semibold tracking-tight tabular-nums ${STAT_ACCENT_EU[accent]}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------
+// Riga del catalogo (compatta con espansione stock per paese)
+// ---------------------------------------------------------------
+function CatalogoRow({ item, espanso, onToggle, navigate }) {
+  const PAESE_MP = { IT:"APJ6JRA9NG5V4", FR:"A13V1IB3VIYZZH", DE:"A1PA6795UKMFR9", ES:"A1RKKUPIHCS9HS", GB:"A1F83G8C2ARO7P", NL:"A1805IZSGTT6HS", BE:"AMEN7PMS3EDWL", SE:"A2NODRKZP88ZB9", PL:"A1C3SOZRARQ6R3" };
+
+  const [catalogImages, setCatalogImages] = useState(null);
+  const [loadingImages, setLoadingImages] = useState(false);
+
+  const primaCountry = item.countries?.[0]?.country ?? "IT";
+
+  useEffect(() => {
+    if (espanso && catalogImages === null) {
+      setLoadingImages(true);
+      fetch(`/api/v2/europa/catalog-images/${item.asin}`)
+        .then(r => r.json())
+        .then(data => { setCatalogImages(Array.isArray(data) ? data : []); })
+        .catch(() => setCatalogImages([]))
+        .finally(() => setLoadingImages(false));
+    }
+  }, [espanso]);
+
+  // Stock totale per indicatore stato
+  const totalStock = (item.countries ?? []).reduce((s, c) => s + (c.quantity ?? 0), 0);
+  const stockZero  = totalStock === 0;
+  const stockBasso = totalStock > 0 && totalStock < 50;
+  const hasAlerts  = item.unreadAlerts > 0;
+
+  return (
+    <div className={`relative bg-slate-900/60 border rounded-lg overflow-hidden transition-all hover:border-slate-700 ${
+      hasAlerts ? "border-amber-500/30" : "border-slate-800"
+    }`}>
+      {/* Bordo sinistro stato stock */}
+      <div className={`absolute left-0 top-0 bottom-0 w-[2px] ${
+        hasAlerts  ? "bg-amber-500/60" :
+        stockZero  ? "bg-rose-500/60" :
+        stockBasso ? "bg-amber-500/60" : "bg-emerald-500/40"
+      }`} />
+
+      {/* Azioni rapide (in cima alla card, sempre sopra il contenuto) */}
+      <div className="relative flex gap-2 px-6 sm:px-8 pt-4 pb-3 flex-wrap border-b border-slate-800/60">
+        <button
+          onClick={() => navigate(`/uffici/listing/testo/${item.asin}/${primaCountry}`)}
+          title="Testo listing"
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[11px] font-medium transition-all"
+        >
+          <FileText className="w-3 h-3" />
+          Testo
+        </button>
+        <button
+          onClick={() => navigate(`/uffici/listing/immagini/${item.asin}/${primaCountry}`)}
+          title="Immagini"
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[11px] font-medium transition-all"
+        >
+          <Image className="w-3 h-3" />
+          Immagini
+        </button>
+        <button
+          onClick={() => navigate(`/uffici/listing/aplus/${item.asin}/${primaCountry}`)}
+          title="A+"
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[11px] font-medium transition-all"
+        >
+          <Star className="w-3 h-3" />
+          A+
+        </button>
+        <button
+          onClick={() => navigate(`/europe/alert-config/${item.asin}`)}
+          title="Configura alert"
+          type="button"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-[11px] font-medium transition-all"
+        >
+          <Settings className="w-3 h-3" />
+          Alert
+        </button>
+      </div>
+
+      {/* Header riga */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left hover:bg-slate-800/30 transition-colors"
+      >
+        <div className="flex items-center gap-5 sm:gap-6 px-6 sm:px-8 py-6 sm:py-7">
+          {/* Immagine */}
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center flex-shrink-0">
+            {item.image_url ? (
+              <img src={item.image_url} alt="" className="w-full h-full object-contain p-1" />
+            ) : (
+              <Package className="w-9 h-9 text-slate-700" />
+            )}
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-2">
+              <span
+                onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(item.asin); toast.success(`ASIN ${item.asin} copiato`); }}
+                title="Clicca per copiare"
+                className="font-mono text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded hover:bg-emerald-500/20 transition-colors cursor-pointer"
+              >
+                {item.asin}
+              </span>
+              {hasAlerts && (
+                <span className="px-2 py-0.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-medium rounded">
+                  {item.unreadAlerts} alert
+                </span>
+              )}
+              {item.rulesCount > 0 && (
+                <span className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/30 text-blue-300 text-[11px] font-medium rounded">
+                  {item.rulesCount} regole
+                </span>
+              )}
+            </div>
+            <h3 className="text-lg sm:text-xl font-semibold text-white truncate mb-2 leading-tight">
+              {item.product_name ?? "—"}
+            </h3>
+            {item.sku && (
+              <span
+                onClick={e => { e.stopPropagation(); navigator.clipboard.writeText(item.sku); toast.success(`SKU ${item.sku} copiato`); }}
+                title="Clicca per copiare"
+                className="text-xs font-mono text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+              >
+                SKU: {item.sku}
+              </span>
+            )}
+          </div>
+
+          {/* Stock totale */}
+          {item.countries?.length > 0 && (() => {
+            const total = item.countries.reduce((s, c) => s + (c.quantity ?? 0), 0);
+            const poolRow = item.countries.find(c => (c.reserved_qty ?? 0) > 0 || (c.inbound_receiving ?? 0) > 0);
+            const res = poolRow?.reserved_qty ?? 0;
+            const inb = poolRow?.inbound_receiving ?? 0;
+            return (
+              <div className="flex-shrink-0 text-right">
+                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-1 flex items-center gap-1.5 justify-end">
+                  <Flag code="eu" /> Totale EU
+                </div>
+                <div className={`text-2xl sm:text-3xl font-semibold tabular-nums ${
+                  total > 0 ? (stockBasso ? "text-amber-400" : "text-emerald-400") : "text-rose-400"
+                }`}>
+                  {total.toLocaleString("it-IT")}
+                </div>
+                {(res > 0 || inb > 0) && (
+                  <div className="text-[11px] text-slate-500 mt-1 tabular-nums">
+                    {res > 0 && <span>+{res} res.</span>}
+                    {res > 0 && inb > 0 && " "}
+                    {inb > 0 && <span>+{inb} inb.</span>}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Toggle expand */}
+          <div className="w-10 h-10 rounded-md border border-slate-800 bg-slate-900 text-slate-500 flex items-center justify-center flex-shrink-0">
+            {espanso ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </div>
+        </div>
+      </button>
+
+
+      {/* Espansione: griglia unificata per paese */}
+      {espanso && (
+        <div className="border-t border-slate-800 px-6 sm:px-8 py-5 bg-slate-950/50">
+          {(() => {
+            const ALL_COUNTRIES = ['IT','DE','FR','ES','NL','BE','SE','PL','GB'];
+            const PAESE_MP = { IT:"APJ6JRA9NG5V4", FR:"A13V1IB3VIYZZH", DE:"A1PA6795UKMFR9", ES:"A1RKKUPIHCS9HS", GB:"A1F83G8C2ARO7P", NL:"A1805IZSGTT6HS", BE:"AMEN7PMS3EDWL", SE:"A2NODRKZP88ZB9", PL:"A1C3SOZRARQ6R3" };
+            const MP_CC = Object.fromEntries(Object.entries(PAESE_MP).map(([c,mp]) => [mp,c]));
+
+            const stockMap = Object.fromEntries((item.countries ?? []).map(c => [c.country, c]));
+            const prezziMap = Object.fromEntries((item.prezzi ?? []).map(p => [p.country, p]));
+            const imgMap = Object.fromEntries((catalogImages ?? []).map(ci => [ci.country, ci]));
+
+            // Soglie STOCK_LOW per paese
+            const soglieCc = {}; // cc -> soglia
+            for (const rule of (item.stockRules ?? [])) {
+              if (rule.marketplace_id) {
+                const cc = MP_CC[rule.marketplace_id];
+                if (cc) soglieCc[cc] = rule.soglia;
+              } else {
+                soglieCc['__ALL__'] = rule.soglia;
+              }
+            }
+            function stockColorClass(cc, qty) {
+              const soglia = soglieCc[cc] ?? soglieCc['__ALL__'];
+              if (soglia == null) return null;
+              if (qty <= soglia)     return 'red';
+              if (qty <= soglia * 2) return 'orange';
+              return 'green';
+            }
+            const STOCK_COLORS = {
+              red:    { bg: 'bg-rose-500/10 border-rose-500/30',     label: 'text-rose-400',    value: 'text-rose-300'    },
+              orange: { bg: 'bg-amber-500/10 border-amber-500/30',   label: 'text-amber-400',   value: 'text-amber-300'   },
+              green:  { bg: 'bg-emerald-500/10 border-emerald-500/30', label: 'text-emerald-400', value: 'text-emerald-300' },
+            };
+
+            // Sort: 1) stock>0 desc  2) prezzo senza stock  3) nessuno dei due
+            const paesi = ALL_COUNTRIES
+              .filter(cc => stockMap[cc] || prezziMap[cc])
+              .sort((a, b) => {
+                const qa = stockMap[a]?.quantity ?? 0;
+                const qb = stockMap[b]?.quantity ?? 0;
+                const pa = !!prezziMap[a], pb = !!prezziMap[b];
+                if (qa > 0 && qb > 0) return qb - qa;
+                if (qa > 0) return -1;
+                if (qb > 0) return 1;
+                if (pa && pb) return 0;
+                if (pa) return -1;
+                if (pb) return 1;
+                return 0;
+              });
+
+            if (!paesi.length) return <p className="text-xs text-slate-600">Nessun dato. Effettua un sync.</p>;
+
+            return (
+              <div
+                className="grid gap-2"
+                style={{ gridTemplateColumns: `repeat(${paesi.length}, minmax(0, 1fr))` }}
+              >
+                {paesi.map(cc => {
+                  const stock = stockMap[cc];
+                  const prezzo = prezziMap[cc];
+                  const img = imgMap[cc];
+                  const isGB = cc === 'GB';
+                  const qty = stock?.quantity ?? 0;
+                  const stockColor = stockColorClass(cc, qty);
+                  const sc = STOCK_COLORS[stockColor];
+                  const { native } = prezzo ? formatPrice(prezzo.prezzo, prezzo.currency) : { native: null };
+
+                  return (
+                    <div
+                      key={cc}
+                      className={`min-w-0 rounded-md p-3 flex flex-col gap-2 border ${
+                        isGB
+                          ? 'bg-blue-500/5 border-blue-500/30'
+                          : 'bg-slate-900/60 border-slate-800'
+                      }`}
+                    >
+                        {/* Header: bandiera + paese */}
+                        <div className="flex flex-col items-center gap-1 pb-2 border-b border-slate-800">
+                          <Flag code={cc} className="h-5 w-auto" />
+                          <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500 font-medium">{cc}</span>
+                        </div>
+
+                        {/* Stock */}
+                        <div className={`text-center rounded-md p-2 border ${sc ? sc.bg : 'border-transparent'}`}>
+                          <p className={`text-[10px] uppercase tracking-[0.12em] mb-1 ${sc ? sc.label : 'text-slate-600'}`}>Stock</p>
+                          <p className={`text-base font-semibold tabular-nums ${
+                            sc ? sc.value : qty > 0 ? 'text-white' : 'text-slate-600'
+                          }`}>
+                            {stock ? qty.toLocaleString("it-IT") : "—"}
+                          </p>
+                        </div>
+
+                        {/* Prezzo */}
+                        <div className="text-center border-t border-slate-800 pt-2">
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-slate-600 mb-1">Prezzo</p>
+                          {native
+                            ? <>
+                                <p className="text-sm font-semibold text-white tabular-nums">{native}</p>
+                                <p className={`text-[10px] mt-0.5 ${prezzo.buybox_won ? "text-emerald-400" : "text-slate-600"}`}>
+                                  {prezzo.buybox_won ? "✓ BuyBox" : "– BuyBox"}
+                                </p>
+                              </>
+                            : <p className="text-xs text-slate-700">—</p>
+                          }
+                        </div>
+
+                        {/* Listing */}
+                        <div className="border-t border-slate-800 pt-2">
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-slate-600 mb-1.5 text-center">Listing</p>
+                          {loadingImages
+                            ? <div className="w-full h-14 bg-slate-800 rounded animate-pulse" />
+                            : img?.image_url
+                              ? <div className="relative">
+                                  <img src={img.image_url} alt="" className="w-full h-14 object-contain bg-slate-950 border border-slate-800 rounded p-1" />
+                                  {img.image_count > 0 && (
+                                    <span className="absolute -top-1 -right-1 text-[10px] font-mono bg-slate-900 text-slate-400 px-1 py-0.5 rounded border border-slate-700 leading-none">
+                                      {img.image_count}
+                                    </span>
+                                  )}
+                                </div>
+                              : <div className="w-full h-14 bg-slate-900 border border-slate-800 rounded flex items-center justify-center">
+                                  <Package className="w-4 h-4 text-slate-700" />
+                                </div>
+                          }
+                          {img?.titolo && (
+                            <p className="text-[10px] text-slate-600 line-clamp-2 mt-1.5 leading-tight" title={img.titolo}>{img.titolo}</p>
+                          )}
+                          <div className="flex gap-1 mt-2 justify-center">
+                            <button
+                              onClick={() => navigate(`/uffici/listing/testo/${item.asin}/${cc}`)}
+                              className="w-6 h-6 rounded border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
+                              title="Testo listing"
+                            >
+                              <FileText className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => navigate(`/uffici/listing/immagini/${item.asin}/${cc}`)}
+                              className="w-6 h-6 rounded border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
+                              title="Immagini"
+                            >
+                              <Image className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => navigate(`/uffici/listing/aplus/${item.asin}/${cc}`)}
+                              className="w-6 h-6 rounded border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
+                              title="A+"
+                            >
+                              <Star className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+            );
+          })()}
+          {item.prezzi?.length > 0 && (
+            <p className="text-[11px] font-mono text-slate-700 mt-3">Tassi fissi: £1=€1.17 · zł1=€0.23 · kr1=€0.087</p>
+          )}
+
+          <p className="text-[11px] font-mono text-slate-700 mt-2">
+            Aggiornato: {item.updated_at ? new Date(item.updated_at).toLocaleString("it-IT") : "—"}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,4 +1,5 @@
 import React from "react";
+import { Save, X, Download } from "lucide-react";
 
 const PulsantiConfermaModifiche = ({
   modificheInCorso,
@@ -8,35 +9,38 @@ const PulsantiConfermaModifiche = ({
   onEsporta,
 }) => {
   return (
-    <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center max-w-7xl mx-auto w-full px-2">
+    <div className="mt-2 flex flex-col sm:flex-row gap-2">
       <button
         onClick={onConferma}
-        className="flex-1 bg-green-600 hover:bg-green-700 px-6 py-3 rounded text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={!modificheInCorso}
-        title={!modificheInCorso ? "Nessuna modifica da salvare" : "Conferma modifiche"}
         type="button"
+        title={!modificheInCorso ? "Nessuna modifica da salvare" : "Conferma modifiche"}
+        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-500/10 disabled:hover:border-emerald-500/40"
       >
-        💾 Conferma modifiche
+        <Save className="w-3.5 h-3.5" />
+        Conferma modifiche
       </button>
 
       <button
         onClick={onAnnulla}
-        className="flex-1 bg-red-600 hover:bg-red-700 px-6 py-3 rounded text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={!modificheInCorso}
-        title={!modificheInCorso ? "Nessuna modifica da annullare" : "Annulla modifiche"}
         type="button"
+        title={!modificheInCorso ? "Nessuna modifica da annullare" : "Annulla modifiche"}
+        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-rose-500/10 disabled:hover:border-rose-500/40"
       >
-        ❌ Annulla modifiche
+        <X className="w-3.5 h-3.5" />
+        Annulla modifiche
       </button>
 
       <button
         onClick={onEsporta}
-        className="flex-1 bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         disabled={storico.length === 0}
-        title={storico.length === 0 ? "Nessuno storico da esportare" : "Esporta storico modifiche CSV"}
         type="button"
+        title={storico.length === 0 ? "Nessuno storico da esportare" : "Esporta storico modifiche CSV"}
+        className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/10 disabled:hover:border-blue-500/40"
       >
-        📤 Esporta storico CSV
+        <Download className="w-3.5 h-3.5" />
+        Esporta CSV
       </button>
     </div>
   );

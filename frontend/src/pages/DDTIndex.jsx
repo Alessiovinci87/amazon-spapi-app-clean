@@ -6,167 +6,195 @@ import {
   FileCheck,
   Archive,
   ChevronRight,
-  Sparkles
+  LogOut,
 } from "lucide-react";
+
+function StatTile({ icon: Icon, label, value, accent = "violet" }) {
+  const m = {
+    violet: "bg-violet-500/10 border-violet-500/40 text-violet-400",
+    emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400",
+    blue: "bg-blue-500/10 border-blue-500/40 text-blue-400",
+  };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg px-6 py-5">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-9 h-9 rounded-md border flex items-center justify-center ${m[accent]}`}>
+          <Icon className="w-[18px] h-[18px]" />
+        </div>
+      </div>
+      <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{label}</div>
+    </div>
+  );
+}
 
 const DDTIndex = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="w-full max-w-8xl mx-auto space-y-8">
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid */}
+      <div
+        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-        {/* ========== HEADER ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg">
-                <FileText className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">Genera DDT</h1>
-                <p className="text-zinc-400 mt-1">Seleziona il tipo di documento da creare</p>
-              </div>
-            </div>
-
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
+              type="button"
+              title="Indietro"
+              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
-              Dashboard
             </button>
-          </div>
-        </div>
-
-        {/* ========== INFO CARD ========== */}
-        <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/30 rounded-xl p-6">
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-6 h-6 text-purple-400 flex-shrink-0 mt-1" />
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-2">Documenti di Trasporto</h3>
-              <p className="text-zinc-300 text-sm">
-                Scegli tra DDT Pics Nails per documenti aziendali o DDT Generico per documenti personalizzati.
-                Puoi consultare lo storico di tutti i documenti generati.
-              </p>
+            <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-[18px] h-[18px] text-violet-400" />
+            </div>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Genera DDT</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Uffici</span>
             </div>
           </div>
-        </div>
 
-        {/* ========== OPZIONI DDT ========== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <button
+            onClick={() => navigate("/dashboard")}
+            type="button"
+            className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Dashboard
+          </button>
+        </div>
+      </header>
+
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
+            Documenti di trasporto
+          </div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            Genera DDT <span className="text-slate-500">— seleziona il tipo.</span>
+          </h1>
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+            Scegli tra DDT Pics Nails per documenti aziendali o DDT Generico per documenti personalizzati.
+            Puoi consultare lo storico di tutti i documenti generati.
+          </p>
+        </div>
+      </section>
+
+      {/* === Contenuto principale === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-6">
+
+        {/* Opzioni DDT */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* DDT Pics Nails */}
           <button
             onClick={() => navigate("/uffici/ddt/prebolle")}
-            className="group bg-zinc-900 border border-zinc-800 hover:border-purple-500/50 rounded-xl p-8 transition-all hover:shadow-xl hover:shadow-purple-500/10 text-left"
+            type="button"
+            className="group relative bg-slate-900/60 border border-slate-800 hover:border-violet-500/50 rounded-lg overflow-hidden text-left transition-all"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <FileCheck className="w-8 h-8 text-white" />
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-400/60" />
+            <div className="px-6 py-6 sm:px-8 sm:py-7">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-11 h-11 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center">
+                  <FileCheck className="w-5 h-5 text-violet-400" />
+                </div>
+                <ChevronRight className="w-5 h-5 text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <ChevronRight className="w-6 h-6 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-
-            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-              DDT Pics Nails
-              <span className="w-3 h-3 rounded-full bg-gradient-to-br from-purple-500 to-pink-600"></span>
-            </h3>
-            <p className="text-zinc-400 text-sm mb-4">
-              Genera documenti di trasporto per Pics Nails con intestazione aziendale e dati precompilati
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs font-medium">
-                Aziendale
-              </span>
-              <span className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-xs font-medium">
-                Template Predefinito
-              </span>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">Aziendale</div>
+              <h3 className="text-lg font-semibold text-white tracking-tight mb-2">DDT Pics Nails</h3>
+              <p className="text-sm text-slate-400 leading-relaxed mb-4">
+                Documenti di trasporto con intestazione aziendale e dati precompilati
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[11px] font-medium">
+                  Template predefinito
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[11px] font-medium">
+                  Pre-bolle
+                </span>
+              </div>
             </div>
           </button>
 
           {/* DDT Generico */}
           <button
             onClick={() => navigate("/uffici/ddt/nuovo")}
-            className="group bg-zinc-900 border border-zinc-800 hover:border-emerald-500/50 rounded-xl p-8 transition-all hover:shadow-xl hover:shadow-emerald-500/10 text-left"
+            type="button"
+            className="group relative bg-slate-900/60 border border-slate-800 hover:border-emerald-500/50 rounded-lg overflow-hidden text-left transition-all"
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <FileText className="w-8 h-8 text-white" />
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/60" />
+            <div className="px-6 py-6 sm:px-8 sm:py-7">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-11 h-11 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-emerald-400" />
+                </div>
+                <ChevronRight className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <ChevronRight className="w-6 h-6 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-
-            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-              DDT Generico
-              <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-            </h3>
-            <p className="text-zinc-400 text-sm mb-4">
-              Crea documenti di trasporto personalizzati con intestazioni e informazioni customizzabili
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-xs font-medium">
-                Personalizzabile
-              </span>
-              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-xs font-medium">
-                Flessibile
-              </span>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">Personalizzabile</div>
+              <h3 className="text-lg font-semibold text-white tracking-tight mb-2">DDT Generico</h3>
+              <p className="text-sm text-slate-400 leading-relaxed mb-4">
+                Documenti di trasporto personalizzati con intestazioni e informazioni customizzabili
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">
+                  Flessibile
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">
+                  Custom
+                </span>
+              </div>
             </div>
           </button>
         </div>
 
-        {/* ========== STORICO DDT ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <button
-            onClick={() => navigate("/uffici/ddt/storico")}
-            className="group w-full flex items-center justify-between p-6 bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 hover:border-blue-500/50 rounded-xl transition-all"
-          >
+        {/* Storico DDT */}
+        <button
+          onClick={() => navigate("/uffici/ddt/storico")}
+          type="button"
+          className="group relative w-full bg-slate-900/60 border border-slate-800 hover:border-blue-500/50 rounded-lg overflow-hidden text-left transition-all"
+        >
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400/60" />
+          <div className="px-6 py-5 sm:px-8 sm:py-6 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-                <Archive className="w-7 h-7 text-white" />
+              <div className="w-11 h-11 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
+                <Archive className="w-5 h-5 text-blue-400" />
               </div>
-              <div className="text-left">
-                <h3 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                  Storico DDT
-                </h3>
-                <p className="text-zinc-400 text-sm">
-                  Visualizza tutti i documenti di trasporto generati
-                </p>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Archivio</div>
+                <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">Storico DDT</h3>
+                <p className="text-sm text-slate-400 mt-0.5">Visualizza tutti i documenti di trasporto generati</p>
               </div>
             </div>
-            <ChevronRight className="w-6 h-6 text-blue-400 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
+            <ChevronRight className="w-5 h-5 text-blue-400 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
+          </div>
+        </button>
 
-        {/* ========== STATISTICHE RAPIDE ========== */}
+        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
-            <div className="w-12 h-12 rounded-lg bg-purple-500/10 flex items-center justify-center mx-auto mb-3">
-              <FileCheck className="w-6 h-6 text-purple-400" />
-            </div>
-            <p className="text-3xl font-bold text-purple-400 mb-1">--</p>
-            <p className="text-sm text-zinc-400">DDT Pics Nails</p>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
-            <div className="w-12 h-12 rounded-lg bg-emerald-500/10 flex items-center justify-center mx-auto mb-3">
-              <FileText className="w-6 h-6 text-emerald-400" />
-            </div>
-            <p className="text-3xl font-bold text-emerald-400 mb-1">--</p>
-            <p className="text-sm text-zinc-400">DDT Generici</p>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
-            <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center mx-auto mb-3">
-              <Archive className="w-6 h-6 text-blue-400" />
-            </div>
-            <p className="text-3xl font-bold text-blue-400 mb-1">--</p>
-            <p className="text-sm text-zinc-400">Totali</p>
-          </div>
+          <StatTile icon={FileCheck} label="DDT Pics Nails" value="--" accent="violet" />
+          <StatTile icon={FileText} label="DDT Generici" value="--" accent="emerald" />
+          <StatTile icon={Archive} label="Totali" value="--" accent="blue" />
         </div>
-      </div>
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>Nexus · Documenti di Trasporto</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };

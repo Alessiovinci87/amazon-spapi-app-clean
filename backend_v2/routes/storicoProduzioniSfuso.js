@@ -83,7 +83,8 @@ router.post("/", (req, res) => {
       litri_usati: req.body.litri_usati ?? null,
       evento: req.body.evento,  // CREATA / AGGIORNATA / COMPLETATA / ELIMINATA
       note: req.body.note || "",
-      operatore: req.body.operatore || "system"
+      operatore: req.body.operatore || "system",
+      data_evento: req.body.data_evento ?? null
     };
 
     if (!payload.id_produzione) {

@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   History,
-  Filter,
   Search,
   X,
   Package,
   Factory,
   CheckCircle,
   Clock,
-  AlertCircle,
   ChevronDown,
   ChevronUp,
   Save,
@@ -18,42 +17,199 @@ import {
   XCircle,
   FileText,
   Wrench,
-  BarChart3,
+  LogOut,
 } from "lucide-react";
 import { triggerReloadInventario } from "../utils/globalEvents";
 import { fetchJSON, buildUrl } from "../utils/api";
 import { normalizeState } from "../utils/statoUtils";
 
-// ========== FUNZIONE ACCESSORI ==========
+/* ── Helpers ─────────────────────────────────────────────── */
+
 function getAccessoryList(formato) {
   const f = formato.toLowerCase();
   if (f === "12ml") return "Boccetta 12ml, Pennellino 12ml, Tappino 12ml, Scatoletta, Etichetta";
   if (f === "100ml") return "Boccetta 100ml, Tappino 100ml, Etichetta";
-  if (f.includes("kit") && f.includes("12"))
-    return "2× Boccetta 12ml, 2× Pennellino 12ml, 2× Tappino 12ml, 2× Scatoletta, 2× Etichetta";
-  if (f.includes("kit") && f.includes("9"))
-    return "9× Boccetta 12ml, 9× Pennellino 12ml, 9× Tappino 12ml, 9× Scatoletta, 1× Etichetta Fragranza";
+  if (f.includes("kit") && f.includes("12")) return "2x Boccetta 12ml, 2x Pennellino 12ml, 2x Tappino 12ml, 2x Scatoletta, 2x Etichetta";
+  if (f.includes("kit") && f.includes("9")) return "9x Boccetta 12ml, 9x Pennellino 12ml, 9x Tappino 12ml, 9x Scatoletta, 1x Etichetta Fragranza";
   return "Accessori non definiti";
 }
 
-// ========== FUNZIONE PRIORITÀ ==========
-function getPriorityBadge(priorita) {
+function PriorityBadge({ priorita }) {
   const p = (priorita || "").toLowerCase();
-  const badges = {
-    alta: { emoji: "🔴", color: "bg-red-600", label: "Alta" },
-    media: { emoji: "🟠", color: "bg-orange-600", label: "Media" },
-    bassa: { emoji: "🟢", color: "bg-green-600", label: "Bassa" }
+  const map = {
+    alta: { cls: "bg-rose-500/10 border-rose-500/30 text-rose-400", label: "Alta" },
+    media: { cls: "bg-amber-500/10 border-amber-500/30 text-amber-400", label: "Media" },
+    bassa: { cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", label: "Bassa" },
   };
-  
-  const badge = badges[p] || { emoji: "⚪", color: "bg-zinc-600", label: "N/A" };
-  
+  const b = map[p] || { cls: "bg-slate-500/10 border-slate-500/30 text-slate-400", label: "N/A" };
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-medium ${b.cls}`}>{b.label}</span>;
+}
+
+function formatDate(dateString) {
+  if (!dateString) return "-";
+  try {
+    const d = new Date(dateString);
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  } catch { return dateString; }
+}
+
+/* ── Stili condivisi ─────────────────────────────────────── */
+const inputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-violet-500/60 focus:border-violet-500/60 transition-colors";
+
+function StatTile({ icon: Icon, label, value, accent = "violet" }) {
+  const m = { violet: "bg-violet-500/10 border-violet-500/40 text-violet-400", emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400", amber: "bg-amber-500/10 border-amber-500/40 text-amber-400", rose: "bg-rose-500/10 border-rose-500/40 text-rose-400" };
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 ${badge.color} text-white rounded-full text-xs font-semibold`}>
-      <span>{badge.emoji}</span>
-      {badge.label}
-    </span>
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg px-6 py-5">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-9 h-9 rounded-md border flex items-center justify-center ${m[accent]}`}>
+          <Icon className="w-[18px] h-[18px]" />
+        </div>
+      </div>
+      <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{label}</div>
+    </div>
   );
 }
+
+function StatButton({ icon: Icon, label, value, accent, onClick }) {
+  const m = { emerald: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:border-emerald-400/60", rose: "bg-rose-500/10 border-rose-500/30 text-rose-400 hover:border-rose-400/60" };
+  return (
+    <button onClick={onClick} type="button" className={`relative bg-slate-900/60 border rounded-lg px-5 py-3 flex items-center justify-between transition-all ${m[accent]}`}>
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4" />
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+      <span className="text-2xl font-semibold text-white tabular-nums">{value}</span>
+    </button>
+  );
+}
+
+/* ── Card prenotazione (riusata per entrambe le colonne) ── */
+
+function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, onConfermaProduzione, onUpdateLocal }) {
+  const isAttiva = variant === "attiva";
+  const accent = isAttiva ? "emerald" : "amber";
+  const barCls = isAttiva ? "bg-emerald-400/60" : "bg-amber-400/60";
+  const cleanName = (p.nome_prodotto || "-").replace(/\(NUOVO\)|\(VECCHIO\)/gi, "").trim();
+
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${barCls}`} />
+      <div className="px-5 py-4 sm:px-6 sm:py-5">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-white truncate mb-1.5">{cleanName}</h3>
+            <PriorityBadge priorita={p.priorita} />
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-2xl font-semibold text-white tabular-nums">{p.prodotti}</span>
+            <button onClick={() => onToggle(p.id)} type="button" className="text-slate-500 hover:text-slate-200 transition-colors">
+              {p.expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Dettagli espansi */}
+        {p.expanded && (
+          <div className="space-y-3 pt-3 border-t border-slate-800">
+            {/* Info grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: "Formato", value: p.formato },
+                { label: "Litri", value: p.litriImpegnati?.toFixed(1) },
+                { label: "Lotto", value: p.lotto || "-" },
+                { label: "Data", value: formatDate(p.dataRichiesta) },
+              ].map((item) => (
+                <div key={item.label} className="bg-slate-800/40 border border-slate-700/60 rounded-md px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{item.label}</p>
+                  <p className="text-sm text-white font-medium truncate">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Accessori */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-md px-4 py-2.5">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-blue-400 mb-1 flex items-center gap-1">
+                <Wrench className="w-3 h-3" /> Accessori
+              </p>
+              <p className="text-[13px] text-blue-200">{getAccessoryList(p.formato)}</p>
+            </div>
+
+            {/* Note precedenti (solo in lavorazione) */}
+            {!isAttiva && p.note && (
+              <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-2.5">
+                <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1 flex items-center gap-1">
+                  <FileText className="w-3 h-3" /> Note
+                </p>
+                <p className="text-[13px] text-slate-300">{p.note}</p>
+              </div>
+            )}
+
+            {/* Nota input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={isAttiva ? (p.note ?? "") : ""}
+                defaultValue={isAttiva ? undefined : ""}
+                placeholder="Aggiungi nota..."
+                onChange={(e) => onUpdateLocal(p.id, isAttiva ? { note: e.target.value } : { nuovaNota: e.target.value })}
+                className={inputCls}
+              />
+              <button onClick={() => onSalvaNota(p.id, isAttiva ? p.note : p.nuovaNota)} type="button" className="px-3 py-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 text-blue-400 transition-all flex-shrink-0">
+                <Save className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Azioni */}
+            {isAttiva ? (
+              <button
+                disabled={!p.id}
+                onClick={() => p.id && onAggiornaStato(p.id, "in_corso")}
+                type="button"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Play className="w-4 h-4" /> In Lavorazione
+              </button>
+            ) : (
+              <>
+                {/* Quantità prodotta + data + conferma */}
+                <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-2">Quantità prodotta</p>
+                  <div className="flex gap-2 items-stretch">
+                    <input
+                      type="number" min="1" max={p.prodotti} defaultValue={p.prodotti}
+                      onChange={(e) => onUpdateLocal(p.id, { quantitaProdotta: Math.min(Number(e.target.value), p.prodotti) })}
+                      className="w-24 bg-slate-700/60 border border-slate-600 rounded-md px-3 py-2 text-white text-lg font-semibold text-center tabular-nums focus:outline-none focus:ring-1 focus:ring-emerald-500/60"
+                    />
+                    <input
+                      type="date" required
+                      value={p.dataProduzione ?? new Date().toISOString().split("T")[0]}
+                      onChange={(e) => onUpdateLocal(p.id, { dataProduzione: e.target.value })}
+                      className={`flex-1 ${inputCls}`}
+                    />
+                    <button onClick={() => onConfermaProduzione(p)} type="button" className="px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 transition-all flex-shrink-0" title="Conferma">
+                      <CheckCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+                  {p.quantitaProdotta != null && p.quantitaProdotta < p.prodotti && (
+                    <p className="text-[11px] text-amber-400 mt-2">{p.prodotti - p.quantitaProdotta} unità resteranno pendenti</p>
+                  )}
+                </div>
+
+                <button onClick={() => onAggiornaStato(p.id, "annullato")} type="button" className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-sm font-medium transition-all">
+                  <XCircle className="w-4 h-4" /> Annulla
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Componente principale ───────────────────────────────── */
 
 const GestioneProduzioneMagazzino = () => {
   const navigate = useNavigate();
@@ -61,609 +217,244 @@ const GestioneProduzioneMagazzino = () => {
   const [sfusoData, setSfusoData] = useState([]);
   const [filterSearchTerm, setFilterSearchTerm] = useState("");
 
-  // ========== FETCH ==========
-  const fetchSfuso = async () => {
-    try {
-      const data = await fetchJSON("sfuso");
-      setSfusoData(data);
-    } catch (err) {
-      console.error("❌ Errore fetch sfuso:", err);
-    }
-  };
+  const fetchSfuso = async () => { try { setSfusoData(await fetchJSON("sfuso")); } catch {} };
+  const fetchPrenotazioni = async () => { try { setPrenotazioni(await fetchJSON("sfuso/prenotazioni")); } catch {} };
+  const ricaricaDati = async () => { await Promise.all([fetchPrenotazioni(), fetchSfuso()]); };
 
-  const fetchPrenotazioni = async () => {
-    try {
-      const data = await fetchJSON("sfuso/prenotazioni");
-      setPrenotazioni(data);
-    } catch (err) {
-      console.error("❌ Errore fetch prenotazioni:", err);
-    }
-  };
+  useEffect(() => { fetchSfuso(); fetchPrenotazioni(); }, []);
 
-  const ricaricaDati = async () => {
-    await Promise.all([fetchPrenotazioni(), fetchSfuso()]);
-  };
-
-  useEffect(() => {
-    fetchSfuso();
-    fetchPrenotazioni();
-  }, []);
-
-  // ========== STORICO ==========
   const registraStoricoProduzione = async (p, evento) => {
     try {
-      const payload = {
-        id_produzione: p.id_produzione || null,
-        id_prenotazione: p.id || null,
-        id_sfuso: p.id_sfuso || null,
-        asin_prodotto: p.asin_prodotto || null,
-        nome_prodotto: p.nome_prodotto || null,
-        formato: p.formato || null,
-        quantita: Number(p.quantita ?? p.prodotti ?? 0),
-        litri_usati: Number(p.litri_usati ?? p.litriImpegnati ?? 0),
-        evento: evento.toUpperCase(),
-        note: p.note || "",
-        operatore: "magazzino"
-      };
-
       await fetch(buildUrl("storico-produzioni-sfuso"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-    } catch (err) {
-      console.error("❌ Errore registraStoricoProduzione:", err);
-    }
-  };
-
-  // ========== AGGIORNA STATO ==========
-  const handleAggiornaStato = async (id, nuovoStato) => {
-    const statoNormalizzato = normalizeState(nuovoStato);
-    try {
-      const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          nuovoStato: statoNormalizzato,
-          operatore: "magazzino"
+          id_produzione: p.id_produzione || null, id_prenotazione: p.id || null,
+          id_sfuso: p.id_sfuso || null, asin_prodotto: p.asin_prodotto || null,
+          nome_prodotto: p.nome_prodotto || null, formato: p.formato || null,
+          quantita: Number(p.quantita ?? p.prodotti ?? 0),
+          litri_usati: Number(p.litri_usati ?? p.litriImpegnati ?? 0),
+          evento: evento.toUpperCase(), note: p.note || "", operatore: "magazzino",
+          data_evento: p.data_evento || null,
         }),
       });
-      if (!res.ok) throw new Error("Errore aggiornamento stato");
-      await ricaricaDati();
-    } catch (err) {
-      console.error("❌ Errore aggiornamento stato:", err);
-      toast.error("Errore durante aggiornamento stato");
-    }
+    } catch {}
   };
 
-  // ========== MODIFICA QUANTITÀ ==========
-  const handleModificaQuantita = async (id, nuovaQuantita) => {
+  const handleAggiornaStato = async (id, nuovoStato) => {
     try {
-      const quantitaNumerica = Number(nuovaQuantita);
-      if (isNaN(quantitaNumerica) || quantitaNumerica <= 0) {
-        toast.info("Quantità non valida");
-        return;
-      }
       const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prodotti: quantitaNumerica, operatore: "magazzino" }),
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nuovoStato: normalizeState(nuovoStato), operatore: "magazzino" }),
       });
       if (!res.ok) throw new Error();
       await ricaricaDati();
-    } catch (err) {
-      console.error("❌ Errore modifica quantità:", err);
-    }
+    } catch { toast.error("Errore durante aggiornamento stato"); }
   };
 
-  // ========== CONFERMA PRODUZIONE ==========
   const handleConfermaProduzione = async (p) => {
+    const qtaProdotta = p.quantitaProdotta != null ? Number(p.quantitaProdotta) : p.prodotti;
+    const dataProd = p.dataProduzione || new Date().toISOString().split("T")[0];
     try {
-      const resCrea = await fetch(buildUrl("produzioni-sfuso/crea-da-prenotazione"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(p)
-      });
+      const resCrea = await fetch(buildUrl("produzioni-sfuso/crea-da-prenotazione"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...p, prodotti: qtaProdotta }) });
       const dataCrea = await resCrea.json();
       const idProduzione = dataCrea?.id_produzione;
-      if (!idProduzione) {
-        toast.error("ID produzione mancante");
-        return;
-      }
-      const res = await fetch(buildUrl(`produzioni-sfuso/${idProduzione}/completa`), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ operatore: "magazzino" })
-      });
+      if (!idProduzione) { toast.error("ID produzione mancante"); return; }
+      const res = await fetch(buildUrl(`produzioni-sfuso/${idProduzione}/completa`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operatore: "magazzino" }) });
       if (!res.ok) throw new Error();
-      await registraStoricoProduzione({ ...p, id_produzione: idProduzione }, "COMPLETATA");
-      await handleAggiornaStato(p.id, "confermata");
+      await registraStoricoProduzione({ ...p, id_produzione: idProduzione, quantita: qtaProdotta, data_evento: dataProd }, "COMPLETATA");
+      const resPatch = await fetch(`/api/v2/sfuso/prenotazione/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nuovoStato: "confermata", quantitaProdotta: qtaProdotta, operatore: "magazzino" }) });
+      const dataPatch = await resPatch.json();
+      if (dataPatch.parziale) toast.success(dataPatch.message);
       await ricaricaDati();
       triggerReloadInventario();
-    } catch (err) {
-      console.error("❌ Errore conferma produzione:", err);
-      toast.error("Errore conferma produzione");
-    }
+    } catch { toast.error("Errore conferma produzione"); }
   };
 
-  // ========== SALVA NOTA ==========
   const handleSalvaNota = async (id, nota) => {
     try {
-      const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note: nota, operatore: "magazzino" }),
-      });
+      const res = await fetch(`/api/v2/sfuso/prenotazione/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note: nota, operatore: "magazzino" }) });
       if (!res.ok) throw new Error();
       await fetchPrenotazioni();
-    } catch (err) {
-      console.error("❌ Errore salvataggio nota:", err);
-    }
+    } catch {}
   };
 
-  // ========== FORMATTAZIONE DATA ==========
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    try {
-      const date = new Date(dateString);
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const minutes = String(date.getMinutes()).padStart(2, '0');
-      const seconds = String(date.getSeconds()).padStart(2, '0');
-      return `${day}/${month}/${year} - ${hours}:${minutes}:${seconds}`;
-    } catch (err) {
-      return dateString;
-    }
+  const updateLocal = (id, fields) => {
+    setPrenotazioni((prev) => prev.map((row) => (row.id === id ? { ...row, ...fields } : row)));
   };
 
-  // ========== FILTRI ==========
-  const getFilteredPrenotazioni = (stato) => {
-    const statoNormalizzato = normalizeState(stato);
+  const toggleExpand = (id) => {
+    setPrenotazioni((prev) => prev.map((p) => (p.id === id ? { ...p, expanded: !p.expanded } : p)));
+  };
+
+  const getFiltered = (stato) => {
+    const sn = normalizeState(stato);
     return prenotazioni.filter((p) => {
-      if (normalizeState(p.stato) !== statoNormalizzato) return false;
+      if (normalizeState(p.stato) !== sn) return false;
       if (filterSearchTerm.trim()) {
         const term = filterSearchTerm.toLowerCase();
-        const nome = (p.nome_prodotto || "").toLowerCase();
-        const asin = (p.asin_prodotto || "").toLowerCase();
-        if (!nome.includes(term) && !asin.includes(term)) return false;
+        if (!(p.nome_prodotto || "").toLowerCase().includes(term) && !(p.asin_prodotto || "").toLowerCase().includes(term)) return false;
       }
       return true;
     });
   };
 
-  const prenotazioniInLavorazione = getFilteredPrenotazioni("in_corso");
-  const prenotazioniAttive = getFilteredPrenotazioni("pending");
+  const attive = getFiltered("pending");
+  const inLavorazione = getFiltered("in_corso");
+  const nCompletate = prenotazioni.filter((p) => normalizeState(p.stato) === "completato").length;
+  const nAnnullate = prenotazioni.filter((p) => normalizeState(p.stato) === "annullato").length;
 
-  const toggleExpand = (id) => {
-    setPrenotazioni((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, expanded: !p.expanded } : p
-      )
-    );
-  };
-
-  // ========== RENDER ==========
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="max-w-8xl mx-auto space-y-6">
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid */}
+      <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-        {/* ========== HEADER ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-                <Factory className="w-8 h-8 text-purple-400" />
-                Gestione Produzione Magazzino
-              </h1>
-              <p className="text-zinc-400">Gestisci prenotazioni e produzioni</p>
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate("/magazzino")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center flex-shrink-0">
+              <Factory className="w-[18px] h-[18px] text-violet-400" />
             </div>
-            
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => navigate("/storico-produzioni-sfuso")}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium transition-colors"
-              >
-                <History className="w-4 h-4" />
-                Storico
-              </button>
-              
-              <button
-                onClick={() => navigate("/magazzino")}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Magazzino
-              </button>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Produzione</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Magazzino</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+            <button onClick={() => navigate("/magazzino/storici/sfuso")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-xs font-medium transition-all">
+              <History className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Storico</span>
+            </button>
+            <button onClick={() => navigate("/magazzino")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
+              <LogOut className="w-3.5 h-3.5" /> Magazzino
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Magazzino</div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            Gestione Produzione <span className="text-slate-500">— prenotazioni e lavorazioni.</span>
+          </h1>
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+            Gestisci prenotazioni e produzioni ricevute dagli uffici.
+          </p>
+        </div>
+      </section>
+
+      {/* === Contenuto === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-6">
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatTile icon={Package} label="Prenotazioni" value={attive.length} accent="emerald" />
+          <StatTile icon={Clock} label="In lavorazione" value={inLavorazione.length} accent="amber" />
+          <div className="contents sm:contents">
+            <StatButton icon={CheckCircle} label="Completate" value={nCompletate} accent="emerald" onClick={() => navigate("/magazzino/storici/sfuso?stato=completato")} />
+            <StatButton icon={XCircle} label="Annullate" value={nAnnullate} accent="rose" onClick={() => navigate("/magazzino/storici/sfuso?stato=annullato")} />
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-400/60" />
+          <div className="px-6 py-4 sm:px-8">
+            <div className="relative">
+              <input type="text" placeholder="Cerca per nome prodotto o ASIN..." value={filterSearchTerm} onChange={(e) => setFilterSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              {filterSearchTerm && (
+                <button onClick={() => setFilterSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {/* ========== FILTRO RICERCA ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
-            <Filter className="w-5 h-5 text-purple-400" />
-            Filtra Prenotazioni
-          </h2>
-          
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Cerca per nome prodotto o ASIN..."
-              value={filterSearchTerm}
-              onChange={(e) => setFilterSearchTerm(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 text-white px-12 py-3 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-            />
-            <Search className="w-5 h-5 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
-            {filterSearchTerm && (
-              <button
-                onClick={() => setFilterSearchTerm("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
-          </div>
-          
-          {filterSearchTerm && (
-            <div className="mt-3 px-3 py-2 bg-purple-900/20 border border-purple-700/30 rounded-lg">
-              <p className="text-sm text-purple-400">
-                Filtrando per: <strong>{filterSearchTerm}</strong>
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* ========== STATISTICHE ========== */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-purple-900/40 to-purple-800/20 border border-purple-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-purple-600 rounded-full">
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{prenotazioni.length}</p>
-            <p className="text-sm text-purple-200 font-medium">Totali</p>
-          </div>
-          
-          <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-blue-600 rounded-full">
-                <AlertCircle className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">
-              {prenotazioni.filter((p) => normalizeState(p.stato) === "pending").length}
-            </p>
-            <p className="text-sm text-blue-200 font-medium">Prenotazioni</p>
-          </div>
-          
-          <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-yellow-600 rounded-full">
-                <Clock className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">
-              {prenotazioni.filter((p) => normalizeState(p.stato) === "in_corso").length}
-            </p>
-            <p className="text-sm text-yellow-200 font-medium">In Lavorazione</p>
-          </div>
-          
-          <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-green-600 rounded-full">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">
-              {prenotazioni.filter((p) => normalizeState(p.stato) === "completato").length}
-            </p>
-            <p className="text-sm text-green-200 font-medium">Completate</p>
-          </div>
-        </div>
-
-        {/* ========== GRIGLIA PRENOTAZIONI ========== */}
+        {/* Griglia due colonne */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* PRENOTAZIONI ATTIVE */}
-          <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Package className="w-6 h-6" />
-                Prenotazioni Attive
-                <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
-                  {prenotazioniAttive.length}
-                </span>
-              </h2>
+          {/* Colonna Prenotazioni Attive */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
+                <Package className="w-[18px] h-[18px] text-emerald-400" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Prenotazioni</div>
+                <h2 className="text-base font-semibold text-white">Attive</h2>
+              </div>
+              <span className="ml-auto px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">{attive.length}</span>
             </div>
 
-            <div className="p-6">
-              {prenotazioniAttive.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
-                  <p className="text-zinc-400">Nessuna prenotazione attiva</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {prenotazioniAttive.map((p, idx) => {
-                    const stableKey = p.id ?? p.tempKey ?? `pren-${idx}`;
-                    const hasId = Boolean(p.id);
-                    
-                    return (
-                      <div
-                        key={stableKey}
-                        className="bg-zinc-800 border border-emerald-700/50 rounded-xl p-5 hover:border-emerald-600 hover:shadow-lg hover:shadow-emerald-900/20 transition-all"
-                      >
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-3 mb-4">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-bold text-white mb-2">
-                              {(p.nome_prodotto || "-").replace(/\(NUOVO\)|\(VECCHIO\)/gi, "").trim()}
-                            </h3>
-                            {getPriorityBadge(p.priorita)}
-                          </div>
-                          
-                          <button
-                            onClick={() => toggleExpand(p.id)}
-                            className="text-zinc-400 hover:text-white transition-colors"
-                          >
-                            {p.expanded ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
-                          </button>
-                        </div>
-
-                        {/* Quantità */}
-                        <div className="text-center bg-zinc-900 rounded-lg py-4 mb-4">
-                          <p className="text-xs text-zinc-400 uppercase tracking-wide mb-1">Quantità</p>
-                          <p className="text-5xl font-extrabold text-emerald-400">{p.prodotti}</p>
-                        </div>
-
-                        {/* Dettagli Espansi */}
-                        {p.expanded && (
-                          <div className="space-y-4 pt-4 border-t border-zinc-700">
-                            {/* Grid Info */}
-                            <div className="grid grid-cols-2 gap-3">
-                              <div className="bg-zinc-900 rounded-lg p-3">
-                                <p className="text-xs text-zinc-400 mb-1">Formato</p>
-                                <p className="text-white font-semibold">{p.formato}</p>
-                              </div>
-                              <div className="bg-zinc-900 rounded-lg p-3">
-                                <p className="text-xs text-zinc-400 mb-1">Litri</p>
-                                <p className="text-emerald-400 font-semibold">{p.litriImpegnati?.toFixed(1)}</p>
-                              </div>
-                              <div className="bg-zinc-900 rounded-lg p-3">
-                                <p className="text-xs text-zinc-400 mb-1">Lotto</p>
-                                <p className="text-white font-semibold">{p.lotto || "-"}</p>
-                              </div>
-                              <div className="bg-zinc-900 rounded-lg p-3">
-                                <p className="text-xs text-zinc-400 mb-1">Data</p>
-                                <p className="text-white text-xs">{formatDate(p.dataRichiesta)}</p>
-                              </div>
-                            </div>
-
-                            {/* Accessori */}
-                            <div className="p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
-                              <p className="text-xs text-blue-400 font-semibold mb-1 flex items-center gap-1">
-                                <Wrench className="w-3 h-3" />
-                                Accessori:
-                              </p>
-                              <p className="text-sm text-blue-100">{getAccessoryList(p.formato)}</p>
-                            </div>
-
-                            {/* Note */}
-                            <div className="space-y-2">
-                              <label className="text-xs text-zinc-400 font-medium">Note:</label>
-                              <div className="flex gap-2">
-                                <input
-                                  type="text"
-                                  value={p.note ?? ""}
-                                  placeholder="Aggiungi nota..."
-                                  onChange={(e) =>
-                                    setPrenotazioni((prev) =>
-                                      prev.map((row) =>
-                                        row.id === p.id ? { ...row, note: e.target.value } : row
-                                      )
-                                    )
-                                  }
-                                  className="flex-1 bg-zinc-900 border border-zinc-700 text-white px-3 py-2 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                                />
-                                <button
-                                  onClick={() => handleSalvaNota(p.id, p.note)}
-                                  className="flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition-colors"
-                                >
-                                  <Save className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Azione */}
-                            <button
-                              disabled={!hasId}
-                              onClick={() => hasId && handleAggiornaStato(p.id, "in_corso")}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-colors ${
-                                hasId
-                                  ? "bg-yellow-600 hover:bg-yellow-700 text-white"
-                                  : "bg-zinc-700 cursor-not-allowed text-zinc-500"
-                              }`}
-                            >
-                              <Play className="w-5 h-5" />
-                              In Lavorazione
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            {attive.length === 0 ? (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
+                <Package className="w-7 h-7 text-slate-700 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">Nessuna prenotazione attiva</p>
+              </div>
+            ) : (
+              attive.map((p, idx) => (
+                <PrenotazioneCard
+                  key={p.id ?? `pren-${idx}`}
+                  p={p} variant="attiva"
+                  onToggle={toggleExpand}
+                  onSalvaNota={handleSalvaNota}
+                  onAggiornaStato={handleAggiornaStato}
+                  onConfermaProduzione={handleConfermaProduzione}
+                  onUpdateLocal={updateLocal}
+                />
+              ))
+            )}
           </div>
 
-          {/* IN LAVORAZIONE */}
-          <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Clock className="w-6 h-6" />
-                In Lavorazione
-                <span className="px-3 py-1 bg-white/20 rounded-full text-sm">
-                  {prenotazioniInLavorazione.length}
-                </span>
-              </h2>
+          {/* Colonna In Lavorazione */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/40 flex items-center justify-center">
+                <Clock className="w-[18px] h-[18px] text-amber-400" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Produzione</div>
+                <h2 className="text-base font-semibold text-white">In Lavorazione</h2>
+              </div>
+              <span className="ml-auto px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-medium tabular-nums">{inLavorazione.length}</span>
             </div>
 
-            <div className="p-6">
-              {prenotazioniInLavorazione.length === 0 ? (
-                <div className="text-center py-12">
-                  <Clock className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
-                  <p className="text-zinc-400">Nessuna lavorazione in corso</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {prenotazioniInLavorazione.map((p) => (
-                    <div
-                      key={p.id}
-                      className="bg-zinc-800 border border-yellow-700/50 rounded-xl p-5 hover:border-yellow-600 hover:shadow-lg hover:shadow-yellow-900/20 transition-all"
-                    >
-                      {/* Header */}
-                      <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-white mb-2">
-                            {(p.nome_prodotto || "-").replace(/\(NUOVO\)|\(VECCHIO\)/gi, "").trim()}
-                          </h3>
-                          {getPriorityBadge(p.priorita)}
-                        </div>
-                        
-                        <button
-                          onClick={() => toggleExpand(p.id)}
-                          className="text-zinc-400 hover:text-white transition-colors"
-                        >
-                          {p.expanded ? <ChevronUp className="w-6 h-6" /> : <ChevronDown className="w-6 h-6" />}
-                        </button>
-                      </div>
-
-                      {/* Quantità Modificabile */}
-                      <div className="bg-zinc-900 rounded-lg p-4 mb-4">
-                        <p className="text-xs text-zinc-400 uppercase tracking-wide mb-2">Quantità</p>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            defaultValue={p.prodotti}
-                            min="1"
-                            onChange={(e) => {
-                              setPrenotazioni((prev) =>
-                                prev.map((row) =>
-                                  row.id === p.id ? { ...row, nuovaQuantita: e.target.value } : row
-                                )
-                              );
-                            }}
-                            className="flex-1 bg-zinc-800 border border-zinc-700 text-emerald-400 text-4xl font-bold px-4 py-3 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 transition-all text-center"
-                          />
-                          <button
-                            onClick={() => handleModificaQuantita(p.id, p.nuovaQuantita || p.prodotti)}
-                            className="flex items-center gap-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white transition-colors"
-                          >
-                            <CheckCircle className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Dettagli Espansi */}
-                      {p.expanded && (
-                        <div className="space-y-4 pt-4 border-t border-zinc-700">
-                          {/* Grid Info */}
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-zinc-900 rounded-lg p-3">
-                              <p className="text-xs text-zinc-400 mb-1">Formato</p>
-                              <p className="text-white font-semibold">{p.formato}</p>
-                            </div>
-                            <div className="bg-zinc-900 rounded-lg p-3">
-                              <p className="text-xs text-zinc-400 mb-1">Litri</p>
-                              <p className="text-emerald-400 font-semibold">{p.litriImpegnati?.toFixed(1)}</p>
-                            </div>
-                            <div className="bg-zinc-900 rounded-lg p-3">
-                              <p className="text-xs text-zinc-400 mb-1">Lotto</p>
-                              <p className="text-white font-semibold">{p.lotto || "-"}</p>
-                            </div>
-                            <div className="bg-zinc-900 rounded-lg p-3">
-                              <p className="text-xs text-zinc-400 mb-1">Data</p>
-                              <p className="text-white text-xs">{formatDate(p.dataRichiesta)}</p>
-                            </div>
-                          </div>
-
-                          {/* Accessori */}
-                          <div className="p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
-                            <p className="text-xs text-blue-400 font-semibold mb-1 flex items-center gap-1">
-                              <Wrench className="w-3 h-3" />
-                              Accessori:
-                            </p>
-                            <p className="text-sm text-blue-100">{getAccessoryList(p.formato)}</p>
-                          </div>
-
-                          {/* Note Precedenti */}
-                          {p.note && (
-                            <div className="p-3 bg-yellow-900/20 border border-yellow-700/30 rounded-lg">
-                              <p className="text-xs text-yellow-400 font-semibold mb-1 flex items-center gap-1">
-                                <FileText className="w-3 h-3" />
-                                Note precedenti:
-                              </p>
-                              <p className="text-sm text-yellow-100">{p.note}</p>
-                            </div>
-                          )}
-
-                          {/* Nuova Nota */}
-                          <div className="space-y-2">
-                            <label className="text-xs text-zinc-400 font-medium">Aggiungi Nota:</label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                defaultValue=""
-                                placeholder="Aggiungi nota..."
-                                onChange={(e) =>
-                                  setPrenotazioni((prev) =>
-                                    prev.map((row) =>
-                                      row.id === p.id ? { ...row, nuovaNota: e.target.value } : row
-                                    )
-                                  )
-                                }
-                                className="flex-1 bg-zinc-900 border border-zinc-700 text-white px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                              />
-                              <button
-                                onClick={() => handleSalvaNota(p.id, p.nuovaNota)}
-                                className="flex items-center gap-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white transition-colors"
-                              >
-                                <Save className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Azioni */}
-                          <div className="grid grid-cols-2 gap-3">
-                            <button
-                              onClick={() => handleConfermaProduzione(p)}
-                              className="flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-semibold transition-colors"
-                            >
-                              <CheckCircle className="w-5 h-5" />
-                              Conferma
-                            </button>
-                            <button
-                              onClick={() => handleAggiornaStato(p.id, "annullato")}
-                              className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-semibold transition-colors"
-                            >
-                              <XCircle className="w-5 h-5" />
-                              Annulla
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            {inLavorazione.length === 0 ? (
+              <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
+                <Clock className="w-7 h-7 text-slate-700 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">Nessuna lavorazione in corso</p>
+              </div>
+            ) : (
+              inLavorazione.map((p) => (
+                <PrenotazioneCard
+                  key={p.id}
+                  p={p} variant="lavorazione"
+                  onToggle={toggleExpand}
+                  onSalvaNota={handleSalvaNota}
+                  onAggiornaStato={handleAggiornaStato}
+                  onConfermaProduzione={handleConfermaProduzione}
+                  onUpdateLocal={updateLocal}
+                />
+              ))
+            )}
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>Nexus · Gestione Produzione</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };

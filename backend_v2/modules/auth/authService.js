@@ -9,10 +9,20 @@ const {
   LWA_REFRESH_TOKEN,
 } = process.env;
 
+// Cache del token in memoria — valido per tutta la durata del processo
+let _cachedToken = null;
+let _tokenExpiresAt = 0; // timestamp ms
+
 /**
- * 🔑 Richiede un nuovo access_token ad Amazon LWA
+ * 🔑 Restituisce l'access_token Amazon LWA.
+ * Lo rinnova solo se mancano meno di 60 secondi alla scadenza.
  */
 async function getAccessToken() {
+  const now = Date.now();
+  if (_cachedToken && now < _tokenExpiresAt) {
+    return _cachedToken;
+  }
+
   try {
     if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET || !LWA_REFRESH_TOKEN) {
       throw new Error("Variabili LWA mancanti! Controlla il file .env");
@@ -33,9 +43,13 @@ async function getAccessToken() {
 
     const { access_token, expires_in, token_type } = response.data;
 
+    _cachedToken = response.data;
+    // Rinnova 60 secondi prima della scadenza reale
+    _tokenExpiresAt = now + (expires_in - 60) * 1000;
+
     console.log(`✅ Access token ottenuto (expires_in: ${expires_in}s, type: ${token_type})`);
 
-    return response.data; // { access_token, token_type, expires_in }
+    return _cachedToken;
   } catch (err) {
     console.error("❌ Errore richiesta access_token:", err.response?.data || err.message);
     throw new Error("Impossibile ottenere access_token");

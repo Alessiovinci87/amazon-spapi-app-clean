@@ -10,270 +10,210 @@ import {
   List,
   Archive,
   Link2,
-  ChevronDown,
-  ChevronUp,
   ArrowLeft,
-  Sparkles,
-  CheckCircle
+  ArrowRight,
+  FolderTree,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+/* ── Shared UI ──────────────────────────────────────────── */
+
+const SECTION_ACCENTS = {
+  amber:   { bar: "bg-amber-400",   icon: "text-amber-400",   bgIcon: "bg-amber-500/10 border-amber-500/30",   cardHover: "group-hover:border-amber-500/40 group-hover:bg-amber-500/5",   iconHover: "group-hover:text-amber-400 group-hover:border-amber-500/40" },
+  emerald: { bar: "bg-emerald-400", icon: "text-emerald-400", bgIcon: "bg-emerald-500/10 border-emerald-500/30", cardHover: "group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5", iconHover: "group-hover:text-emerald-400 group-hover:border-emerald-500/40" },
+  blue:    { bar: "bg-blue-400",    icon: "text-blue-400",    bgIcon: "bg-blue-500/10 border-blue-500/30",       cardHover: "group-hover:border-blue-500/40 group-hover:bg-blue-500/5",    iconHover: "group-hover:text-blue-400 group-hover:border-blue-500/40" },
+  violet:  { bar: "bg-violet-400",  icon: "text-violet-400",  bgIcon: "bg-violet-500/10 border-violet-500/30",   cardHover: "group-hover:border-violet-500/40 group-hover:bg-violet-500/5", iconHover: "group-hover:text-violet-400 group-hover:border-violet-500/40" },
+  orange:  { bar: "bg-orange-400",  icon: "text-orange-400",  bgIcon: "bg-orange-500/10 border-orange-500/30",   cardHover: "group-hover:border-orange-500/40 group-hover:bg-orange-500/5", iconHover: "group-hover:text-orange-400 group-hover:border-orange-500/40" },
+};
+
+const ACTIVE_ACCENTS = {
+  amber:   { border: "border-amber-500/40 bg-amber-500/5",   iconBorder: "border-amber-500/40", iconText: "text-amber-400" },
+  emerald: { border: "border-emerald-500/40 bg-emerald-500/5", iconBorder: "border-emerald-500/40", iconText: "text-emerald-400" },
+  blue:    { border: "border-blue-500/40 bg-blue-500/5",     iconBorder: "border-blue-500/40",   iconText: "text-blue-400" },
+  violet:  { border: "border-violet-500/40 bg-violet-500/5",  iconBorder: "border-violet-500/40", iconText: "text-violet-400" },
+  orange:  { border: "border-orange-500/40 bg-orange-500/5",  iconBorder: "border-orange-500/40", iconText: "text-orange-400" },
+};
+
+const sections = [
+  { id: "fornitore", title: "Aggiungi Fornitore", desc: "Registra un nuovo fornitore",       icon: Users,        accent: "amber",   code: "01" },
+  { id: "ordine",    title: "Crea Ordine",        desc: "Nuovo ordine fornitore",             icon: ShoppingCart, accent: "emerald", code: "02" },
+  { id: "lista",     title: "Elenco Fornitori",   desc: "Visualizza tutti i fornitori",       icon: List,         accent: "blue",    code: "03" },
+  { id: "storico",   title: "Storico Ordini",     desc: "Consulta ordini passati",            icon: Archive,      accent: "violet",  code: "04" },
+  { id: "gestione",  title: "Gestione Prodotti",  desc: "Collega prodotti ai fornitori",      icon: Link2,        accent: "orange",  code: "05" },
+];
 
 const Fornitori = () => {
   const navigate = useNavigate();
   const [formAperto, setFormAperto] = useState(null);
 
   const toggleForm = (formName) => {
-    if (formAperto === formName) {
-      setFormAperto(null);
-    } else {
-      setFormAperto(formName);
-    }
+    setFormAperto(formAperto === formName ? null : formName);
   };
 
-  const sections = [
-    {
-      id: "fornitore",
-      title: "Aggiungi Fornitore",
-      description: "Registra un nuovo fornitore",
-      icon: Users,
-      gradient: "from-yellow-600 to-amber-700",
-      borderColor: "border-yellow-700/50",
-      hoverBorder: "hover:border-yellow-600",
-      hoverShadow: "hover:shadow-yellow-900/20",
-      iconBg: "bg-yellow-600",
-      bgGradient: "from-yellow-900/40 to-yellow-800/20"
-    },
-    {
-      id: "ordine",
-      title: "Crea Ordine",
-      description: "Nuovo ordine fornitore",
-      icon: ShoppingCart,
-      gradient: "from-emerald-600 to-emerald-700",
-      borderColor: "border-emerald-700/50",
-      hoverBorder: "hover:border-emerald-600",
-      hoverShadow: "hover:shadow-emerald-900/20",
-      iconBg: "bg-emerald-600",
-      bgGradient: "from-emerald-900/40 to-emerald-800/20"
-    },
-    {
-      id: "lista",
-      title: "Elenco Fornitori",
-      description: "Visualizza tutti i fornitori",
-      icon: List,
-      gradient: "from-blue-600 to-blue-700",
-      borderColor: "border-blue-700/50",
-      hoverBorder: "hover:border-blue-600",
-      hoverShadow: "hover:shadow-blue-900/20",
-      iconBg: "bg-blue-600",
-      bgGradient: "from-blue-900/40 to-blue-800/20"
-    },
-    {
-      id: "storico",
-      title: "Storico Ordini",
-      description: "Consulta ordini passati",
-      icon: Archive,
-      gradient: "from-purple-600 to-purple-700",
-      borderColor: "border-purple-700/50",
-      hoverBorder: "hover:border-purple-600",
-      hoverShadow: "hover:shadow-purple-900/20",
-      iconBg: "bg-purple-600",
-      bgGradient: "from-purple-900/40 to-purple-800/20"
-    },
-    {
-      id: "gestione",
-      title: "Gestione Prodotti",
-      description: "Collega prodotti ai fornitori",
-      icon: Link2,
-      gradient: "from-orange-600 to-orange-700",
-      borderColor: "border-orange-700/50",
-      hoverBorder: "hover:border-orange-600",
-      hoverShadow: "hover:shadow-orange-900/20",
-      iconBg: "bg-orange-600",
-      bgGradient: "from-orange-900/40 to-orange-800/20"
-    }
-  ];
+  const activeSection = sections.find((s) => s.id === formAperto);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="max-w-8xl mx-auto space-y-6">
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid */}
+      <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-        {/* ========== HEADER ========== */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 rounded-2xl border border-zinc-800/50 p-8 shadow-2xl">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-
-          <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <div className="flex items-center gap-5">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-br from-yellow-500 to-amber-600 rounded-3xl blur-xl opacity-50 animate-pulse" />
-                <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-2xl">
-                  <Users className="w-10 h-10 text-white" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-4xl font-extrabold text-white mb-1">Gestione Fornitori</h1>
-                <p className="text-zinc-400 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Gestisci fornitori, ordini e prodotti
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="flex items-center gap-2 px-6 py-3 bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700 rounded-xl text-white font-medium transition-all backdrop-blur-sm hover:scale-[1.02]"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Dashboard
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate("/dashboard")} type="button" title="Dashboard" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
             </button>
+            <div className="w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/40 flex items-center justify-center flex-shrink-0">
+              <Users className="w-[18px] h-[18px] text-amber-400" />
+            </div>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Fornitori</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Fornitori, ordini e prodotti</span>
+            </div>
           </div>
         </div>
+      </header>
 
-        {/* ========== SECTION BUTTONS ========== */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          {sections.map((section) => {
-            const Icon = section.icon;
-            const isOpen = formAperto === section.id;
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Uffici</div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            Gestione Fornitori <span className="text-slate-500">— ordini e prodotti.</span>
+          </h1>
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+            Gestisci fornitori, ordini e prodotti. Seleziona una delle sezioni sottostanti per iniziare.
+          </p>
+        </div>
+      </section>
 
-            return (
-              <button
-                key={section.id}
-                onClick={() => toggleForm(section.id)}
-                className={`group relative overflow-hidden bg-gradient-to-br ${section.bgGradient} border rounded-2xl p-6 transition-all ${isOpen
-                    ? `${section.borderColor} shadow-xl hover:shadow-2xl scale-[1.02]`
-                    : `border-zinc-800/50 ${section.hoverBorder} ${section.hoverShadow} hover:shadow-lg`
+      {/* === Contenuto === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 pb-12 space-y-6">
+
+        {/* Sezioni */}
+        <div>
+          <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-1.5">Sezioni</div>
+              <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">Moduli disponibili</h2>
+              <p className="text-sm text-slate-500 mt-1">Seleziona una sezione per visualizzarne il contenuto.</p>
+            </div>
+            <div className="text-[11px] font-mono text-slate-600">
+              {String(sections.length).padStart(2, "0")} moduli
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {sections.map((s) => {
+              const Icon = s.icon;
+              const isActive = formAperto === s.id;
+              const acc = SECTION_ACCENTS[s.accent];
+              const act = ACTIVE_ACCENTS[s.accent];
+
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => toggleForm(s.id)}
+                  type="button"
+                  className={`group relative flex flex-col items-start text-left p-5 sm:p-6 rounded-lg transition-all ${
+                    isActive
+                      ? `bg-slate-900 ${act.border}`
+                      : `bg-slate-900/60 border border-slate-800 hover:bg-slate-900 ${acc.cardHover}`
                   }`}
-              >
-                {/* Glow Effect */}
-                {isOpen && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-                )}
-
-                {/* Icon Badge */}
-                <div className={`relative w-16 h-16 rounded-2xl ${section.iconBg} flex items-center justify-center mx-auto mb-4 shadow-lg ${isOpen ? 'scale-110' : 'group-hover:scale-110'
-                  } transition-transform`}>
-                  <Icon className="w-8 h-8 text-white" />
-                </div>
-
-                {/* Title */}
-                <h3 className="text-lg font-bold text-white mb-2 text-center">
-                  {section.title}
-                </h3>
-
-                {/* Description */}
-                <p className="text-sm text-zinc-400 text-center mb-4">
-                  {section.description}
-                </p>
-
-                {/* Toggle Indicator */}
-                <div className="flex items-center justify-center">
-                  {isOpen ? (
-                    <div className="flex items-center gap-2 text-white">
-                      <ChevronUp className="w-5 h-5 animate-bounce" />
-                      <span className="text-sm font-semibold">Aperto</span>
+                >
+                  <div className="flex items-center justify-between w-full mb-6">
+                    <div className={`w-11 h-11 rounded-md flex items-center justify-center transition-colors ${
+                      isActive
+                        ? `${acc.bgIcon}`
+                        : `bg-slate-800/60 border border-slate-700 ${acc.iconHover}`
+                    }`}>
+                      <Icon className={`w-5 h-5 transition-colors ${isActive ? acc.icon : "text-slate-400"}`} />
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-zinc-400 group-hover:text-white transition-colors">
-                      <ChevronDown className="w-5 h-5" />
-                      <span className="text-sm font-medium">Apri</span>
+                    <span className={`text-[10px] font-mono transition-colors ${isActive ? "text-slate-400" : "text-slate-600 group-hover:text-slate-400"}`}>
+                      {s.code}
+                    </span>
+                  </div>
+                  <div className="text-base font-medium text-white mb-1">{s.title}</div>
+                  <p className="text-xs text-slate-500 leading-relaxed">{s.desc}</p>
+                  <div className={`mt-5 flex items-center gap-1 text-[11px] uppercase tracking-wider transition-colors ${
+                    isActive ? `${acc.icon}` : "text-slate-600 group-hover:text-slate-300"
+                  }`}>
+                    {isActive ? "Attivo" : "Apri"}
+                    <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
+
+                  {isActive && (
+                    <div className="absolute top-3 right-3">
+                      <div className={`w-2 h-2 rounded-full ${acc.bar} animate-pulse`} />
                     </div>
                   )}
-                </div>
-
-                {/* Active Indicator */}
-                {isOpen && (
-                  <div className="absolute top-4 right-4 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <div className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-                  </div>
-                )}
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* ========== DYNAMIC CONTENT ========== */}
-        {formAperto && (
-          <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl p-8 animate-fadeIn shadow-xl">
-            <div className="flex items-center gap-4 mb-6 pb-6 border-b border-zinc-800">
-              {(() => {
-                const section = sections.find(s => s.id === formAperto);
-                const Icon = section?.icon;
-                return (
-                  <>
-                    <div className={`w-14 h-14 rounded-xl ${section?.iconBg} flex items-center justify-center shadow-lg`}>
-                      <Icon className="w-7 h-7 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h2 className="text-2xl font-bold text-white mb-1">{section?.title}</h2>
-                      <p className="text-sm text-zinc-400">{section?.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-full">
-                      <CheckCircle className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm font-semibold text-emerald-400">Attivo</span>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
+        {/* Contenuto dinamico */}
+        {formAperto && activeSection && (
+          <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${SECTION_ACCENTS[activeSection.accent].bar}/60`} />
+            <div className="px-5 sm:px-6 py-5">
+              <div className="flex items-center gap-3 mb-5 pb-4 border-b border-slate-800">
+                {(() => {
+                  const Icon = activeSection.icon;
+                  const acc = SECTION_ACCENTS[activeSection.accent];
+                  return (
+                    <>
+                      <div className={`w-8 h-8 rounded-md border ${acc.bgIcon} flex items-center justify-center flex-shrink-0`}>
+                        <Icon className={`w-4 h-4 ${acc.icon}`} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">
+                          Sezione attiva
+                        </div>
+                        <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight leading-tight truncate">
+                          {activeSection.title}
+                        </h2>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
 
-            <div>
-              {formAperto === "fornitore" && (
-                <InserimentoFornitore onFornitoreAggiunto={() => console.log("Fornitore aggiunto")} />
-              )}
-
-              {formAperto === "ordine" && (
-                <InserimentoOrdine />
-              )}
-
-              {formAperto === "lista" && (
-                <ListaFornitori />
-              )}
-
-              {formAperto === "storico" && (
-                <StoricoOrdini />
-              )}
-
-              {formAperto === "gestione" && (
-                <GestioneProdottiFornitore />
-              )}
+              {formAperto === "fornitore" && <InserimentoFornitore onFornitoreAggiunto={() => console.log("Fornitore aggiunto")} />}
+              {formAperto === "ordine" && <InserimentoOrdine />}
+              {formAperto === "lista" && <ListaFornitori />}
+              {formAperto === "storico" && <StoricoOrdini />}
+              {formAperto === "gestione" && <GestioneProdottiFornitore />}
             </div>
           </div>
         )}
 
-        {/* ========== EMPTY STATE ========== */}
+        {/* Empty state */}
         {!formAperto && (
-          <div className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl p-16 text-center">
-            <div className="inline-block p-6 bg-zinc-800 rounded-2xl mb-6">
-              <Users className="w-20 h-20 text-zinc-600 mx-auto" />
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-3">
-              Seleziona una sezione per iniziare
-            </h3>
-            <p className="text-zinc-400 text-base max-w-md mx-auto">
-              Clicca su una delle card sopra per gestire fornitori, creare ordini o visualizzare lo storico
-            </p>
-
-            {/* Quick Stats */}
-            <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mt-8">
-              <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
-                <p className="text-zinc-400 text-xs mb-1">Sezioni</p>
-                <p className="text-2xl font-bold text-white">5</p>
-              </div>
-              <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
-                <p className="text-zinc-400 text-xs mb-1">Disponibili</p>
-                <p className="text-2xl font-bold text-emerald-400">100%</p>
-              </div>
-              <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50">
-                <p className="text-zinc-400 text-xs mb-1">Pronto</p>
-                <p className="text-2xl font-bold text-blue-400">
-                  <CheckCircle className="w-8 h-8 mx-auto" />
-                </p>
-              </div>
+          <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-700/60" />
+            <div className="px-5 sm:px-6 py-12 text-center">
+              <Users className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+              <h3 className="text-base font-semibold text-white mb-2">
+                Seleziona una sezione per iniziare
+              </h3>
+              <p className="text-sm text-slate-500 max-w-md mx-auto">
+                Clicca su una delle card sopra per gestire fornitori, creare ordini o visualizzare lo storico.
+              </p>
             </div>
           </div>
         )}
-      </div>
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/40">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>© {new Date().getFullYear()} Nexus · Gestione Fornitori</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };

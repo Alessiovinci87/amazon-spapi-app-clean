@@ -2,19 +2,81 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AccessorioCard from "../components/inventario/AccessorioCard";
-import { 
-  ArrowLeft, 
-  FileText, 
-  Wrench, 
-  Filter,
-  Package,
+import {
+  ArrowLeft,
+  FileText,
+  Wrench,
   Droplet,
-  Box
+  Package,
+  Box,
+  LogOut,
 } from "lucide-react";
+
+function SectionCard({ accent = "orange", icon: Icon, eyebrow, title, badge, children }) {
+  const accentMap = {
+    orange: "bg-orange-400/60",
+    emerald: "bg-emerald-400/60",
+    blue: "bg-blue-400/60",
+  };
+  const iconBg = {
+    orange: "bg-orange-500/10 border-orange-500/40 text-orange-400",
+    emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400",
+    blue: "bg-blue-500/10 border-blue-500/40 text-blue-400",
+  };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentMap[accent]}`} />
+      <div className="px-6 py-5 sm:px-8 sm:py-6">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3 min-w-0">
+            {Icon && (
+              <div className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 ${iconBg[accent]}`}>
+                <Icon className="w-[18px] h-[18px]" />
+              </div>
+            )}
+            <div className="min-w-0">
+              {eyebrow && (
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{eyebrow}</div>
+              )}
+              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight truncate">{title}</h2>
+            </div>
+          </div>
+          {badge}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StatTile({ icon: Icon, label, value, accent = "orange" }) {
+  const map = {
+    orange: "bg-orange-500/10 border-orange-500/40 text-orange-400",
+    emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400",
+    blue: "bg-blue-500/10 border-blue-500/40 text-blue-400",
+  };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg px-6 py-5">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-9 h-9 rounded-md border flex items-center justify-center ${map[accent]}`}>
+          <Icon className="w-[18px] h-[18px]" />
+        </div>
+      </div>
+      <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{label}</div>
+    </div>
+  );
+}
+
+const FILTERS = [
+  { key: "tutti", label: "Tutti", icon: Box },
+  { key: "12ml", label: "12ml", icon: Droplet },
+  { key: "100ml", label: "100ml", icon: Package },
+];
 
 const Accessori = () => {
   const [accessori, setAccessori] = useState([]);
-  const [filtro, setFiltro] = useState("tutti"); // 👈 tutti di default
+  const [filtro, setFiltro] = useState("tutti");
   const navigate = useNavigate();
 
   const fetchAccessori = async () => {
@@ -23,36 +85,21 @@ const Accessori = () => {
       if (!res.ok) throw new Error("Errore nel caricamento accessori");
       const data = await res.json();
 
-      // 🔗 aggiungo percorso immagini
       const accessoriConImmagine = data.map((a) => {
         let imgPath = null;
-
-        if (a.nome.toLowerCase().includes("boccetta 12")) {
-          imgPath = "/images/accessori/boccetta12ml.png";
-        } else if (a.nome.toLowerCase().includes("boccetta 100")) {
-          imgPath = "/images/accessori/boccetta100ml.png";
-        } else if (a.nome.toLowerCase().includes("pennell")) {
-          imgPath = "/images/accessori/pennellino12ml.png";
-        } else if (a.nome.toLowerCase().includes("scatol")) {
-          imgPath = "/images/accessori/scatoletta12ml.png";
-        } else if (
-          a.nome.toLowerCase().includes("tappo 12") ||
-          a.nome.toLowerCase().includes("tappino 12")
-        ) {
-          imgPath = "/images/accessori/tappino12ml.png";
-        } else if (
-          a.nome.toLowerCase().includes("tappo 100") ||
-          a.nome.toLowerCase().includes("tappino 100")
-        ) {
-          imgPath = "/images/accessori/tappino100ml.png";
-        }
-
+        const n = a.nome.toLowerCase();
+        if (n.includes("boccetta 12")) imgPath = "/images/accessori/boccetta12ml.png";
+        else if (n.includes("boccetta 100")) imgPath = "/images/accessori/boccetta100ml.png";
+        else if (n.includes("pennell")) imgPath = "/images/accessori/pennellino12ml.png";
+        else if (n.includes("scatol")) imgPath = "/images/accessori/scatoletta12ml.png";
+        else if (n.includes("tappo 12") || n.includes("tappino 12")) imgPath = "/images/accessori/tappino12ml.png";
+        else if (n.includes("tappo 100") || n.includes("tappino 100")) imgPath = "/images/accessori/tappino100ml.png";
         return { ...a, immagine: imgPath };
       });
 
       setAccessori(accessoriConImmagine);
     } catch (err) {
-      console.error("❌ Errore fetch accessori:", err);
+      console.error("Errore fetch accessori:", err);
     }
   };
 
@@ -60,15 +107,11 @@ const Accessori = () => {
     fetchAccessori();
   }, []);
 
-  const accessori12 = accessori.filter((a) =>
-    a.nome.toLowerCase().includes("12")
-  );
-  const accessori100 = accessori.filter((a) =>
-    a.nome.toLowerCase().includes("100")
-  );
+  const accessori12 = accessori.filter((a) => a.nome.toLowerCase().includes("12"));
+  const accessori100 = accessori.filter((a) => a.nome.toLowerCase().includes("100"));
 
   const renderGrid = (lista) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
       {lista.map((a) => (
         <AccessorioCard
           key={a.asin_accessorio}
@@ -83,276 +126,181 @@ const Accessori = () => {
     </div>
   );
 
-  const getContatore = () => {
-    switch (filtro) {
-      case "12ml":
-        return accessori12.length;
-      case "100ml":
-        return accessori100.length;
-      case "tutti":
-        return accessori.length;
-      default:
-        return 0;
-    }
-  };
+  const emptyState = (msg) => (
+    <div className="text-center py-12">
+      <Wrench className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+      <p className="text-sm text-slate-500">{msg}</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="max-w-8xl mx-auto space-y-6">
-        
-        {/* ========== HEADER ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg">
-                <Wrench className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">Gestione Accessori</h1>
-                <p className="text-zinc-400 mt-1">Boccette, tappini, pennellini e scatolette</p>
-              </div>
-            </div>
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid */}
+      <div
+        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => navigate("/accessori/storico")}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
-              >
-                <FileText className="w-4 h-4" />
-                Storico
-              </button>
-              <button
-                onClick={() => navigate("/magazzino")}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Magazzino
-              </button>
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => navigate("/magazzino")}
+              type="button"
+              title="Indietro"
+              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-orange-500/10 border border-orange-500/40 flex items-center justify-center flex-shrink-0">
+              <Wrench className="w-[18px] h-[18px] text-orange-400" />
+            </div>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Accessori</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Magazzino</span>
             </div>
           </div>
-        </div>
 
-        {/* ========== FILTRI ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-            <Filter className="w-5 h-5 text-orange-400" />
-            Filtra per Formato
-          </h2>
-          
-          <div className="flex flex-wrap gap-3">
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
             <button
-              onClick={() => setFiltro("12ml")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
-                filtro === "12ml"
-                  ? "bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg scale-105"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
-              }`}
+              onClick={() => navigate("/accessori/storico")}
+              type="button"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all"
             >
-              <Droplet className="w-4 h-4" />
-              Accessori 12ml
-              {filtro === "12ml" && (
-                <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                  {accessori12.length}
-                </span>
-              )}
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Storico</span>
             </button>
-
             <button
-              onClick={() => setFiltro("100ml")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
-                filtro === "100ml"
-                  ? "bg-gradient-to-r from-blue-500 to-cyan-600 text-white shadow-lg scale-105"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
-              }`}
+              onClick={() => navigate("/magazzino")}
+              type="button"
+              className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
             >
-              <Package className="w-4 h-4" />
-              Accessori 100ml
-              {filtro === "100ml" && (
-                <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                  {accessori100.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => setFiltro("tutti")}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
-                filtro === "tutti"
-                  ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg scale-105"
-                  : "bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-zinc-700"
-              }`}
-            >
-              <Box className="w-4 h-4" />
-              Tutti gli Accessori
-              {filtro === "tutti" && (
-                <span className="ml-1 px-2 py-0.5 bg-white/20 rounded-full text-xs">
-                  {accessori.length}
-                </span>
-              )}
+              <LogOut className="w-3.5 h-3.5" />
+              Magazzino
             </button>
           </div>
         </div>
+      </header>
 
-        {/* ========== CONTATORE E TITOLO SEZIONE ========== */}
-        <div className="bg-gradient-to-r from-orange-600 to-red-600 rounded-xl border border-orange-500/30 p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="text-4xl">
-                {filtro === "12ml" ? "💧" : filtro === "100ml" ? "🧴" : "🔧"}
-              </span>
-              <div>
-                <h2 className="text-2xl font-bold text-white">
-                  {filtro === "12ml" && "Accessori 12ml"}
-                  {filtro === "100ml" && "Accessori 100ml"}
-                  {filtro === "tutti" && "Tutti gli Accessori"}
-                </h2>
-                <p className="text-orange-100 text-sm mt-1">
-                  {getContatore()} accessor{getContatore() === 1 ? "io" : "i"} disponibil{getContatore() === 1 ? "e" : "i"}
-                </p>
+      {/* === Hero compatto === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="flex items-start justify-between gap-6 flex-wrap">
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
+                Accessori · Magazzino
               </div>
-            </div>
-
-            {/* Badge filtro attivo */}
-            <div className="bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg border border-white/30">
-              <p className="text-white text-sm font-medium uppercase">
-                {filtro === "tutti" ? "Vista Completa" : `Solo ${filtro}`}
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+                Boccette, tappini e pennellini <span className="text-slate-500">— per formato.</span>
+              </h1>
+              <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+                Gestione stock accessori per prodotti 12ml e 100ml.
               </p>
             </div>
           </div>
         </div>
+      </section>
 
-        {/* ========== LISTA ACCESSORI ========== */}
-        {filtro === "12ml" && (
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-            <h3 className="text-xl font-semibold text-emerald-400 mb-4 flex items-center gap-2">
-              <Droplet className="w-5 h-5" />
-              Accessori per prodotti 12ml
-            </h3>
-            {accessori12.length > 0 ? (
-              renderGrid(accessori12)
-            ) : (
-              <div className="text-center py-12 text-zinc-500">
-                <p className="text-lg">Nessun accessorio 12ml trovato</p>
-              </div>
-            )}
+      {/* === Filtri formato === */}
+      <div className="relative border-b border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16">
+          <div className="flex gap-1 overflow-x-auto -mb-px scrollbar-none py-2">
+            {FILTERS.map((f) => {
+              const active = filtro === f.key;
+              const FIcon = f.icon;
+              return (
+                <button
+                  key={f.key}
+                  onClick={() => setFiltro(f.key)}
+                  type="button"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap border transition-all ${
+                    active
+                      ? "bg-orange-500/15 border-orange-500/50 text-orange-200"
+                      : "bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-slate-200"
+                  }`}
+                >
+                  <FIcon className="w-3.5 h-3.5" />
+                  {f.label}
+                  {active && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 rounded text-[10px] font-mono tabular-nums">
+                      {f.key === "tutti" ? accessori.length : f.key === "12ml" ? accessori12.length : accessori100.length}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-        )}
-
-        {filtro === "100ml" && (
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-            <h3 className="text-xl font-semibold text-blue-400 mb-4 flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Accessori per prodotti 100ml
-            </h3>
-            {accessori100.length > 0 ? (
-              renderGrid(accessori100)
-            ) : (
-              <div className="text-center py-12 text-zinc-500">
-                <p className="text-lg">Nessun accessorio 100ml trovato</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {filtro === "tutti" && (
-          <>
-            {/* Sezione 12ml */}
-            <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-emerald-400 flex items-center gap-2">
-                  <Droplet className="w-5 h-5" />
-                  Accessori per prodotti 12ml
-                </h3>
-                <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-sm font-medium">
-                  {accessori12.length} accessori
-                </span>
-              </div>
-              {accessori12.length > 0 ? (
-                renderGrid(accessori12)
-              ) : (
-                <div className="text-center py-12 text-zinc-500">
-                  <p className="text-lg">Nessun accessorio 12ml trovato</p>
-                </div>
-              )}
-            </div>
-
-            {/* Sezione 100ml */}
-            <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-blue-400 flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  Accessori per prodotti 100ml
-                </h3>
-                <span className="px-3 py-1 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-400 text-sm font-medium">
-                  {accessori100.length} accessori
-                </span>
-              </div>
-              {accessori100.length > 0 ? (
-                renderGrid(accessori100)
-              ) : (
-                <div className="text-center py-12 text-zinc-500">
-                  <p className="text-lg">Nessun accessorio 100ml trovato</p>
-                </div>
-              )}
-            </div>
-          </>
-        )}
-
-        {/* ========== EMPTY STATE (se non ci sono accessori) ========== */}
-        {accessori.length === 0 && (
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-12 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-              <Wrench className="w-10 h-10 text-zinc-600" />
-            </div>
-            <h3 className="text-xl font-semibold text-white mb-2">
-              Nessun accessorio disponibile
-            </h3>
-            <p className="text-zinc-400 text-sm">
-              Gli accessori appariranno qui una volta caricati dal database
-            </p>
-          </div>
-        )}
-
-        {/* ========== STATISTICHE RAPIDE ========== */}
-        {accessori.length > 0 && (
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              📊 Statistiche Rapide
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-emerald-500/10 to-green-600/10 border border-emerald-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Droplet className="w-8 h-8 text-emerald-400" />
-                  <div>
-                    <p className="text-sm text-zinc-400">Accessori 12ml</p>
-                    <p className="text-2xl font-bold text-emerald-400">{accessori12.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-blue-500/10 to-cyan-600/10 border border-blue-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Package className="w-8 h-8 text-blue-400" />
-                  <div>
-                    <p className="text-sm text-zinc-400">Accessori 100ml</p>
-                    <p className="text-2xl font-bold text-blue-400">{accessori100.length}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-orange-500/10 to-red-600/10 border border-orange-500/30 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <Box className="w-8 h-8 text-orange-400" />
-                  <div>
-                    <p className="text-sm text-zinc-400">Totale Accessori</p>
-                    <p className="text-2xl font-bold text-orange-400">{accessori.length}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
+
+      {/* === Contenuto principale === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-6">
+        {/* Stats */}
+        {accessori.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <StatTile icon={Droplet} label="Accessori 12ml" value={accessori12.length} accent="emerald" />
+            <StatTile icon={Package} label="Accessori 100ml" value={accessori100.length} accent="blue" />
+            <StatTile icon={Box} label="Totale accessori" value={accessori.length} accent="orange" />
+          </div>
+        )}
+
+        {/* Sezioni accessori */}
+        {(filtro === "tutti" || filtro === "12ml") && (
+          <SectionCard
+            accent="emerald"
+            icon={Droplet}
+            eyebrow="Formato piccolo"
+            title="Accessori 12ml"
+            badge={
+              <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">
+                {accessori12.length} accessori
+              </span>
+            }
+          >
+            {accessori12.length > 0 ? renderGrid(accessori12) : emptyState("Nessun accessorio 12ml trovato")}
+          </SectionCard>
+        )}
+
+        {(filtro === "tutti" || filtro === "100ml") && (
+          <SectionCard
+            accent="blue"
+            icon={Package}
+            eyebrow="Formato grande"
+            title="Accessori 100ml"
+            badge={
+              <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-medium tabular-nums">
+                {accessori100.length} accessori
+              </span>
+            }
+          >
+            {accessori100.length > 0 ? renderGrid(accessori100) : emptyState("Nessun accessorio 100ml trovato")}
+          </SectionCard>
+        )}
+
+        {/* Empty state globale */}
+        {accessori.length === 0 && (
+          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-12 text-center">
+            <div className="w-14 h-14 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto mb-4">
+              <Wrench className="w-6 h-6 text-slate-600" />
+            </div>
+            <h3 className="text-base font-semibold text-white mb-1">Nessun accessorio disponibile</h3>
+            <p className="text-sm text-slate-500">Gli accessori appariranno qui una volta caricati dal database</p>
+          </div>
+        )}
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>Nexus · Gestione Accessori</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };

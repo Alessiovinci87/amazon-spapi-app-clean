@@ -58,6 +58,11 @@ const spedizioniRoutes = require("./routes/spedizioni");
 const storicoSpedizioniRoutes = require("./routes/storicoSpedizioni");
 const impegniRoutes = require("./routes/impegni");
 
+// --- One Step
+const onestepRoutes = require("./routes/onestep");
+const topcoatRoutes = require("./routes/topcoat");
+const moduliCustomRoutes = require("./routes/moduliCustom");
+
 // --- Sfuso / Produzioni
 const sfusoRoutes = require("./routes/sfuso");
 const sfusoInventarioRoutes = require("./routes/sfusoInventario");
@@ -134,12 +139,13 @@ async function bootstrap() {
     credentials: true,
   }));
 
-  // Rate limiting globale — 300 richieste per IP ogni 15 minuti
+  // Rate limiting globale — escluse le route di polling /stato (vengono chiamate ogni 3s)
   app.use(rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 2000,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.path.endsWith("/stato"),
     message: { error: "Troppe richieste, riprova tra qualche minuto." },
   }));
 
@@ -213,14 +219,30 @@ async function bootstrap() {
   app.use("/api/v2", inventoryAmazonController);
 
   // =========================================================
+  // 🌍 EUROPA — Alert & Dashboard
+  // =========================================================
+  app.use("/api/v2/europa", require("./modules/europa/europaRoutes"));
+
+  // =========================================================
+  // ⭐ SELLER FEEDBACK (recensioni venditore via SP-API)
+  // =========================================================
+  app.use("/api/v2/feedback", require("./modules/feedback/feedbackRoutes"));
+
+  // =========================================================
   // 🧭 STATIC FILES + HEALTHCHECK
   // =========================================================
   app.use("/static", express.static(path.join(__dirname, "../frontend/public")));
+  app.use("/onestep-images", express.static(path.join(__dirname, "../frontend/public/onestep-images")));
+  app.use("/topcoat-images", express.static(path.join(__dirname, "../frontend/public/topcoat-images")));
+  app.use("/moduli-images", express.static(path.join(__dirname, "../frontend/public/moduli-images")));
   app.get("/api/v2/health", (_req, res) => res.json({ ok: true }));
 
   // =========================================================
   // 🔹 BILANCIO
   // =========================================================
+  app.use("/api/v2/onestep", onestepRoutes);
+  app.use("/api/v2/topcoat", topcoatRoutes);
+  app.use("/api/v2/moduli", moduliCustomRoutes);
   app.use("/api/v2/bilancio", bilancioRouter);
 
   // =========================================================
@@ -267,6 +289,10 @@ async function bootstrap() {
   });
 
   require("./keepAlive");
+
+  // Cron alert Europa (ogni 2 ore)
+  const { startAlertCron } = require("./modules/europa/alertCron");
+  startAlertCron();
 }
 
 bootstrap().catch((err) => {

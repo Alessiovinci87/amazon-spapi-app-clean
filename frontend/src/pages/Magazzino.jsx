@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
-import { useNavigate, useLocation } from "react-router-dom";
-
+import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import {
   Package,
   Boxes,
@@ -9,23 +9,86 @@ import {
   Truck,
   FileText,
   Factory,
-  Home,
   Beaker,
   ArrowRight,
   Archive,
   TrendingUp,
-  BarChart3,
   Clock,
-  Sparkles,
   Zap,
-  ChevronRight,
+  LogOut,
+  Warehouse,
+  Settings,
 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05, delayChildren: 0.1 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+};
+
+// Sezioni → moduli
+const SECTIONS = [
+  {
+    eyebrow: "Inventario",
+    title: "Materiali e prodotti",
+    subtitle: "Gestione di catalogo, accessori e materiali di consumo.",
+    columns: "sm:grid-cols-2 lg:grid-cols-5",
+    items: [
+      { to: "/inventario", icon: Package, label: "Prodotti",  desc: "Catalogo e giacenze",   accent: "emerald", code: "01" },
+      { to: "/accessori",  icon: Boxes,   label: "Accessori", desc: "Componenti e ricambi", accent: "emerald", code: "02" },
+      { to: "/scatolette", icon: Tag,     label: "Scatolette", desc: "Imballaggi",           accent: "emerald", code: "03" },
+      { to: "/etichette",  icon: Sticker, label: "Etichette", desc: "Label e marcatori",    accent: "emerald", code: "04" },
+      { to: "/sfuso",      icon: Beaker,  label: "Sfuso",     desc: "Materie prime liquide", accent: "emerald", code: "05" },
+    ],
+  },
+  {
+    eyebrow: "Logistica",
+    title: "Spedizioni e documenti",
+    subtitle: "Gestione delle uscite e generazione DDT.",
+    columns: "sm:grid-cols-2",
+    items: [
+      { to: "/spedizioni", icon: Truck,    label: "Spedizioni", desc: "Tracking e gestione uscite",  accent: "blue", code: "06" },
+      { to: "/ddt-index",  icon: FileText, label: "Genera DDT", desc: "Documenti di trasporto",      accent: "blue", code: "07" },
+    ],
+  },
+  {
+    eyebrow: "Produzione",
+    title: "Lavorazioni",
+    subtitle: "Pianificazione e monitoraggio dei processi produttivi.",
+    columns: "sm:grid-cols-2",
+    items: [
+      { to: "/gestione-produzione", icon: Factory, label: "Gestione Produzione", desc: "Gestisci prenotazioni e produzioni", accent: "violet", code: "08" },
+    ],
+  },
+];
+
+const QUICK_LINKS = [
+  { to: "/storico",                  icon: FileText, label: "Storico Movimenti" },
+  { to: "/storico-sfuso",            icon: Beaker,   label: "Storico Sfuso" },
+  { to: "/storico-produzioni-sfuso", icon: Package,  label: "Storico Produzioni" },
+  { to: "/settings",                 icon: Settings, label: "Impostazioni" },
+];
+
+const ACCENT_BG = {
+  emerald: "group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5",
+  blue:    "group-hover:border-blue-500/40 group-hover:bg-blue-500/5",
+  violet:  "group-hover:border-violet-500/40 group-hover:bg-violet-500/5",
+};
+const ACCENT_ICON = {
+  emerald: "group-hover:text-emerald-400 group-hover:border-emerald-500/40",
+  blue:    "group-hover:text-blue-400 group-hover:border-blue-500/40",
+  violet:  "group-hover:text-violet-400 group-hover:border-violet-500/40",
+};
 
 const Magazzino = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const isMagazzinoAuth = localStorage.getItem("auth") === "magazzino";
 
   const [stats, setStats] = useState({
@@ -41,459 +104,258 @@ const Magazzino = () => {
       .catch(err => console.error("Errore statistiche:", err));
   }, []);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-        delayChildren: 0.15,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.4, ease: "easeOut" },
-    },
-  };
-
-  const cardHover = {
-    scale: 1.03,
-    y: -4,
-    transition: { duration: 0.2 },
-  };
+  const handleBack = () => navigate(isMagazzinoAuth ? "/" : "/dashboard");
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white px-4 md:px-8 py-8">
-      <div className="max-w-8xl mx-auto space-y-8">
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid sottile */}
+      <div
+        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-        {/* ========== HEADER CON GRADIENT ========== */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="relative overflow-hidden bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 rounded-2xl border border-zinc-800/50 p-8 shadow-2xl"
-        >
-          <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-          
-          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <motion.div 
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                className="relative"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-blue-600 rounded-3xl blur-xl opacity-50 animate-pulse" />
-                <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-2xl">
-                  <Package className="w-10 h-10 text-white" />
-                </div>
-              </motion.div>
-              <div>
-                <h1 className="text-4xl font-extrabold text-white mb-1">Dashboard Magazzino</h1>
-                <p className="text-zinc-400 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" />
-                  Centro di controllo operativo
-                </p>
-              </div>
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
+              <Warehouse className="w-[18px] h-[18px] text-emerald-400" />
             </div>
+            <div className="flex flex-col leading-none">
+              <span className="text-[15px] font-semibold tracking-tight text-white">Nexus</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Warehouse Module</span>
+            </div>
+          </div>
 
+          <div className="flex items-center gap-3 sm:gap-5">
+            <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] uppercase tracking-[0.12em] text-emerald-400 font-medium">Sessione attiva</span>
+            </div>
             <button
-              onClick={() => navigate(isMagazzinoAuth ? "/" : "/dashboard")}
-              className="flex items-center gap-2 px-6 py-3 bg-zinc-800/50 hover:bg-zinc-700/50 border border-zinc-700 rounded-xl text-white font-medium transition-all backdrop-blur-sm"
+              onClick={handleBack}
+              className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+              title="Torna indietro"
             >
-              <Home className="w-5 h-5" />
-              Torna Indietro
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Esci</span>
             </button>
           </div>
-        </motion.div>
+        </div>
+      </header>
 
-        {/* ========== STATISTICHE CON GRADIENTI ========== */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid grid-cols-1 sm:grid-cols-3 gap-5"
-        >
-          <motion.div 
-            variants={itemVariants}
-            className="relative overflow-hidden bg-gradient-to-br from-emerald-900/40 to-emerald-800/20 border border-emerald-700/30 rounded-2xl p-6 hover:shadow-lg hover:shadow-emerald-900/20 transition-all group"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl" />
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-14 h-14 rounded-xl bg-emerald-500/10 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Package className="w-7 h-7 text-emerald-400" />
-                </div>
-                <div className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-semibold text-emerald-400">
-                  ATTIVO
-                </div>
-              </div>
-              <p className="text-zinc-400 text-sm mb-1">Prodotti Totali</p>
-              <p className="text-4xl font-extrabold text-white mb-3">
-                {stats.prodottiTotali}
-              </p>
-              <div className="flex items-center gap-2 text-sm text-emerald-400">
-                <TrendingUp className="w-4 h-4" />
-                <span>+12% questo mese</span>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            variants={itemVariants}
-            className="relative overflow-hidden bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-2xl p-6 hover:shadow-lg hover:shadow-blue-900/20 transition-all group"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl" />
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-14 h-14 rounded-xl bg-blue-500/10 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Truck className="w-7 h-7 text-blue-400" />
-                </div>
-                <div className="px-3 py-1 bg-blue-500/10 border border-blue-500/20 rounded-full text-xs font-semibold text-blue-400">
-                  IN CORSO
-                </div>
-              </div>
-              <p className="text-zinc-400 text-sm mb-1">Spedizioni Attive</p>
-              <p className="text-4xl font-extrabold text-white mb-3">
-                {stats.spedizioniAttive}
-              </p>
-              <div className="flex items-center gap-2 text-sm text-blue-400">
-                <Clock className="w-4 h-4" />
-                <span>In elaborazione</span>
-              </div>
-            </div>
-          </motion.div>
-
-          <motion.div 
-            variants={itemVariants}
-            className="relative overflow-hidden bg-gradient-to-br from-purple-900/40 to-purple-800/20 border border-purple-700/30 rounded-2xl p-6 hover:shadow-lg hover:shadow-purple-900/20 transition-all group"
-          >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-2xl" />
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-14 h-14 rounded-xl bg-purple-500/10 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Factory className="w-7 h-7 text-purple-400" />
-                </div>
-                <div className="px-3 py-1 bg-purple-500/10 border border-purple-500/20 rounded-full text-xs font-semibold text-purple-400">
-                  ATTIVO
-                </div>
-              </div>
-              <p className="text-zinc-400 text-sm mb-1">In Produzione</p>
-              <p className="text-4xl font-extrabold text-white mb-3">
-                {stats.produzioniAttive}
-              </p>
-              <div className="flex items-center gap-2 text-sm text-purple-400">
-                <Zap className="w-4 h-4" />
-                <span>Lavorazione attiva</span>
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-
-        {/* ========== SEZIONE MAGAZZINO CON CARD MIGLIORATE ========== */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl p-8"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                <Package className="w-6 h-6 text-emerald-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">Gestione Magazzino</h2>
-                <p className="text-sm text-zinc-400">Inventario e materiali di consumo</p>
-              </div>
-            </div>
-            <BarChart3 className="w-6 h-6 text-zinc-600" />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            <motion.button
-              variants={itemVariants}
-              whileHover={cardHover}
-              onClick={() => navigate("/inventario")}
-              className="group relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-emerald-500/50 rounded-xl p-6 transition-all"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-emerald-500/0 group-hover:from-emerald-500/5 group-hover:to-emerald-500/10 transition-all" />
-              <div className="relative z-10 flex flex-col items-center text-center gap-3">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:shadow-emerald-500/30 group-hover:scale-110 transition-all">
-                  <Package className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white text-lg">Prodotti</p>
-                  <p className="text-xs text-zinc-400 mt-1">Gestisci inventario</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </div>
-            </motion.button>
-
-            <motion.button
-              variants={itemVariants}
-              whileHover={cardHover}
-              onClick={() => navigate("/accessori")}
-              className="group relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-emerald-500/50 rounded-xl p-6 transition-all"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-emerald-500/0 group-hover:from-emerald-500/5 group-hover:to-emerald-500/10 transition-all" />
-              <div className="relative z-10 flex flex-col items-center text-center gap-3">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:shadow-emerald-500/30 group-hover:scale-110 transition-all">
-                  <Boxes className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white text-lg">Accessori</p>
-                  <p className="text-xs text-zinc-400 mt-1">Componenti extra</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </div>
-            </motion.button>
-
-            <motion.button
-              variants={itemVariants}
-              whileHover={cardHover}
-              onClick={() => navigate("/scatolette")}
-              className="group relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-emerald-500/50 rounded-xl p-6 transition-all"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-emerald-500/0 group-hover:from-emerald-500/5 group-hover:to-emerald-500/10 transition-all" />
-              <div className="relative z-10 flex flex-col items-center text-center gap-3">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:shadow-emerald-500/30 group-hover:scale-110 transition-all">
-                  <Tag className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white text-lg">Scatolette</p>
-                  <p className="text-xs text-zinc-400 mt-1">Contenitori</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </div>
-            </motion.button>
-
-            <motion.button
-              variants={itemVariants}
-              whileHover={cardHover}
-              onClick={() => navigate("/etichette")}
-              className="group relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-emerald-500/50 rounded-xl p-6 transition-all"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-emerald-500/0 group-hover:from-emerald-500/5 group-hover:to-emerald-500/10 transition-all" />
-              <div className="relative z-10 flex flex-col items-center text-center gap-3">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:shadow-emerald-500/30 group-hover:scale-110 transition-all">
-                  <Sticker className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white text-lg">Etichette</p>
-                  <p className="text-xs text-zinc-400 mt-1">Label e tag</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </div>
-            </motion.button>
-
-            <motion.button
-              variants={itemVariants}
-              whileHover={cardHover}
-              onClick={() => navigate("/sfuso")}
-              className="group relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-emerald-500/50 rounded-xl p-6 transition-all"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/0 to-emerald-500/0 group-hover:from-emerald-500/5 group-hover:to-emerald-500/10 transition-all" />
-              <div className="relative z-10 flex flex-col items-center text-center gap-3">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:shadow-emerald-500/30 group-hover:scale-110 transition-all">
-                  <Beaker className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <p className="font-bold text-white text-lg">Sfuso</p>
-                  <p className="text-xs text-zinc-400 mt-1">Materiale liquido</p>
-                </div>
-                <ChevronRight className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </div>
-            </motion.button>
-          </div>
-        </motion.div>
-
-        {/* ========== SEZIONI LOGISTICA E PRODUZIONE SIDE BY SIDE ========== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* LOGISTICA */}
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-12 sm:pt-16 lg:pt-20 pb-10">
           <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl p-8"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                <Truck className="w-6 h-6 text-blue-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">Logistica</h2>
-                <p className="text-sm text-zinc-400">Spedizioni e documenti</p>
-              </div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-3">
+              Magazzino
             </div>
-
-            <div className="space-y-4">
-              <motion.button
-                variants={itemVariants}
-                whileHover={cardHover}
-                onClick={() => navigate("/spedizioni")}
-                className="group w-full relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-blue-500/50 rounded-xl p-6 transition-all"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-blue-500/0 group-hover:from-blue-500/5 group-hover:to-blue-500/10 transition-all" />
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-500/30 group-hover:scale-110 transition-all">
-                      <Truck className="w-7 h-7 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-bold text-white text-lg">Gestione Spedizioni</p>
-                      <p className="text-sm text-zinc-400 mt-1">Traccia e gestisci le spedizioni</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-6 h-6 text-blue-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                </div>
-              </motion.button>
-
-              <motion.button
-                variants={itemVariants}
-                whileHover={cardHover}
-                onClick={() => navigate("/ddt-index")}
-                className="group w-full relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-blue-500/50 rounded-xl p-6 transition-all"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-blue-500/0 group-hover:from-blue-500/5 group-hover:to-blue-500/10 transition-all" />
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-500/30 group-hover:scale-110 transition-all">
-                      <FileText className="w-7 h-7 text-white" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-bold text-white text-lg">Genera DDT</p>
-                      <p className="text-sm text-zinc-400 mt-1">Documenti di trasporto</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-6 h-6 text-blue-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-                </div>
-              </motion.button>
-            </div>
-          </motion.div>
-
-          {/* PRODUZIONE */}
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-            className="bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/50 rounded-2xl p-8"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center">
-                <Factory className="w-6 h-6 text-purple-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">Produzione</h2>
-                <p className="text-sm text-zinc-400">Processi produttivi</p>
-              </div>
-            </div>
-
-            <motion.button
-              variants={itemVariants}
-              whileHover={cardHover}
-              onClick={() => navigate("/gestione-produzione")}
-              className="group w-full relative overflow-hidden bg-zinc-800/50 border border-zinc-700/50 hover:border-purple-500/50 rounded-xl p-6 transition-all"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 to-purple-500/0 group-hover:from-purple-500/5 group-hover:to-purple-500/10 transition-all" />
-              <div className="relative z-10 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:shadow-purple-500/30 group-hover:scale-110 transition-all">
-                    <Factory className="w-7 h-7 text-white" />
-                  </div>
-                  <div className="text-left">
-                    <p className="font-bold text-white text-lg">Gestione Produzione</p>
-                    <p className="text-sm text-zinc-400 mt-1">Pianifica e monitora la produzione</p>
-                  </div>
-                </div>
-                <ArrowRight className="w-6 h-6 text-purple-400 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </div>
-            </motion.button>
-
-            {/* Spazio per futuri pulsanti produzione */}
-            <div className="mt-4 p-6 bg-zinc-800/30 border border-zinc-700/30 rounded-xl">
-              <p className="text-sm text-zinc-500 text-center flex items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4" />
-                Altre funzioni in arrivo
-              </p>
-            </div>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-white tracking-tight leading-[1.1]">
+              Centro di <span className="text-slate-500">controllo operativo.</span>
+            </h1>
+            <p className="mt-4 text-[15px] sm:text-base text-slate-400 leading-relaxed max-w-2xl">
+              Inventario, logistica e produzione in un'unica vista. Tutti gli strumenti
+              per gestire le operazioni quotidiane.
+            </p>
           </motion.div>
         </div>
+      </section>
 
-        {/* ========== LINK RAPIDI RIDISEGNATI ========== */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="bg-gradient-to-br from-zinc-900/50 to-zinc-800/30 backdrop-blur-sm border border-zinc-800/50 rounded-2xl p-8"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
-              <Archive className="w-6 h-6 text-orange-400" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-white">Accesso Rapido</h3>
-              <p className="text-sm text-zinc-400">Storici e impostazioni</p>
-            </div>
+      {/* === Stats === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pb-10">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-5">
+            Panoramica
           </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <motion.button
-              variants={itemVariants}
-              onClick={() => navigate("/storico")}
-              className="group flex flex-col items-center gap-3 p-5 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-orange-500/50 rounded-xl transition-all"
-            >
-              <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <FileText className="w-6 h-6 text-orange-400" />
-              </div>
-              <span className="text-sm font-medium text-white text-center">Storico Movimenti</span>
-            </motion.button>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+          >
+            <StatCard
+              icon={Package}
+              label="Prodotti totali"
+              value={stats.prodottiTotali}
+              hint="+12% questo mese"
+              hintIcon={TrendingUp}
+              accent="emerald"
+              code="A"
+            />
+            <StatCard
+              icon={Truck}
+              label="Spedizioni attive"
+              value={stats.spedizioniAttive}
+              hint="In elaborazione"
+              hintIcon={Clock}
+              accent="blue"
+              code="B"
+            />
+            <StatCard
+              icon={Factory}
+              label="In produzione"
+              value={stats.produzioniAttive}
+              hint="Lavorazione attiva"
+              hintIcon={Zap}
+              accent="violet"
+              code="C"
+            />
+          </motion.div>
+        </div>
+      </section>
 
-            <motion.button
-              variants={itemVariants}
-              onClick={() => navigate("/storico-sfuso")}
-              className="group flex flex-col items-center gap-3 p-5 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-orange-500/50 rounded-xl transition-all"
-            >
-              <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Beaker className="w-6 h-6 text-orange-400" />
+      {/* === Sezioni di moduli === */}
+      <section className="relative flex-1">
+        <div className="px-6 sm:px-10 lg:px-16 pb-16 space-y-12">
+          {SECTIONS.map((sec) => (
+            <div key={sec.title}>
+              <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+                <div>
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-1.5">
+                    {sec.eyebrow}
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+                    {sec.title}
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">{sec.subtitle}</p>
+                </div>
+                <div className="text-[11px] font-mono text-slate-600">
+                  {String(sec.items.length).padStart(2, "0")} {sec.items.length === 1 ? "modulo" : "moduli"}
+                </div>
               </div>
-              <span className="text-sm font-medium text-white text-center">Storico Sfuso</span>
-            </motion.button>
 
-            <motion.button
-              variants={itemVariants}
-              onClick={() => navigate("/storico-produzioni-sfuso")}
-              className="group flex flex-col items-center gap-3 p-5 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-orange-500/50 rounded-xl transition-all"
-            >
-              <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Package className="w-6 h-6 text-orange-400" />
-              </div>
-              <span className="text-sm font-medium text-white text-center">Storico Produzioni</span>
-            </motion.button>
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className={`grid grid-cols-1 ${sec.columns} gap-3`}
+              >
+                {sec.items.map((m) => {
+                  const Icon = m.icon;
+                  return (
+                    <motion.button
+                      key={m.to}
+                      variants={itemVariants}
+                      onClick={() => navigate(m.to)}
+                      className={`group relative flex flex-col items-start text-left p-5 sm:p-6 bg-slate-900/60 border border-slate-800 rounded-lg transition-all hover:bg-slate-900 ${ACCENT_BG[m.accent]}`}
+                    >
+                      <div className="flex items-center justify-between w-full mb-6">
+                        <div className={`w-11 h-11 rounded-md bg-slate-800/60 border border-slate-700 flex items-center justify-center transition-colors ${ACCENT_ICON[m.accent]}`}>
+                          <Icon className="w-5 h-5 text-slate-400 transition-colors" />
+                        </div>
+                        <span className="text-[10px] font-mono text-slate-600 group-hover:text-slate-400 transition-colors">
+                          {m.code}
+                        </span>
+                      </div>
+                      <div className="text-base font-medium text-white mb-1">{m.label}</div>
+                      <p className="text-xs text-slate-500 leading-relaxed">{m.desc}</p>
+                      <div className="mt-5 flex items-center gap-1 text-[11px] uppercase tracking-wider text-slate-600 group-hover:text-slate-300 transition-colors">
+                        Apri
+                        <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
+            </div>
+          ))}
 
-            <motion.button
-              variants={itemVariants}
-              onClick={() => navigate("/settings")}
-              className="group flex flex-col items-center gap-3 p-5 bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 hover:border-orange-500/50 rounded-xl transition-all"
-            >
-              <div className="w-12 h-12 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Archive className="w-6 h-6 text-orange-400" />
+          {/* === Accesso rapido === */}
+          <div>
+            <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-1.5">
+                  Accesso rapido
+                </div>
+                <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+                  Storici e impostazioni
+                </h2>
+                <p className="text-sm text-slate-500 mt-1">
+                  Collegamenti veloci alle viste di consultazione.
+                </p>
               </div>
-              <span className="text-sm font-medium text-white text-center">Impostazioni</span>
-            </motion.button>
+              <Archive className="w-4 h-4 text-slate-700" />
+            </div>
+
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-2 sm:grid-cols-4 gap-3"
+            >
+              {QUICK_LINKS.map((q) => {
+                const Icon = q.icon;
+                return (
+                  <motion.button
+                    key={q.to}
+                    variants={itemVariants}
+                    onClick={() => navigate(q.to)}
+                    className="group flex items-center gap-3 px-4 py-3 bg-slate-900/60 border border-slate-800 hover:border-slate-700 hover:bg-slate-900 rounded-md transition-all text-left"
+                  >
+                    <div className="w-8 h-8 rounded-md bg-slate-800/60 border border-slate-700 flex items-center justify-center flex-shrink-0 group-hover:border-slate-600 transition-colors">
+                      <Icon className="w-4 h-4 text-slate-400 group-hover:text-slate-200 transition-colors" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-300 group-hover:text-white transition-colors truncate">
+                      {q.label}
+                    </span>
+                  </motion.button>
+                );
+              })}
+            </motion.div>
           </div>
-        </motion.div>
+        </div>
+      </section>
 
-      </div>
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/40">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>© {new Date().getFullYear()} Nexus · Magazzino</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };
+
+// === StatCard ===
+const STAT_ACCENT = {
+  emerald: { dot: "bg-emerald-400", text: "text-emerald-400", border: "border-emerald-500/30", bg: "bg-emerald-500/5" },
+  blue:    { dot: "bg-blue-400",    text: "text-blue-400",    border: "border-blue-500/30",    bg: "bg-blue-500/5" },
+  violet:  { dot: "bg-violet-400",  text: "text-violet-400",  border: "border-violet-500/30",  bg: "bg-violet-500/5" },
+};
+
+function StatCard({ icon: Icon, label, value, hint, hintIcon: HintIcon, accent, code }) {
+  const a = STAT_ACCENT[accent];
+  return (
+    <motion.div
+      variants={itemVariants}
+      className="relative bg-slate-900/60 border border-slate-800 rounded-lg p-5 sm:p-6"
+    >
+      <div className="flex items-center justify-between mb-5">
+        <div className={`w-10 h-10 rounded-md bg-slate-800/60 border border-slate-700 flex items-center justify-center`}>
+          <Icon className={`w-[18px] h-[18px] ${a.text}`} />
+        </div>
+        <span className="text-[10px] font-mono text-slate-600">{code}</span>
+      </div>
+      <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-1">{label}</div>
+      <div className="text-3xl sm:text-4xl font-semibold text-white tracking-tight mb-3 tabular-nums">
+        {value}
+      </div>
+      <div className={`inline-flex items-center gap-1.5 text-[11px] ${a.text}`}>
+        <HintIcon className="w-3 h-3" />
+        <span>{hint}</span>
+      </div>
+    </motion.div>
+  );
+}
 
 export default Magazzino;

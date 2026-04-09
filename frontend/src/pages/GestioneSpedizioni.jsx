@@ -19,17 +19,72 @@ import {
   X,
   Search,
   ShoppingCart,
-  BarChart3
+  BarChart3,
+  LogOut,
 } from "lucide-react";
+
+/* ── Componenti Nexus locali ─────────────────────────────── */
+
+function SectionCard({ accent = "blue", icon: Icon, eyebrow, title, badge, children }) {
+  const bar = { blue: "bg-blue-400/60", emerald: "bg-emerald-400/60", amber: "bg-amber-400/60", violet: "bg-violet-400/60", rose: "bg-rose-400/60" };
+  const iBg = { blue: "bg-blue-500/10 border-blue-500/40 text-blue-400", emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400", amber: "bg-amber-500/10 border-amber-500/40 text-amber-400", violet: "bg-violet-500/10 border-violet-500/40 text-violet-400", rose: "bg-rose-500/10 border-rose-500/40 text-rose-400" };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${bar[accent]}`} />
+      <div className="px-6 py-5 sm:px-8 sm:py-6">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3 min-w-0">
+            {Icon && (
+              <div className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 ${iBg[accent]}`}>
+                <Icon className="w-[18px] h-[18px]" />
+              </div>
+            )}
+            <div className="min-w-0">
+              {eyebrow && <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{eyebrow}</div>}
+              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight truncate">{title}</h2>
+            </div>
+          </div>
+          {badge}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StatTile({ icon: Icon, label, value, accent = "blue" }) {
+  const m = { blue: "bg-blue-500/10 border-blue-500/40 text-blue-400", amber: "bg-amber-500/10 border-amber-500/40 text-amber-400", emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400", cyan: "bg-cyan-500/10 border-cyan-500/40 text-cyan-400" };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg px-6 py-5">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-9 h-9 rounded-md border flex items-center justify-center ${m[accent]}`}>
+          <Icon className="w-[18px] h-[18px]" />
+        </div>
+      </div>
+      <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{label}</div>
+    </div>
+  );
+}
+
+const Flag = ({ code, className = "h-4 w-auto inline-block align-middle" }) => {
+  const c = (code || "").toLowerCase();
+  return <img src={`https://flagcdn.com/24x18/${c}.png`} alt={code} className={className} />;
+};
+
+/* ── Stili input condivisi ──────────────────────────────── */
+const inputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60 focus:border-blue-500/60 transition-colors";
+const labelCls = "text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 flex items-center gap-1.5";
+
+/* ── Componente principale ──────────────────────────────── */
 
 const GestioneSpedizioni = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isUffici = location.pathname.startsWith('/uffici');
+  const isUffici = location.pathname.startsWith("/uffici");
   const [inventario, setInventario] = useState([]);
   const [spedizioni, setSpedizioni] = useState([]);
 
-  // Info generali spedizione
   const [spedizioneInfo, setSpedizioneInfo] = useState({
     paese: "IT",
     data: "",
@@ -37,174 +92,67 @@ const GestioneSpedizioni = () => {
     note: "",
   });
 
-  // Righe prodotti temporanee
   const [righe, setRighe] = useState([]);
-  const [nuovaRiga, setNuovaRiga] = useState({
-    asin: "",
-    quantita: "",
-  });
-
+  const [nuovaRiga, setNuovaRiga] = useState({ asin: "", quantita: "" });
   const [filtro, setFiltro] = useState("");
   const [errore, setErrore] = useState("");
-
   const [impegni, setImpegni] = useState({});
 
   useEffect(() => {
-    const fetchImpegni = async () => {
-      const res = await fetch("/api/v2/impegni");
-      const data = await res.json();
-      setImpegni(data);
-    };
-    fetchImpegni();
+    fetch("/api/v2/impegni").then((r) => r.json()).then(setImpegni).catch(() => {});
   }, []);
 
-  // Carica inventario e spedizioni esistenti
   useEffect(() => {
-    const aggiornaInventario = () => {
-      fetch("/api/v2/magazzino")
-        .then((res) => res.json())
-        .then((data) => setInventario(data.data || []));
-
-    };
-
-    const aggiornaSpedizioni = () => {
-      fetch("/api/v2/spedizioni")
-        .then((res) => res.json())
-        .then((data) => setSpedizioni(data))
-        .catch((err) => console.error("Errore fetch spedizioni:", err));
-    };
-
-    aggiornaInventario();
-    aggiornaSpedizioni();
+    fetch("/api/v2/magazzino").then((r) => r.json()).then((d) => setInventario(d.data || []));
+    fetch("/api/v2/spedizioni").then((r) => r.json()).then(setSpedizioni).catch(() => {});
   }, []);
 
-  // Gestione input spedizione
-  const handleInfoChange = (campo, valore) => {
-    setSpedizioneInfo((prev) => ({ ...prev, [campo]: valore }));
-  };
+  const handleInfoChange = (campo, valore) => setSpedizioneInfo((p) => ({ ...p, [campo]: valore }));
+  const handleRigaChange = (campo, valore) => setNuovaRiga((p) => ({ ...p, [campo]: valore }));
 
-  // Gestione input nuova riga prodotto
-  const handleRigaChange = (campo, valore) => {
-    setNuovaRiga((prev) => ({ ...prev, [campo]: valore }));
-  };
-
-  // Aggiungi riga al carrello
   const aggiungiRiga = () => {
     const prodotto = inventario.find((p) => p.asin === nuovaRiga.asin);
-    if (!prodotto) {
-      setErrore("Seleziona un prodotto valido.");
-      return;
-    }
-
+    if (!prodotto) { setErrore("Seleziona un prodotto valido."); return; }
     const quantita = parseInt(nuovaRiga.quantita, 10);
-    if (isNaN(quantita) || quantita <= 0) {
-      setErrore("Inserisci una quantità valida.");
-      return;
-    }
-
-    if (quantita > prodotto.pronto) {
-      setErrore(
-        `Quantità richiesta (${quantita}) superiore alla giacenza (${prodotto.pronto}).`
-      );
-      return;
-    }
-
-    setRighe((prev) => [
-      ...prev,
-      {
-        asin: prodotto.asin,
-        prodotto_nome: prodotto.nome,
-        quantita,
-      },
-    ]);
+    if (isNaN(quantita) || quantita <= 0) { setErrore("Inserisci una quantità valida."); return; }
+    if (quantita > prodotto.pronto) { setErrore(`Quantità richiesta (${quantita}) superiore alla giacenza (${prodotto.pronto}).`); return; }
+    setRighe((p) => [...p, { asin: prodotto.asin, prodotto_nome: prodotto.nome, quantita }]);
     setNuovaRiga({ asin: "", quantita: "" });
     setErrore("");
   };
 
-  // Rimuovi riga dal carrello
-  const rimuoviRiga = (index) => {
-    setRighe((prev) => prev.filter((_, i) => i !== index));
-  };
+  const rimuoviRiga = (index) => setRighe((p) => p.filter((_, i) => i !== index));
 
-  // Salva spedizione con tutte le righe
   const salvaSpedizione = async () => {
-    if (!spedizioneInfo.data || righe.length === 0) {
-      setErrore("Inserisci data e almeno un prodotto.");
-      return;
-    }
-
+    if (!spedizioneInfo.data || righe.length === 0) { setErrore("Inserisci data e almeno un prodotto."); return; }
     try {
-      // 🔎 Cerco se esiste già una bozza per questo paese
-      const bozza = spedizioni.find(
-        (s) => s.stato === "BOZZA" && s.paese === spedizioneInfo.paese
-      );
-
+      const bozza = spedizioni.find((s) => s.stato === "BOZZA" && s.paese === spedizioneInfo.paese);
       if (bozza) {
-        // ➕ Aggiungo solo nuove righe
-        const res = await fetch(`/api/v2/spedizioni/${bozza.id}/righe`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ righe }),
-        });
+        const res = await fetch(`/api/v2/spedizioni/${bozza.id}/righe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ righe }) });
         const aggiornata = await res.json();
-        setSpedizioni((prev) =>
-          prev.map((s) => (s.id === bozza.id ? aggiornata : s))
-        );
+        setSpedizioni((p) => p.map((s) => (s.id === bozza.id ? aggiornata : s)));
       } else {
-        // 🆕 Creo nuova spedizione
-        const res = await fetch("/api/v2/spedizioni", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...spedizioneInfo, righe }),
-        });
+        const res = await fetch("/api/v2/spedizioni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...spedizioneInfo, righe }) });
         const nuova = await res.json();
-        setSpedizioni((prev) => [nuova, ...prev]);
+        setSpedizioni((p) => [nuova, ...p]);
       }
-
-      // Ricarica inventario
-      fetch("/api/v2/magazzino")
-        .then((res) => res.json())
-        .then((data) => setInventario(data.data || []));
-
-      // Reset righe temporanee
+      fetch("/api/v2/magazzino").then((r) => r.json()).then((d) => setInventario(d.data || []));
       setRighe([]);
       setErrore("");
-    } catch (err) {
-      console.error("Errore salvataggio spedizione:", err);
-      setErrore("Errore durante il salvataggio.");
-    }
+    } catch { setErrore("Errore durante il salvataggio."); }
   };
 
   const handleExportCSV = (spedizione) => {
-    // Data formattata come gg-mm-aaaa
     const oggi = new Date();
-    const dataStr = `${String(oggi.getDate()).padStart(2, "0")}-${String(
-      oggi.getMonth() + 1
-    ).padStart(2, "0")}-${oggi.getFullYear()}`;
-
-    // Riga con intestazione spedizione
+    const dataStr = `${String(oggi.getDate()).padStart(2, "0")}-${String(oggi.getMonth() + 1).padStart(2, "0")}-${oggi.getFullYear()}`;
     const meta = `Paese: ${spedizione.paese};Data: ${spedizione.data || dataStr};Progressivo: ${spedizione.progressivo}\n\n`;
-
-    // Header CSV prodotti
     const header = "ASIN;Prodotto;Quantità\n";
-
-    // Righe prodotti
-    const rows = spedizione.righe
-      .map((r) => `${r.asin};"${r.prodotto_nome}";${r.quantita}`)
-      .join("\n");
-
-    const csvContent = meta + header + rows;
-
-    // Download
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const rows = spedizione.righe.map((r) => `${r.asin};"${r.prodotto_nome}";${r.quantita}`).join("\n");
+    const blob = new Blob([meta + header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute(
-      "download",
-      `spedizione_${spedizione.progressivo}_${dataStr}.csv`
-    );
+    link.setAttribute("download", `spedizione_${spedizione.progressivo}_${dataStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -212,288 +160,146 @@ const GestioneSpedizioni = () => {
 
   const aggiornaSpedizione = async (id, dati) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dati),
-      });
+      const res = await fetch(`/api/v2/spedizioni/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dati) });
       const aggiornata = await res.json();
-
-      // aggiorna stato frontend con i dati aggiornati
-      setSpedizioni((prev) =>
-        prev.map((s) => (s.id === id ? aggiornata : s))
-      );
-    } catch (err) {
-      console.error("Errore aggiornamento spedizione:", err);
-    }
+      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+    } catch (err) { console.error("Errore aggiornamento spedizione:", err); }
   };
 
-  // Conferma una spedizione
   const confermaSpedizione = async (id) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}/conferma`, {
-        method: "PATCH",
-      });
+      const res = await fetch(`/api/v2/spedizioni/${id}/conferma`, { method: "PATCH" });
       const aggiornata = await res.json();
-      setSpedizioni((prev) =>
-        prev.map((s) => (s.id === id ? aggiornata : s))
-      );
-    } catch (err) {
-      console.error("Errore conferma spedizione:", err);
-    }
+      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+    } catch (err) { console.error("Errore conferma spedizione:", err); }
   };
 
-  // Cancella tutte le spedizioni
   const eliminaTutte = async () => {
-    try {
-      await fetch(`/api/v2/spedizioni`, { method: "DELETE" });
-      setSpedizioni([]);
-    } catch (err) {
-      console.error("Errore eliminazione spedizioni:", err);
-    }
+    try { await fetch("/api/v2/spedizioni", { method: "DELETE" }); setSpedizioni([]); } catch {}
+  };
+
+  const eliminaSpedizione = async (id) => {
+    try { await fetch(`/api/v2/spedizioni/${id}`, { method: "DELETE" }); setSpedizioni((p) => p.filter((s) => s.id !== id)); } catch {}
   };
 
   const filtroLower = (filtro || "").toLowerCase();
-
   const prodottiFiltrati = inventario.filter((p) => {
-    const nome = (p.nome || "").toLowerCase();
-    const asin = (p.asin || "").toLowerCase();
-    const sku = (p.sku || "").toLowerCase();
-
-    return (
-      nome.includes(filtroLower) ||
-      asin.includes(filtroLower) ||
-      sku.includes(filtroLower)
-    );
+    const n = (p.nome || "").toLowerCase();
+    const a = (p.asin || "").toLowerCase();
+    const s = (p.sku || "").toLowerCase();
+    return n.includes(filtroLower) || a.includes(filtroLower) || s.includes(filtroLower);
   });
 
-  // Cancella una spedizione
-  const eliminaSpedizione = async (id) => {
-    try {
-      await fetch(`/api/v2/spedizioni/${id}`, { method: "DELETE" });
-      setSpedizioni((prev) => prev.filter((s) => s.id !== id));
-    } catch (err) {
-      console.error("Errore eliminazione spedizione:", err);
-    }
-  };
-
-  // Funzione per ottenere bandiera emoji
-  const getPaeseBadge = (paese) => {
-    const flags = {
-      "IT": "🇮🇹",
-      "FR": "🇫🇷",
-      "ES": "🇪🇸",
-      "DE": "🇩🇪",
-      "BE": "🇧🇪",
-      "NL": "🇳🇱",
-      "SE": "🇸🇪",
-      "PL": "🇵🇱",
-      "IE": "🇮🇪"
-    };
-    return flags[paese] || "🌍";
-  };
+  const nBozze = spedizioni.filter((s) => s.stato === "BOZZA").length;
+  const nConfermate = spedizioni.filter((s) => s.stato === "CONFERMATA" || s.stato === "SPEDITA").length;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="max-w-8xl mx-auto space-y-6">
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid */}
+      <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-        {/* ========== HEADER ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-                <Truck className="w-8 h-8 text-blue-400" />
-                Gestione Spedizioni
-              </h1>
-              <p className="text-zinc-400">Crea e gestisci le tue spedizioni in modo efficiente</p>
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
+              <Truck className="w-[18px] h-[18px] text-blue-400" />
             </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => navigate("/spedizioni/storico")}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
-              >
-                <FileText className="w-4 h-4" />
-                Storico
-              </button>
-              <button
-                onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                {isUffici ? "Dashboard" : "Magazzino"}
-              </button>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Spedizioni</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · {isUffici ? "Uffici" : "Magazzino"}</span>
             </div>
           </div>
-        </div>
 
-        {/* ========== ALERT ERRORE ========== */}
-        {errore && (
-          <div className="bg-red-900/20 border border-red-700/30 rounded-xl p-4 flex items-start gap-3 animate-fadeIn">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-red-200 font-medium">{errore}</p>
-            </div>
-            <button
-              onClick={() => setErrore("")}
-              className="text-red-400 hover:text-red-300 transition-colors"
-            >
-              <X className="w-5 h-5" />
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+            <button onClick={() => navigate("/uffici/spedizioni/storico")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all">
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Storico</span>
             </button>
+            <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
+              <LogOut className="w-3.5 h-3.5" />
+              {isUffici ? "Dashboard" : "Magazzino"}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Spedizioni · Logistica</div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            Crea e gestisci spedizioni <span className="text-slate-500">— per paese.</span>
+          </h1>
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+            Componi le spedizioni selezionando prodotti e quantità, poi conferma e esporta in CSV.
+          </p>
+        </div>
+      </section>
+
+      {/* === Contenuto principale === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-6">
+
+        {/* Errore */}
+        {errore && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg px-5 py-3 flex items-center gap-3">
+            <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            <p className="text-sm text-rose-300 flex-1">{errore}</p>
+            <button onClick={() => setErrore("")} className="text-rose-400 hover:text-rose-200 transition-colors"><X className="w-4 h-4" /></button>
           </div>
         )}
 
-        {/* ========== STATISTICHE CON GRADIENT ========== */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-blue-600 rounded-full">
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{spedizioni.length}</p>
-            <p className="text-sm text-blue-200 font-medium">Totali</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-yellow-600 rounded-full">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">
-              {spedizioni.filter(s => s.stato === "BOZZA").length}
-            </p>
-            <p className="text-sm text-yellow-200 font-medium">Bozze</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-green-600 rounded-full">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">
-              {spedizioni.filter(s => s.stato === "CONFERMATA" || s.stato === "SPEDITA").length}
-            </p>
-            <p className="text-sm text-green-200 font-medium">Confermate</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-emerald-900/40 to-emerald-800/20 border border-emerald-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-emerald-600 rounded-full">
-                <Package className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{inventario.length}</p>
-            <p className="text-sm text-emerald-200 font-medium">Prodotti</p>
-          </div>
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatTile icon={BarChart3} label="Totali" value={spedizioni.length} accent="blue" />
+          <StatTile icon={FileText} label="Bozze" value={nBozze} accent="amber" />
+          <StatTile icon={CheckCircle} label="Confermate" value={nConfermate} accent="emerald" />
+          <StatTile icon={Package} label="Prodotti" value={inventario.length} accent="cyan" />
         </div>
 
-        {/* ========== INFORMAZIONI SPEDIZIONE ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
-            <ClipboardList className="w-5 h-5 text-blue-400" />
-            Informazioni Spedizione
-          </h2>
-
+        {/* Info spedizione */}
+        <SectionCard accent="blue" icon={ClipboardList} eyebrow="Step 1" title="Informazioni Spedizione">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                Paese Destinazione
-              </label>
+              <label className={labelCls}><MapPin className="w-3 h-3" /> Paese</label>
               <div className="relative">
-                <select
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-12 pr-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none cursor-pointer"
-                  value={spedizioneInfo.paese}
-                  onChange={(e) => handleInfoChange("paese", e.target.value)}
-                >
-                  {PAESI.map((paese) => (
-                    <option key={paese} value={paese}>
-                      {paese}
-                    </option>
-                  ))}
+                <select className={`${inputCls} pl-10 appearance-none cursor-pointer`} value={spedizioneInfo.paese} onChange={(e) => handleInfoChange("paese", e.target.value)}>
+                  {PAESI.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl pointer-events-none">
-                  {getPaeseBadge(spedizioneInfo.paese)}
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <Flag code={spedizioneInfo.paese} className="h-3.5 w-auto" />
                 </span>
               </div>
             </div>
-
             <div>
-              <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                Data Spedizione
-                <span className="text-red-400 text-sm">*</span>
-              </label>
-              <input
-                type="date"
-                required
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                value={spedizioneInfo.data}
-                onChange={(e) => handleInfoChange("data", e.target.value)}
-              />
+              <label className={labelCls}><Calendar className="w-3 h-3" /> Data <span className="text-rose-400">*</span></label>
+              <input type="date" required className={inputCls} value={spedizioneInfo.data} onChange={(e) => handleInfoChange("data", e.target.value)} />
             </div>
-
             <div>
-              <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                <User className="w-4 h-4" />
-                Operatore
-              </label>
-              <input
-                type="text"
-                placeholder="Nome operatore"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                value={spedizioneInfo.operatore}
-                onChange={(e) => handleInfoChange("operatore", e.target.value)}
-              />
+              <label className={labelCls}><User className="w-3 h-3" /> Operatore</label>
+              <input type="text" placeholder="Nome operatore" className={inputCls} value={spedizioneInfo.operatore} onChange={(e) => handleInfoChange("operatore", e.target.value)} />
             </div>
-
             <div>
-              <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Note
-              </label>
-              <input
-                type="text"
-                placeholder="Note aggiuntive"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                value={spedizioneInfo.note}
-                onChange={(e) => handleInfoChange("note", e.target.value)}
-              />
+              <label className={labelCls}><FileText className="w-3 h-3" /> Note</label>
+              <input type="text" placeholder="Note aggiuntive" className={inputCls} value={spedizioneInfo.note} onChange={(e) => handleInfoChange("note", e.target.value)} />
             </div>
           </div>
-        </div>
+        </SectionCard>
 
-        {/* ========== AGGIUNGI PRODOTTO ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
-            <Package className="w-5 h-5 text-emerald-400" />
-            Aggiungi Prodotti alla Spedizione
-          </h2>
-
-          {/* Barra di ricerca prodotti */}
+        {/* Aggiungi prodotti */}
+        <SectionCard accent="emerald" icon={Package} eyebrow="Step 2" title="Aggiungi Prodotti">
+          {/* Search */}
           <div className="mb-4">
-            <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-              <Search className="w-4 h-4" />
-              Cerca Prodotto
-            </label>
+            <label className={labelCls}><Search className="w-3 h-3" /> Cerca prodotto</label>
             <div className="relative">
-              <input
-                type="text"
-                placeholder="Cerca per nome, ASIN o SKU..."
-                value={filtro}
-                onChange={(e) => setFiltro(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-10 pr-10 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-              />
-              <Search className="w-5 h-5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input type="text" placeholder="Cerca per nome, ASIN o SKU..." value={filtro} onChange={(e) => setFiltro(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               {filtro && (
-                <button
-                  onClick={() => setFiltro("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
+                <button onClick={() => setFiltro("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
@@ -501,138 +307,97 @@ const GestioneSpedizioni = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-1">
-              <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide">
-                Seleziona Prodotto
-              </label>
-              <select
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                value={nuovaRiga.asin}
-                onChange={(e) => handleRigaChange("asin", e.target.value)}
-              >
-                <option value="">-- Seleziona prodotto --</option>
+              <label className={labelCls}>Seleziona prodotto</label>
+              <select className={`${inputCls} appearance-none cursor-pointer`} value={nuovaRiga.asin} onChange={(e) => handleRigaChange("asin", e.target.value)}>
+                <option value="">-- Seleziona --</option>
                 {prodottiFiltrati.map((p) => (
-                  <option
-                    key={p.asin || p.id || p.nome}
-                    value={p.asin || ""}
-                  >
+                  <option key={p.asin || p.id || p.nome} value={p.asin || ""}>
                     {p.nome} (Giacenza: {p.pronto})
                   </option>
                 ))}
               </select>
             </div>
-
             <div>
-              <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide">
-                Quantità
-              </label>
-              <input
-                type="number"
-                placeholder="0"
-                min="1"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                value={nuovaRiga.quantita}
-                onChange={(e) => handleRigaChange("quantita", e.target.value)}
-              />
+              <label className={labelCls}>Quantità</label>
+              <input type="number" placeholder="0" min="1" className={inputCls} value={nuovaRiga.quantita} onChange={(e) => handleRigaChange("quantita", e.target.value)} />
             </div>
-
             <div className="flex items-end">
-              <button
-                onClick={aggiungiRiga}
-                className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 px-6 py-3 rounded-lg font-medium transition-colors"
-              >
-                <Plus className="w-5 h-5" />
+              <button onClick={aggiungiRiga} type="button" className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all">
+                <Plus className="w-4 h-4" />
                 Aggiungi
               </button>
             </div>
           </div>
 
-          {/* Lista righe temporanee */}
+          {/* Carrello */}
           {righe.length > 0 && (
-            <div className="mt-6">
+            <div className="mt-6 pt-5 border-t border-slate-800">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5 text-emerald-400" />
-                  <h3 className="font-semibold text-white">Carrello Spedizione</h3>
-                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-semibold">
+                  <ShoppingCart className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm font-semibold text-white">Carrello</span>
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">
                     {righe.length} {righe.length === 1 ? "prodotto" : "prodotti"}
                   </span>
                 </div>
-                <button
-                  onClick={() => setRighe([])}
-                  className="text-sm text-red-400 hover:text-red-300 transition-colors font-medium flex items-center gap-1"
-                >
-                  <X className="w-4 h-4" />
-                  Svuota carrello
+                <button onClick={() => setRighe([])} type="button" className="text-[11px] uppercase tracking-wider text-rose-400 hover:text-rose-300 transition-colors font-medium flex items-center gap-1">
+                  <X className="w-3 h-3" /> Svuota
                 </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {righe.map((r, i) => (
-                  <div key={i} className="bg-zinc-800 border border-zinc-700 rounded-lg p-4 hover:border-emerald-700/50 transition-colors">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-white truncate">{r.prodotto_nome}</p>
-                        <p className="text-sm text-zinc-400 mt-1">ASIN: {r.asin}</p>
-                      </div>
-                      <button
-                        onClick={() => rimuoviRiga(i)}
-                        className="flex-shrink-0 p-1 text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded transition-colors"
-                        title="Rimuovi prodotto"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
+                  <div key={i} className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-white truncate">{r.prodotto_nome}</p>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">{r.asin}</p>
                     </div>
-                    <div className="mt-3 flex items-center justify-between pt-3 border-t border-zinc-700">
-                      <span className="text-xs text-zinc-400 uppercase font-medium">Quantità</span>
-                      <span className="text-2xl font-bold text-emerald-400">{r.quantita}</span>
-                    </div>
+                    <span className="text-lg font-semibold text-emerald-400 tabular-nums">{r.quantita}</span>
+                    <button onClick={() => rimuoviRiga(i)} type="button" className="text-slate-600 hover:text-rose-400 transition-colors flex-shrink-0">
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
               </div>
 
-              {/* Totale prodotti */}
-              <div className="mt-4 bg-gradient-to-r from-emerald-900/30 to-emerald-800/20 border border-emerald-700/30 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-5 h-5 text-emerald-400" />
-                    <span className="text-zinc-300 font-medium">Totale Prodotti:</span>
-                  </div>
-                  <span className="text-3xl font-bold text-emerald-400">
-                    {righe.reduce((sum, r) => sum + r.quantita, 0)} pz
-                  </span>
-                </div>
+              {/* Totale */}
+              <div className="mt-4 flex items-center justify-between bg-slate-800/40 border border-slate-700/60 rounded-md px-5 py-3">
+                <span className="text-sm text-slate-400">Totale pezzi</span>
+                <span className="text-2xl font-semibold text-emerald-400 tabular-nums">
+                  {righe.reduce((s, r) => s + r.quantita, 0)}
+                </span>
               </div>
             </div>
           )}
-        </div>
+        </SectionCard>
 
-        {/* ========== PULSANTE SALVA ========== */}
+        {/* Pulsante salva */}
         <button
           onClick={salvaSpedizione}
           disabled={righe.length === 0 || !spedizioneInfo.data}
-          className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-zinc-700 disabled:to-zinc-700 disabled:cursor-not-allowed rounded-xl px-6 py-4 font-semibold text-lg transition-all shadow-lg hover:shadow-blue-900/50 disabled:opacity-50 disabled:shadow-none"
+          type="button"
+          className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/10 disabled:hover:border-blue-500/40 disabled:hover:text-blue-300"
         >
-          <Save className="w-6 h-6" />
+          <Save className="w-4 h-4" />
           {righe.length === 0
             ? "Aggiungi prodotti per salvare"
             : !spedizioneInfo.data
               ? "Inserisci data per salvare"
-              : `Salva Spedizione (${righe.length} ${righe.length === 1 ? "prodotto" : "prodotti"})`
-          }
+              : `Salva Spedizione (${righe.length} ${righe.length === 1 ? "prodotto" : "prodotti"})`}
         </button>
 
-        {/* ========== LISTA SPEDIZIONI ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
-              <Truck className="w-5 h-5 text-blue-400" />
-              Spedizioni Create
-              <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-sm font-normal">
-                {spedizioni.length}
-              </span>
-            </h2>
-          </div>
-
+        {/* Lista spedizioni */}
+        <SectionCard
+          accent="blue"
+          icon={Truck}
+          eyebrow="Spedizioni attive"
+          title="Spedizioni Create"
+          badge={
+            <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-medium tabular-nums">
+              {spedizioni.length}
+            </span>
+          }
+        >
           <SpedizioneCard
             spedizioni={spedizioni}
             onDelete={eliminaSpedizione}
@@ -641,15 +406,23 @@ const GestioneSpedizioni = () => {
             onExport={handleExportCSV}
             onUpdate={aggiornaSpedizione}
           />
-        </div>
+        </SectionCard>
 
-        {/* ========== EXPORT CSV ========== */}
+        {/* Export CSV */}
         {spedizioni.length > 0 && (
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <SectionCard accent="violet" icon={FileText} eyebrow="Esporta" title="Export CSV">
             <ExportCSVButton spedizioni={spedizioni} cleanText={cleanText} />
-          </div>
+          </SectionCard>
         )}
-      </div>
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>Nexus · Gestione Spedizioni</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };

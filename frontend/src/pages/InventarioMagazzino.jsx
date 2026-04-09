@@ -177,7 +177,7 @@ useEffect(() => {
   return (
     <div className="magazzino-container bg-zinc-900 text-white min-h-screen p-6">
       <button
-        onClick={() => navigate(-1)}
+        onClick={() => navigate("/magazzino")}
         className="mb-6 px-4 py-2 bg-zinc-700 rounded hover:bg-zinc-600"
       >
         ⬅️ Torna indietro

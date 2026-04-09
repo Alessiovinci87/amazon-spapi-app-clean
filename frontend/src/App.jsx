@@ -46,17 +46,25 @@ import FbaGestioneProdotti from "./pages/FbaGestioneProdotti";
 
 // ==================== 🌍 MARKETPLACE / LISTING AMAZON ==================== //
 import EuropeMenu from "./components/EuropeMenu";
+import EuropaDashboard from "./pages/EuropaDashboard";
+import EuropaAlertConfig from "./pages/EuropaAlertConfig";
 import ListaMarketplace from "./pages/ListaMarketplace";
 import Listing from "./pages/Listing";
 import DettaglioProdotto from "./pages/DettaglioProdotto";
 import PaginaImmagini from "./pages/PaginaImmagini";
 import PaginaAPlus from "./pages/PaginaAPlus";
+import PaginaListing from "./pages/PaginaListing";
 import Recensioni from "./pages/Recensioni";
+import GestioneOneStep from "./pages/GestioneOneStep";
+import GestioneTopCoat from "./pages/GestioneTopCoat";
+import GestioneModuloCustom from "./pages/GestioneModuloCustom";
 
 // ==================== 📚 STORICI E TRACCIAMENTI ==================== //
 import StoricoProdotto from "./components/inventario/StoricoProdotto";
 import StoricoMovimenti from "./pages/StoricoMovimenti";
 import StoricoScatolette from "./pages/StoricoScatolette";
+import Settings from "./pages/Settings";
+import CentroAlert from "./pages/CentroAlert";
 
 function App() {
   return (
@@ -102,7 +110,11 @@ function App() {
         <Route path="/uffici/listing/:asin" element={<DettaglioProdotto />} />
         <Route path="/uffici/listing/immagini/:asin/:paese" element={<PaginaImmagini />} />
         <Route path="/uffici/listing/aplus/:asin/:paese" element={<PaginaAPlus />} />
+        <Route path="/uffici/listing/testo/:asin/:paese" element={<PaginaListing />} />
 
+        <Route path="/uffici/one-step" element={<GestioneOneStep />} />
+        <Route path="/uffici/top-coat" element={<GestioneTopCoat />} />
+        <Route path="/uffici/modulo/:slug" element={<GestioneModuloCustom />} />
         <Route path="/uffici/bilancio" element={<GestioneBilancio />} />
 
         <Route path="/uffici/storici/movimenti" element={<StoricoMovimenti />} />
@@ -115,8 +127,12 @@ function App() {
         <Route path="/scatolette" element={<Scatolette />} />
         <Route path="/fba-gestione-prodotti" element={<FbaGestioneProdotti />} />
         <Route path="/europe" element={<EuropeMenu />} />
+        <Route path="/europe/dashboard" element={<EuropaDashboard />} />
+        <Route path="/europe/alert-config/:asin" element={<EuropaAlertConfig />} />
         <Route path="/marketplaces" element={<ListaMarketplace />} />
         <Route path="/recensioni" element={<Recensioni />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/uffici/alert-center" element={<CentroAlert />} />
 
         {/* ==================== REDIRECT VECCHIE ROTTE ==================== */}
 

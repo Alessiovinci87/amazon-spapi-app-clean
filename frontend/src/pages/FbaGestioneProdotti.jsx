@@ -1,25 +1,27 @@
-import React, { useState, useEffect } from "react";
-import { 
+import React, { useState } from "react";
+import {
   sommaPerTipo,
   calcolaCostoTotale,
   calcolaMargine,
-  sommaDueColonne,
   calcolaMargineMultiplo,
+  calcolaPubblicitaMax,
   calcolaPercentualeCosto,
+  calcolaUtileEffettivo,
   calcolaPrezzoMinimo,
-  sommaTotFattura 
+  sommaTotFattura
 } from '../utils/formuleCalcoli';
-import { 
+import {
   ArrowLeft,
-  Box,
   DollarSign,
   TrendingUp,
   FileText,
   RotateCcw,
   Calculator,
-  Package
+  Package,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+
+/* ── Dati iniziali fornitori ─────────────────────────────── */
 
 const initialFornitoriRows = [
   { tipo: "a", fornitore: "Materia Prima Completa", codice: "", data: "", imponibile: "", ivaPagata: "", totFattura: "", note: "" },
@@ -38,140 +40,79 @@ const initialFornitoriRows = [
   { tipo: "c", fornitore: "eventuale costo stoccaggio", codice: "", data: "", imponibile: "", ivaPagata: "", totFattura: "", note: "" },
 ];
 
+/* ── Stili input ─────────────────────────────────────────── */
+
+const inputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60 focus:border-blue-500/60 transition-colors tabular-nums";
+const inputReadOnly = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4 py-2.5 text-sm text-white tabular-nums cursor-not-allowed";
+const tableInputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500/60 focus:border-blue-500/60 transition-colors";
+
+/* ── InputField ──────────────────────────────────────────── */
+
+function InputField({ label, value, onChange, readOnly, highlight, icon: Icon }) {
+  let cls = readOnly ? inputReadOnly : inputCls;
+  if (highlight === "orange") cls += " !border-orange-500 ring-2 ring-orange-500/20";
+  if (highlight === "green") cls += " !border-emerald-500 ring-2 ring-emerald-500/20";
+
+  return (
+    <div>
+      <label className="block text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 flex items-center gap-1.5">
+        {Icon && <Icon className="w-3 h-3" />}
+        {label}
+      </label>
+      <input
+        type="number"
+        className={cls}
+        value={typeof value === "number" ? value.toFixed(2) : value}
+        onChange={onChange}
+        readOnly={readOnly}
+      />
+    </div>
+  );
+}
+
+/* ── Componente principale ───────────────────────────────── */
+
 const FbaGestioneProdotti = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("margini");
   const [rows, setRows] = useState(initialFornitoriRows);
 
   const [costoProdotto, setCostoProdotto] = useState({
     prodotto: "",
-    costoBase: 28.47,
-    altreSpese: 0,
-    commissioniAmazon: 17.95,
-    prezzoVenditaIvato: 99.99,
-    speseSpedizione: 0.04,
-    margineNoIva: 35.5,
+    prezzoVenditaIvato: 0,
     ivaProdotto: 22,
-    costoTotale: 46.46,
-    prezzoMinimoPubblico: 0,
-    costoPubblicitarioEffettivo: 5,
-    utilePercentualeEffettivo: 107.13,
-    utileEffettivo: 30.5,
-    margineX2: 56.94,
-    pubblicitaMaxX2: -21.44,
-    margineX3: 85.41,
-    pubblicitaMaxX3: -49.91,
-    margineX4: 113.88,
-    pubblicitaMaxX4: -78.38,
-    imponibileTipoD: 0,
-    speseSpedizioneCalcolate: 0,
-    percentualeCostoTotale: 0,
+    costoPubblicitarioEffettivo: 0,
+    altreSpese: 0,
   });
 
   const [resetting, setResetting] = useState(false);
 
   const handleReset = () => {
     setResetting(true);
-    setCostoProdotto({
-      prodotto: "",
-      costoBase: 0,
-      altreSpese: 0,
-      commissioniAmazon: 0,
-      prezzoVenditaIvato: 0,
-      speseSpedizione: 0,
-      margineNoIva: 0,
-      ivaProdotto: 0,
-      costoTotale: 0,
-      prezzoMinimoPubblico: 0,
-      costoPubblicitarioEffettivo: 0,
-      utilePercentualeEffettivo: 0,
-      utileEffettivo: 0,
-      margineX2: 0,
-      pubblicitaMaxX2: 0,
-      margineX3: 0,
-      pubblicitaMaxX3: 0,
-      margineX4: 0,
-      pubblicitaMaxX4: 0,
-      imponibileTipoD: 0,
-      speseSpedizioneCalcolate: 0,
-    });
-    setRows(initialFornitoriRows);
+    setCostoProdotto({ prodotto: "", prezzoVenditaIvato: 0, ivaProdotto: 22, costoPubblicitarioEffettivo: 0, altreSpese: 0 });
+    setRows(initialFornitoriRows.map((r) => ({ ...r, codice: "", data: "", imponibile: "", ivaPagata: "", totFattura: "", note: "" })));
     setTimeout(() => setResetting(false), 100);
   };
 
-  useEffect(() => {
-    const imponibileTipoA = sommaPerTipo(rows, "a", "imponibile");
-    const imponibileTipoB = sommaPerTipo(rows, "b", "imponibile");
-    const imponibileTipoC = sommaPerTipo(rows, "c", "imponibile");
-    const imponibileTipoD = sommaPerTipo(rows, "D", "imponibile");
+  // Valori calcolati dalle righe fornitori + input manuali
+  const costoBase = sommaPerTipo(rows, "a", "imponibile");
+  const commissioni = sommaPerTipo(rows, "b", "imponibile");
+  const speseSpedizione = sommaPerTipo(rows, "c", "imponibile");
 
-    const percentualeCostoTotale = calcolaPercentualeCosto(
-      costoProdotto.costoBase,
-      costoProdotto.prezzoVenditaIvato
-    );
+  const costoTotale = calcolaCostoTotale(costoBase, commissioni, speseSpedizione);
+  const margineNoIva = calcolaMargine(costoProdotto.prezzoVenditaIvato, costoProdotto.ivaProdotto, costoTotale);
+  const prezzoMinimoPubblico = calcolaPrezzoMinimo(costoTotale, costoProdotto.ivaProdotto);
+  const percentualeUtile = calcolaPercentualeCosto(margineNoIva, costoTotale);
+  const utileEffettivo = calcolaUtileEffettivo(margineNoIva, costoProdotto.costoPubblicitarioEffettivo);
 
-    const prezzoMinimoPubblico = calcolaPrezzoMinimo(
-      costoProdotto.prezzoVenditaIvato,
-      costoProdotto.costoTotale
-    );
-
-    const costoTot = calcolaCostoTotale(
-      costoProdotto.costoBase,
-      costoProdotto.altreSpese,
-      imponibileTipoB,
-      imponibileTipoC
-    );
-
-    const margine = calcolaMargine(costoProdotto.prezzoVenditaIvato, costoTot);
-    const margineX2 = calcolaMargineMultiplo(margine, 2);
-    const margineX3 = calcolaMargineMultiplo(margine, 3);
-    const margineX4 = calcolaMargineMultiplo(margine, 4);
-
-    const costoMoltiplicatoX2 = costoProdotto.costoBase * 2;
-    const costoMoltiplicatoX3 = costoProdotto.costoBase * 3;
-    const costoMoltiplicatoX4 = costoProdotto.costoBase * 4;
-
-    const pubblicitaMaxX2 = margine - costoMoltiplicatoX2;
-    const pubblicitaMaxX3 = margine - costoMoltiplicatoX3;
-    const pubblicitaMaxX4 = margine - costoMoltiplicatoX4;
-
-    const ivaDecimale = (parseFloat(costoProdotto.ivaProdotto) || 0) / 100;
-    const speseSpedizioneCalcolate =
-      (parseFloat(costoProdotto.costoBase) || 0) / (1 + ivaDecimale) -
-      (parseFloat(costoProdotto.speseSpedizione) || 0);
-
-    setCostoProdotto((prev) => ({
-      ...prev,
-      costoTotale: costoTot,
-      margineNoIva: margine,
-      margineX2,
-      margineX3,
-      margineX4,
-      pubblicitaMaxX2,
-      pubblicitaMaxX3,
-      pubblicitaMaxX4,
-      costoMoltiplicatoX2,
-      costoMoltiplicatoX3,
-      costoMoltiplicatoX4,
-      imponibileTipoD,
-      speseSpedizioneCalcolate,
-      percentualeCostoTotale,
-      prezzoMinimoPubblico,
-    }));
-  }, [
-    rows,
-    costoProdotto.costoBase,
-    costoProdotto.altreSpese,
-    costoProdotto.prezzoVenditaIvato,
-    costoProdotto.ivaProdotto,
-    costoProdotto.speseSpedizione,
-  ]);
+  const margineX2 = calcolaMargineMultiplo(costoBase, 2);
+  const margineX3 = calcolaMargineMultiplo(costoBase, 3);
+  const margineX4 = calcolaMargineMultiplo(costoBase, 4);
+  const pubblicitaMaxX2 = calcolaPubblicitaMax(margineNoIva, costoBase, 2);
+  const pubblicitaMaxX3 = calcolaPubblicitaMax(margineNoIva, costoBase, 3);
+  const pubblicitaMaxX4 = calcolaPubblicitaMax(margineNoIva, costoBase, 4);
 
   const handleInputChange = (field, value) => {
-    setCostoProdotto((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setCostoProdotto((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleFornitoriChange = (index, field, value) => {
@@ -181,334 +122,250 @@ const FbaGestioneProdotti = () => {
     setRows(newRows);
   };
 
-  const InputField = ({ label, value, onChange, readOnly, highlight, icon: Icon }) => (
-    <div className="col-span-2">
-      <label className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wide flex items-center gap-2">
-        {Icon && <Icon className="w-4 h-4" />}
-        {label}
-      </label>
-      <input
-        type="number"
-        className={`w-full px-4 py-3 rounded-lg border text-white transition-all ${
-          readOnly
-            ? 'bg-zinc-800 border-zinc-700 cursor-not-allowed'
-            : 'bg-zinc-800 border-zinc-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-        } ${highlight === 'orange' ? 'border-orange-500 ring-2 ring-orange-500/20' : ''}
-          ${highlight === 'green' ? 'border-green-500 ring-2 ring-green-500/20' : ''}
-          ${highlight === 'yellow' ? 'bg-yellow-500/10 border-yellow-500' : ''}`}
-        value={typeof value === 'number' ? value.toFixed(2) : value}
-        onChange={onChange}
-        readOnly={readOnly}
-      />
-    </div>
-  );
+  // Colorazione righe tabella per tipo
+  const rowBg = { a: "bg-emerald-500/5 hover:bg-emerald-500/10", b: "bg-rose-500/5 hover:bg-rose-500/10", c: "bg-blue-500/5 hover:bg-blue-500/10" };
+  const badgeCls = { a: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", b: "bg-rose-500/10 border-rose-500/30 text-rose-400", c: "bg-blue-500/10 border-blue-500/30 text-blue-400" };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="w-full space-y-6">
-        
-        {/* ========== HEADER ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg">
-                <Box className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">FBA - Gestione Prodotti</h1>
-                <p className="text-zinc-400 mt-1">Calcolo margini e gestione fornitori</p>
-              </div>
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid */}
+      <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
+
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate("/dashboard")} type="button" title="Dashboard" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-rose-500/10 border border-rose-500/40 flex items-center justify-center flex-shrink-0">
+              <Calculator className="w-[18px] h-[18px] text-rose-400" />
             </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reset
-              </button>
-              <button
-                onClick={() => navigate("/")}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Home
-              </button>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">FBA - Gestione Prodotti</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Calcolo margini e fornitori</span>
             </div>
           </div>
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <button onClick={handleReset} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-[12px] font-medium transition-all">
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Reset</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Uffici</div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            FBA - Gestione Prodotti <span className="text-slate-500">— margini e fornitori.</span>
+          </h1>
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+            Calcolo margini e gestione fornitori. Inserisci i dati nelle righe fornitori e i campi verranno calcolati automaticamente.
+          </p>
+        </div>
+      </section>
+
+      {/* === Contenuto === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 pb-12 space-y-6">
+
+        {/* ========== RIEPILOGO KPI ========== */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {[
+            { label: "Prezzo Vendita Ivato", value: costoProdotto.prezzoVenditaIvato, prefix: "€", color: "blue" },
+            { label: "Margine No IVA", value: margineNoIva, prefix: "€", color: "orange" },
+            { label: "Costo Pubblicitario", value: costoProdotto.costoPubblicitarioEffettivo, prefix: "€", color: "rose" },
+            { label: "% Utile Effettivo", value: percentualeUtile, suffix: "%", color: "amber" },
+            { label: "Utile Effettivo", value: utileEffettivo, prefix: "€", color: "emerald" },
+          ].map((kpi) => {
+            const colorMap = {
+              blue: "border-blue-500/40 bg-blue-500/5",
+              orange: "border-orange-500/40 bg-orange-500/5",
+              rose: "border-rose-500/40 bg-rose-500/5",
+              amber: "border-amber-500/40 bg-amber-500/5",
+              emerald: "border-emerald-500/40 bg-emerald-500/5",
+            };
+            const textMap = {
+              blue: "text-blue-400",
+              orange: "text-orange-400",
+              rose: "text-rose-400",
+              amber: "text-amber-400",
+              emerald: "text-emerald-400",
+            };
+            return (
+              <div key={kpi.label} className={`relative rounded-lg border ${colorMap[kpi.color]} px-4 py-4 sm:py-5 flex flex-col items-center justify-center text-center`}>
+                <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-2 leading-tight">{kpi.label}</span>
+                <span className={`text-xl sm:text-2xl font-bold tabular-nums ${textMap[kpi.color]}`}>
+                  {kpi.prefix && <span className="text-sm font-medium mr-0.5">{kpi.prefix}</span>}
+                  {typeof kpi.value === "number" ? kpi.value.toFixed(2) : kpi.value}
+                  {kpi.suffix && <span className="text-sm font-medium ml-0.5">{kpi.suffix}</span>}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* ========== COSTO PRODOTTO ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2 text-white">
-            <Calculator className="w-6 h-6 text-blue-400" />
-            Costo Prodotto
-          </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-6">
-            {/* Nome Prodotto */}
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-zinc-400 mb-2 uppercase tracking-wide flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Nome Prodotto
-              </label>
-              <input
-                type="text"
-                className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                value={costoProdotto.prodotto}
-                onChange={(e) => handleInputChange("prodotto", e.target.value)}
-                placeholder="Inserisci nome prodotto"
-              />
+          {/* Colonna sinistra — Costo Prodotto */}
+          <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-400/60" />
+            <div className="px-5 sm:px-6 py-5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-8 h-8 rounded-md border bg-blue-500/10 border-blue-500/30 flex items-center justify-center flex-shrink-0">
+                  <Calculator className="w-4 h-4 text-blue-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Calcolo</div>
+                  <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Costo Prodotto</h2>
+                </div>
+              </div>
+
+              {/* Nome prodotto */}
+              <div className="mb-4">
+                <label className="block text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 flex items-center gap-1.5">
+                  <Package className="w-3 h-3" /> Nome Prodotto
+                </label>
+                <input
+                  type="text"
+                  className={inputCls}
+                  value={costoProdotto.prodotto}
+                  onChange={(e) => handleInputChange("prodotto", e.target.value)}
+                  placeholder="Inserisci nome prodotto"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <InputField label="(A) Prodotto" value={costoBase} readOnly icon={DollarSign} />
+                <InputField label="(D) Altre Spese (€)" value={costoProdotto.altreSpese} onChange={(e) => handleInputChange("altreSpese", parseFloat(e.target.value) || 0)} icon={DollarSign} />
+                <InputField label="(B) Commissioni Amazon" value={commissioni} readOnly />
+                <InputField label="Prezzo Vendita Ivato (€)" value={costoProdotto.prezzoVenditaIvato} onChange={(e) => handleInputChange("prezzoVenditaIvato", parseFloat(e.target.value) || 0)} />
+                <InputField label="(C) Spese Spedizione" value={speseSpedizione} readOnly />
+                <InputField label="Margine No IVA (€)" value={margineNoIva} readOnly highlight="orange" />
+                <InputField label="IVA Prodotto (%)" value={costoProdotto.ivaProdotto} onChange={(e) => handleInputChange("ivaProdotto", parseFloat(e.target.value) || 0)} />
+                <InputField label="Costo Pubblicitario (€)" value={costoProdotto.costoPubblicitarioEffettivo} onChange={(e) => handleInputChange("costoPubblicitarioEffettivo", parseFloat(e.target.value) || 0)} />
+                <InputField label="Costo Totale (€)" value={costoTotale} readOnly />
+                <InputField label="% Utile Effettivo" value={percentualeUtile} readOnly icon={TrendingUp} />
+                <InputField label="Prezzo Minimo al Pubblico (€)" value={prezzoMinimoPubblico} readOnly />
+                <InputField label="Utile Effettivo (€)" value={utileEffettivo} readOnly highlight="green" />
+              </div>
             </div>
-
-            <InputField 
-              label="Somma Imponibile Tipo D" 
-              value={costoProdotto.imponibileTipoD} 
-              readOnly 
-              icon={DollarSign}
-            />
-
-            <InputField 
-              label="% Costo Totale" 
-              value={costoProdotto.percentualeCostoTotale} 
-              readOnly 
-              icon={TrendingUp}
-            />
-
-            <InputField 
-              label="Altre Spese (€)" 
-              value={costoProdotto.altreSpese} 
-              onChange={(e) => handleInputChange("altreSpese", parseFloat(e.target.value) || 0)}
-              icon={DollarSign}
-            />
-
-            <InputField 
-              label="Spese Spedizione Calc." 
-              value={costoProdotto.speseSpedizioneCalcolate} 
-              readOnly 
-            />
-
-            <InputField 
-              label="Commissioni Amazon (€)" 
-              value={costoProdotto.commissioniAmazon} 
-              onChange={(e) => handleInputChange("commissioniAmazon", parseFloat(e.target.value) || 0)}
-            />
-
-            <InputField 
-              label="Prezzo Vendita Ivato (€)" 
-              value={costoProdotto.prezzoVenditaIvato} 
-              onChange={(e) => handleInputChange("prezzoVenditaIvato", parseFloat(e.target.value) || 0)}
-            />
-
-            <InputField 
-              label="Spese Spedizione (€)" 
-              value={costoProdotto.speseSpedizione} 
-              onChange={(e) => handleInputChange("speseSpedizione", parseFloat(e.target.value) || 0)}
-            />
-
-            <InputField 
-              label="Margine No IVA (€)" 
-              value={costoProdotto.margineNoIva} 
-              readOnly 
-              highlight="orange"
-            />
-
-            <InputField 
-              label="IVA Prodotto (%)" 
-              value={costoProdotto.ivaProdotto} 
-              onChange={(e) => handleInputChange("ivaProdotto", parseFloat(e.target.value) || 0)}
-            />
-
-            <InputField 
-              label="Costo Pubblicitario (€)" 
-              value={costoProdotto.costoPubblicitarioEffettivo} 
-              onChange={(e) => handleInputChange("costoPubblicitarioEffettivo", parseFloat(e.target.value) || 0)}
-            />
-
-            <InputField 
-              label="Prezzo Minimo Pubblico (€)" 
-              value={costoProdotto.prezzoMinimoPubblico} 
-              readOnly 
-            />
-
-            <InputField 
-              label="Costo Totale (€)" 
-              value={costoProdotto.costoTotale} 
-              readOnly 
-            />
-
-            <InputField 
-              label="% Utile Effettivo" 
-              value={costoProdotto.utilePercentualeEffettivo} 
-              onChange={(e) => handleInputChange("utilePercentualeEffettivo", parseFloat(e.target.value) || 0)}
-            />
-
-            <InputField 
-              label="Utile Effettivo (€)" 
-              value={costoProdotto.utileEffettivo} 
-              onChange={(e) => handleInputChange("utileEffettivo", parseFloat(e.target.value) || 0)}
-              highlight="green"
-            />
           </div>
 
-          {/* ========== MARGINI E PUBBLICITÀ ========== */}
-          <div className="mt-8 bg-zinc-800 rounded-xl border border-zinc-700 p-6">
-            <h3 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
-              <TrendingUp className="w-5 h-5 text-yellow-400" />
-              Margini e Pubblicità Massima
-            </h3>
+          {/* Colonna destra — Margini e Pubblicita */}
+          <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400/60" />
+            <div className="px-5 sm:px-6 py-5">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-8 h-8 rounded-md border bg-amber-500/10 border-amber-500/30 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Analisi</div>
+                  <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Margini e Pubblicita Massima</h2>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Headers */}
-              <div className="font-bold text-zinc-400"></div>
-              <div className="text-center font-bold text-yellow-400">2X</div>
-              <div className="text-center font-bold text-yellow-400">3X</div>
-              <div className="text-center font-bold text-yellow-400">4X</div>
+              <div className="grid grid-cols-4 gap-3">
+                <div />
+                <div className="text-center text-[11px] font-semibold text-amber-400 uppercase tracking-wider">2X</div>
+                <div className="text-center text-[11px] font-semibold text-amber-400 uppercase tracking-wider">3X</div>
+                <div className="text-center text-[11px] font-semibold text-amber-400 uppercase tracking-wider">4X</div>
 
-              {/* Margine Row */}
-              <div className="font-bold text-white">MARGINE</div>
-              <input
-                type="number"
-                className="px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-white text-center font-semibold"
-                value={costoProdotto.margineX2?.toFixed(2) || ""}
-                readOnly
-              />
-              <input
-                type="number"
-                className="px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-white text-center font-semibold"
-                value={costoProdotto.margineX3?.toFixed(2) || ""}
-                readOnly
-              />
-              <input
-                type="number"
-                className="px-4 py-3 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-white text-center font-semibold"
-                value={costoProdotto.margineX4?.toFixed(2) || ""}
-                readOnly
-              />
+                <div className="text-[11px] font-semibold text-white uppercase tracking-wider flex items-center">Margine</div>
+                <div className="px-3 py-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-white text-center text-sm font-semibold tabular-nums">{margineX2.toFixed(2)}</div>
+                <div className="px-3 py-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-white text-center text-sm font-semibold tabular-nums">{margineX3.toFixed(2)}</div>
+                <div className="px-3 py-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-white text-center text-sm font-semibold tabular-nums">{margineX4.toFixed(2)}</div>
 
-              {/* Pubblicità Row */}
-              <div className="font-bold text-white">PUBBLICITÀ MAX €</div>
-              <input
-                type="number"
-                className="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-white text-center font-semibold"
-                value={costoProdotto.pubblicitaMaxX2?.toFixed(2) || ""}
-                readOnly
-              />
-              <input
-                type="number"
-                className="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-white text-center font-semibold"
-                value={costoProdotto.pubblicitaMaxX3?.toFixed(2) || ""}
-                readOnly
-              />
-              <input
-                type="number"
-                className="px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-white text-center font-semibold"
-                value={costoProdotto.pubblicitaMaxX4?.toFixed(2) || ""}
-                readOnly
-              />
+                <div className="text-[11px] font-semibold text-white uppercase tracking-wider flex items-center">Pubb. max</div>
+                <div className={`px-3 py-2.5 rounded-md border text-center text-sm font-semibold tabular-nums ${pubblicitaMaxX2 >= 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
+                  {pubblicitaMaxX2.toFixed(2)}
+                </div>
+                <div className={`px-3 py-2.5 rounded-md border text-center text-sm font-semibold tabular-nums ${pubblicitaMaxX3 >= 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
+                  {pubblicitaMaxX3.toFixed(2)}
+                </div>
+                <div className={`px-3 py-2.5 rounded-md border text-center text-sm font-semibold tabular-nums ${pubblicitaMaxX4 >= 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
+                  {pubblicitaMaxX4.toFixed(2)}
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* ========== GESTIONE FORNITORI ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-2xl font-semibold mb-6 flex items-center gap-2 text-white">
-            <FileText className="w-6 h-6 text-green-400" />
-            Gestione Fornitori e Fatture
-          </h2>
+        <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/60" />
+          <div className="px-5 sm:px-6 py-5">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-md border bg-emerald-500/10 border-emerald-500/30 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Fornitori</div>
+                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Gestione Fornitori e Fatture</h2>
+              </div>
+            </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-zinc-800 border-b border-zinc-700">
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">Fornitore</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">Codice</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">Data</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">Imponibile</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">IVA Pagata</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">Tot Fattura</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">Note</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, i) => (
-                  <tr
-                    key={i}
-                    className={`border-b border-zinc-800 transition-colors ${
-                      row.tipo === "a"
-                        ? "bg-green-500/5 hover:bg-green-500/10"
-                        : row.tipo === "b"
-                        ? "bg-red-500/5 hover:bg-red-500/10"
-                        : "bg-blue-500/5 hover:bg-blue-500/10"
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-bold ${
-                        row.tipo === "a" ? "bg-green-500/20 text-green-400" :
-                        row.tipo === "b" ? "bg-red-500/20 text-red-400" :
-                        "bg-blue-500/20 text-blue-400"
-                      }`}>
-                        {row.tipo.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-semibold italic text-white">{row.fornitore}</td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        value={row.codice}
-                        onChange={(e) => handleFornitoriChange(i, "codice", e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="date"
-                        value={row.data}
-                        onChange={(e) => handleFornitoriChange(i, "data", e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="number"
-                        value={row.imponibile}
-                        onChange={(e) => handleFornitoriChange(i, "imponibile", e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="number"
-                        value={row.ivaPagata}
-                        onChange={(e) => handleFornitoriChange(i, "ivaPagata", e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="number"
-                        value={row.totFattura}
-                        onChange={(e) => handleFornitoriChange(i, "totFattura", e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </td>
-                    <td className="px-4 py-3">
-                      <input
-                        type="text"
-                        value={row.note}
-                        onChange={(e) => handleFornitoriChange(i, "note", e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                    </td>
+            <div className="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-800">
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Tipo</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Fornitore</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Codice</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Data</th>
+                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Imponibile</th>
+                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">IVA Pagata</th>
+                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Tot Fattura</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Note</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {rows.map((row, i) => (
+                    <tr key={i} className={`transition-colors ${rowBg[row.tipo] || ""}`}>
+                      <td className="px-3 py-2.5">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-medium ${badgeCls[row.tipo] || "bg-slate-500/10 border-slate-500/30 text-slate-400"}`}>
+                          {row.tipo.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 text-white font-medium text-xs whitespace-nowrap">{row.fornitore}</td>
+                      <td className="px-3 py-2.5">
+                        <input type="text" value={row.codice} onChange={(e) => handleFornitoriChange(i, "codice", e.target.value)} className={tableInputCls} />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input type="date" value={row.data} onChange={(e) => handleFornitoriChange(i, "data", e.target.value)} className={tableInputCls} />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input type="number" value={row.imponibile} onChange={(e) => handleFornitoriChange(i, "imponibile", e.target.value)} className={`${tableInputCls} text-right`} />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input type="number" value={row.ivaPagata} onChange={(e) => handleFornitoriChange(i, "ivaPagata", e.target.value)} className={`${tableInputCls} text-right`} />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input type="number" value={row.totFattura} readOnly className={`${tableInputCls} text-right cursor-not-allowed`} />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <input type="text" value={row.note} onChange={(e) => handleFornitoriChange(i, "note", e.target.value)} className={tableInputCls} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/40">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>© {new Date().getFullYear()} Nexus · FBA Gestione Prodotti</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };

@@ -4,6 +4,7 @@ const router = express.Router();
 const { getDb } = require("../db/database");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
 const { registraStoricoProduzione } = require("../services/storicoProduzioniSfuso.service");
+const { impegnaAccessori, rilasciaImpegno, scalaAccessori } = require("../services/accessoriImpegno.service");
 
 
 
@@ -57,7 +58,9 @@ router.get("/prenotazioni", (req, res) => {
         operatore,
         note
       FROM prenotazioni_sfuso
-      ORDER BY dataRichiesta DESC
+      ORDER BY
+        CASE priorita WHEN 'Alta' THEN 1 WHEN 'Media' THEN 2 WHEN 'Bassa' THEN 3 ELSE 4 END ASC,
+        dataRichiesta DESC
     `).all();
 
     res.json(prenotazioni);
@@ -324,6 +327,12 @@ router.post("/prenotazione", (req, res) => {
 
     if (!newRow) throw new Error("Insert fallita: nessuna riga restituita");
 
+    // 📦 Impegna accessori per questa prenotazione
+    try {
+      impegnaAccessori(sfusoRow.formato, pezzi, db);
+    } catch (errAcc) {
+      console.warn("⚠️ Impossibile impegnare accessori:", errAcc.message);
+    }
 
     const prenotazioneCompleta = {
       ...newRow,
@@ -988,7 +997,7 @@ router.patch("/:id", (req, res) => {
 // ===============================
 router.patch("/prenotazione/:id", async (req, res) => {
   const { id } = req.params;
-  const { nuovoStato, prodotti, operatore } = req.body;
+  const { nuovoStato, prodotti, operatore, quantitaProdotta } = req.body;
 
   // 🔧 Normalizza stato in uno dei soli valori accettati dal CHECK
   const normalizeStato = (s) => {
@@ -1402,6 +1411,13 @@ router.patch("/prenotazione/:id", async (req, res) => {
 
         });
 
+        // 📦 Rilascia impegno accessori (quantità ancora in attesa)
+        try {
+          rilasciaImpegno(prenAgg.formato, prenAgg.prodotti, db);
+        } catch (errAcc) {
+          console.warn("⚠️ Errore rilascio impegno accessori:", errAcc.message);
+        }
+
         // 3️⃣ Storico SFUSO → ANNULLATA (come prima)
         runWithRetry(() =>
           db
@@ -1451,34 +1467,59 @@ router.patch("/prenotazione/:id", async (req, res) => {
             .prepare(`SELECT * FROM prodotti WHERE asin = ?`)
             .get(prenAgg.asin_prodotto);
 
+          // Quantità effettivamente prodotta (parziale o totale)
+          const qtaProdotta = (quantitaProdotta != null && quantitaProdotta > 0)
+            ? Math.min(Number(quantitaProdotta), prenAgg.prodotti)
+            : prenAgg.prodotti;
+          const rimanenza = prenAgg.prodotti - qtaProdotta;
+
+          // 📦 Scala accessori per quanto prodotto (fisico + impegno)
+          try {
+            scalaAccessori(prenAgg.formato, qtaProdotta, db);
+          } catch (errAcc) {
+            console.warn("⚠️ Errore scala accessori:", errAcc.message);
+          }
 
           if (prodotto) {
             runWithRetry(() =>
-              db
-                .prepare(`UPDATE prodotti SET pronto = pronto + ? WHERE asin = ?`)
-                .run(prenAgg.prodotti, prodotto.asin)
-
-
+              db.prepare(`UPDATE prodotti SET pronto = pronto + ? WHERE asin = ?`)
+                .run(qtaProdotta, prodotto.asin)
             );
-
 
             runWithRetry(() =>
               db.prepare(`
-                  INSERT INTO storico_movimenti
-                    (asin_prodotto, nome_prodotto, tipo, delta_quantita, note, operatore, created_at)
-                  VALUES (?, ?, 'PRODUZIONE', ?, ?, ?, datetime('now','localtime'))
-                `).run(
-                prodotto.asin,                         // asin_prodotto
-                prodotto.nome,                         // nome_prodotto
-                prenAgg.prodotti,                      // delta_quantita (quantità prodotta)
-                `Produzione completata - Lotto ${prenAgg.lotto}`, // note
-                operatore || "admin"                   // operatore
+                INSERT INTO storico_movimenti
+                  (asin_prodotto, nome_prodotto, tipo, delta_quantita, note, operatore, created_at)
+                VALUES (?, ?, 'PRODUZIONE', ?, ?, ?, datetime('now','localtime'))
+              `).run(
+                prodotto.asin,
+                prodotto.nome,
+                qtaProdotta,
+                rimanenza > 0
+                  ? `Produzione parziale - Lotto ${prenAgg.lotto} (${rimanenza} pendenti)`
+                  : `Produzione completata - Lotto ${prenAgg.lotto}`,
+                operatore || "admin"
               )
             );
-
-
           } else {
             console.warn("⚠️ Nessun prodotto trovato per:", prenAgg.nome_prodotto);
+          }
+
+          // Produzione parziale: rimetti in lavorazione con la rimanenza
+          if (rimanenza > 0) {
+            runWithRetry(() =>
+              db.prepare(`
+                UPDATE prenotazioni_sfuso
+                SET stato = 'In lavorazione', prodotti = ?, dataFine = NULL
+                WHERE id = ?
+              `).run(rimanenza, id)
+            );
+            return res.json({
+              ok: true,
+              parziale: true,
+              message: `${qtaProdotta} unità aggiunte all'inventario — ${rimanenza} rimangono in lavorazione`,
+              id
+            });
           }
         } catch (err) {
           console.error("❌ Errore aggiornamento inventario pronto:", err);

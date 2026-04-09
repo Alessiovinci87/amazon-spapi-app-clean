@@ -1,268 +1,748 @@
-import React, { useState, useEffect } from "react";
-import DropdownLinguePortal from "../components/DropdownLinguePortal";
-import { 
-  ArrowLeft, 
-  Star, 
-  Filter, 
-  MessageSquare,
-  TrendingUp,
-  BarChart3
-} from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  LogOut,
+  Star,
+  Filter,
+  MessageSquare,
+  BarChart3,
+  RefreshCw,
+  Loader,
+  AlertCircle,
+  Check,
+  X,
+  TrendingUp,
+  Package,
+  Calendar,
+  ChevronRight,
+  Globe,
+} from "lucide-react";
+import { toast } from "sonner";
 
-const Recensioni = () => {
+const EU_MARKETPLACES = [
+  { code: "IT", label: "Italia" },
+  { code: "DE", label: "Germania" },
+  { code: "FR", label: "Francia" },
+  { code: "ES", label: "Spagna" },
+  { code: "UK", label: "UK" },
+  { code: "NL", label: "Olanda" },
+  { code: "BE", label: "Belgio" },
+  { code: "PL", label: "Polonia" },
+];
+
+const Flag = ({ code, className = "h-4 w-auto inline-block align-middle" }) => {
+  // UK flag su flagcdn è "gb"
+  const c = code === "UK" ? "gb" : code.toLowerCase();
+  return <img src={`https://flagcdn.com/24x18/${c}.png`} alt={code} className={className} />;
+};
+
+// Card sezione con barra accent verticale
+function SectionCard({ accent = "amber", icon: Icon, eyebrow, title, action, children }) {
+  const accentMap = {
+    amber: "bg-amber-400/60",
+    yellow: "bg-yellow-400/60",
+    emerald: "bg-emerald-400/60",
+    blue: "bg-blue-400/60",
+    rose: "bg-rose-400/60",
+    violet: "bg-violet-400/60",
+  };
+  const iconBg = {
+    amber: "bg-amber-500/10 border-amber-500/40 text-amber-400",
+    yellow: "bg-yellow-500/10 border-yellow-500/40 text-yellow-400",
+    emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400",
+    blue: "bg-blue-500/10 border-blue-500/40 text-blue-400",
+    rose: "bg-rose-500/10 border-rose-500/40 text-rose-400",
+    violet: "bg-violet-500/10 border-violet-500/40 text-violet-400",
+  };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${accentMap[accent]}`} />
+      <div className="px-6 py-5 sm:px-8 sm:py-6">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3 min-w-0">
+            {Icon && (
+              <div className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 ${iconBg[accent]}`}>
+                <Icon className="w-[18px] h-[18px]" />
+              </div>
+            )}
+            <div className="min-w-0">
+              {eyebrow && (
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{eyebrow}</div>
+              )}
+              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight truncate">{title}</h2>
+            </div>
+          </div>
+          {action}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StatTile({ icon: Icon, label, value, accent = "amber", hint }) {
+  const map = {
+    amber: "bg-amber-500/10 border-amber-500/40 text-amber-400",
+    yellow: "bg-yellow-500/10 border-yellow-500/40 text-yellow-400",
+    emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400",
+    blue: "bg-blue-500/10 border-blue-500/40 text-blue-400",
+  };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg px-6 py-5">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-9 h-9 rounded-md border flex items-center justify-center ${map[accent]}`}>
+          <Icon className="w-[18px] h-[18px]" />
+        </div>
+        {hint}
+      </div>
+      <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{label}</div>
+    </div>
+  );
+}
+
+const PERIODS = [
+  { days: 30, label: "30 gg" },
+  { days: 90, label: "90 gg" },
+  { days: 180, label: "180 gg" },
+  { days: 365, label: "1 anno" },
+  { days: 730, label: "2 anni" },
+];
+
+export default function Recensioni() {
   const navigate = useNavigate();
-  const [dati, setDati] = useState({});
-  const [paese, setPaese] = useState("IT");
+  const [marketplace, setMarketplace] = useState("IT");
+  const [period, setPeriod] = useState(365);
+  const [view, setView] = useState("catalog"); // "catalog" | "list"
+  const [asinFilter, setAsinFilter] = useState(null);
+  const [data, setData] = useState(null);
+  const [catalog, setCatalog] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingCatalog, setLoadingCatalog] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
+  const [error, setError] = useState(null);
   const [selectedStars, setSelectedStars] = useState([]);
-  const asin = "B0BY9Q4KTT";
 
-  useEffect(() => {
-    fetch("/data/reviews_snapshot.json")
-      .then((res) => res.json())
-      .then((data) => setDati(data));
+  const fetchData = useCallback(
+    async (mp, stars = [], asin = null) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({ marketplace: mp });
+        if (stars.length > 0) params.set("stelle", stars.join(","));
+        if (asin) params.set("asin", asin);
+        const res = await fetch(`/api/v2/feedback?${params.toString()}`);
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+        setData(json);
+      } catch (err) {
+        setError(err.message);
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const fetchCatalog = useCallback(async (mp) => {
+    setLoadingCatalog(true);
+    try {
+      const res = await fetch(`/api/v2/feedback/catalog?marketplace=${mp}`);
+      const json = await res.json();
+      if (res.ok && json.ok) setCatalog(json.items || []);
+      else setCatalog([]);
+    } catch {
+      setCatalog([]);
+    } finally {
+      setLoadingCatalog(false);
+    }
   }, []);
 
-  const tutte = dati[paese]?.[asin] || [];
+  useEffect(() => {
+    fetchData(marketplace, selectedStars, asinFilter);
+  }, [marketplace, selectedStars, asinFilter, fetchData]);
 
-  const toggleFiltro = (stella) => {
-    setSelectedStars((prev) =>
-      prev.includes(stella)
-        ? prev.filter((s) => s !== stella)
-        : [...prev, stella]
-    );
+  useEffect(() => {
+    fetchCatalog(marketplace);
+  }, [marketplace, fetchCatalog]);
+
+  const onSyncAll = async () => {
+    setSyncingAll(true);
+    const tid = toast.loading("Sincronizzazione di tutti i marketplace…", {
+      description: "Può richiedere qualche minuto (un report per paese)",
+    });
+    try {
+      const res = await fetch("/api/v2/feedback/sync-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ days: period }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+      const errs = json.errors?.length ? ` (${json.errors.length} errori)` : "";
+      toast.success(`${json.total} feedback totali${errs}`, { id: tid });
+      await Promise.all([
+        fetchData(marketplace, selectedStars, asinFilter),
+        fetchCatalog(marketplace),
+      ]);
+    } catch (err) {
+      toast.error("Errore sync globale", { id: tid, description: err.message });
+    } finally {
+      setSyncingAll(false);
+    }
   };
 
-  const filtrate = selectedStars.length
-    ? tutte.filter((r) => selectedStars.includes(r.stelle))
-    : tutte;
-
-  // Calcola statistiche
-  const stats = {
-    totale: tutte.length,
-    media: tutte.length > 0 
-      ? (tutte.reduce((sum, r) => sum + r.stelle, 0) / tutte.length).toFixed(1)
-      : 0,
-    distribuzione: [5, 4, 3, 2, 1].map(stella => ({
-      stelle: stella,
-      count: tutte.filter(r => r.stelle === stella).length,
-      percentuale: tutte.length > 0
-        ? ((tutte.filter(r => r.stelle === stella).length / tutte.length) * 100).toFixed(0)
-        : 0
-    }))
+  const onSync = async () => {
+    setSyncing(true);
+    const tid = toast.loading(`Sincronizzazione feedback ${marketplace} (${period}gg)…`, {
+      description: "Il report SP-API può richiedere alcuni minuti",
+    });
+    try {
+      const res = await fetch("/api/v2/feedback/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ marketplace, days: period }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || `HTTP ${res.status}`);
+      toast.success(`Sincronizzati ${json.records} feedback`, { id: tid });
+      await Promise.all([
+        fetchData(marketplace, selectedStars, asinFilter),
+        fetchCatalog(marketplace),
+      ]);
+    } catch (err) {
+      toast.error("Errore sincronizzazione", { id: tid, description: err.message });
+    } finally {
+      setSyncing(false);
+    }
   };
 
-  const getStarColor = (stelle) => {
-    if (stelle >= 4) return "text-green-400";
-    if (stelle === 3) return "text-yellow-400";
-    return "text-red-400";
-  };
+  const toggleStar = (s) =>
+    setSelectedStars((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
 
-  const getStarBg = (stelle) => {
-    if (stelle >= 4) return "bg-green-500/10 border-green-500/30";
-    if (stelle === 3) return "bg-yellow-500/10 border-yellow-500/30";
-    return "bg-red-500/10 border-red-500/30";
+  const onPickAsin = (asin) => {
+    setAsinFilter(asin);
+    setView("list");
+  };
+  const clearAsin = () => setAsinFilter(null);
+
+  const stats = data?.stats || { totale: 0, media: "0.00", distribuzione: [] };
+  const feedback = data?.feedback || [];
+  const sync = data?.sync;
+
+  const lastSyncLabel = useMemo(() => {
+    if (!sync?.last_sync) return null;
+    try {
+      return new Date(sync.last_sync).toLocaleString("it-IT", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return sync.last_sync;
+    }
+  }, [sync]);
+
+  const getStarTone = (stelle) => {
+    if (stelle >= 4) return { text: "text-emerald-300", bg: "bg-emerald-500/10 border-emerald-500/40", bar: "bg-emerald-400/60" };
+    if (stelle === 3) return { text: "text-amber-300", bg: "bg-amber-500/10 border-amber-500/40", bar: "bg-amber-400/60" };
+    return { text: "text-rose-300", bg: "bg-rose-500/10 border-rose-500/40", bar: "bg-rose-400/60" };
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="w-full space-y-6">
-        
-        {/* ========== HEADER ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div className="flex items-center gap-4 flex-1">
-              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center shadow-lg">
-                <Star className="w-7 h-7 text-white fill-white" />
-              </div>
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-white">Recensioni Prodotto</h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-zinc-400 text-sm">ASIN:</span>
-                  <span className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded-md text-amber-400 font-mono text-sm">
-                    {asin}
-                  </span>
-                </div>
-              </div>
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid sottile */}
+      <div
+        className="absolute inset-0 opacity-[0.035] pointer-events-none"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+        }}
+      />
+
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => navigate("/europe")}
+              type="button"
+              title="Indietro"
+              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/40 flex items-center justify-center flex-shrink-0">
+              <Star className="w-[18px] h-[18px] text-amber-400" />
             </div>
-            
-            <div className="flex items-center gap-3">
-              <DropdownLinguePortal paese={paese} setPaese={setPaese} />
-              <button
-                onClick={() => navigate("/europe")}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all hover:scale-[1.02]"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Europa
-              </button>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Seller Feedback</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Recensioni venditore</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+            <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/30">
+              <Flag code={marketplace} className="h-3 w-auto" />
+              <span className="text-[11px] uppercase tracking-[0.12em] text-amber-400 font-medium">{marketplace}</span>
+            </div>
+            <button
+              onClick={() => navigate("/europe")}
+              type="button"
+              title="Esci"
+              className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Esci
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* === Hero compatto === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="flex items-start justify-between gap-6 flex-wrap">
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
+                Recensioni venditore · SP-API
+              </div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+                Feedback negativi <span className="text-slate-500">— per marketplace.</span>
+              </h1>
+              <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+                Feedback negativi e neutri (1–3★) lasciati dai compratori al tuo account venditore,
+                scaricati dal report SP-API.{" "}
+                <span className="text-slate-500">
+                  Amazon non espone i feedback positivi (4–5★) via API.
+                </span>
+              </p>
+            </div>
+
+            <div className="flex flex-col items-end gap-3">
+              <div className="inline-flex items-center gap-1 p-0.5 rounded-md bg-slate-900/60 border border-slate-800">
+                <Calendar className="w-3.5 h-3.5 text-slate-500 ml-1.5 mr-0.5" />
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.days}
+                    onClick={() => setPeriod(p.days)}
+                    type="button"
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium transition-colors ${
+                      period === p.days
+                        ? "bg-amber-500/20 text-amber-200"
+                        : "text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onSync}
+                  disabled={syncing || syncingAll}
+                  type="button"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {syncing ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                  {syncing ? "Sync…" : `Sync ${marketplace}`}
+                </button>
+                <button
+                  onClick={onSyncAll}
+                  disabled={syncing || syncingAll}
+                  type="button"
+                  title="Sincronizza tutti i marketplace EU"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {syncingAll ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Globe className="w-3.5 h-3.5" />}
+                  {syncingAll ? "Sync tutti…" : "Sync tutti EU"}
+                </button>
+              </div>
+              {lastSyncLabel && (
+                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-600">
+                  Ultimo sync: <span className="font-mono text-slate-500">{lastSyncLabel}</span>
+                  {sync?.status === "error" && <span className="ml-2 text-rose-400">errore</span>}
+                </div>
+              )}
             </div>
           </div>
         </div>
+      </section>
 
-        {/* ========== STATISTICHE ========== */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-amber-400" />
-              </div>
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{stats.totale}</p>
-            <p className="text-sm text-zinc-400">Recensioni Totali</p>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-lg bg-yellow-500/10 flex items-center justify-center">
-                <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-              </div>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <p className="text-4xl font-bold text-white">{stats.media}</p>
-              <p className="text-xl text-yellow-400">⭐</p>
-            </div>
-            <p className="text-sm text-zinc-400">Valutazione Media</p>
-          </div>
-
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-blue-400" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white">{filtrate.length}</p>
-            <p className="text-sm text-zinc-400">
-              {selectedStars.length > 0 ? "Recensioni Filtrate" : "Tutte Visualizzate"}
-            </p>
-          </div>
-        </div>
-
-        {/* ========== DISTRIBUZIONE STELLE ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
-            <BarChart3 className="w-5 h-5 text-blue-400" />
-            Distribuzione Valutazioni
-          </h2>
-          <div className="space-y-3">
-            {stats.distribuzione.map(({ stelle, count, percentuale }) => (
-              <div key={stelle} className="flex items-center gap-4">
-                <div className="flex items-center gap-1 w-20">
-                  <span className="text-sm font-medium text-white">{stelle}</span>
-                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                </div>
-                <div className="flex-1 h-8 bg-zinc-800 rounded-lg overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-yellow-500 to-amber-600 transition-all duration-500"
-                    style={{ width: `${percentuale}%` }}
-                  />
-                </div>
-                <div className="w-16 text-right">
-                  <span className="text-sm font-semibold text-white">{count}</span>
-                  <span className="text-xs text-zinc-400 ml-1">({percentuale}%)</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ========== FILTRI STELLE ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
-              <Filter className="w-5 h-5 text-emerald-400" />
-              Filtra per Valutazione
-            </h2>
-            {selectedStars.length > 0 && (
-              <button
-                onClick={() => setSelectedStars([])}
-                className="text-sm text-zinc-400 hover:text-white transition-colors"
-              >
-                Cancella filtri
-              </button>
-            )}
-          </div>
-          
-          <div className="flex flex-wrap gap-3">
-            {[5, 4, 3, 2, 1].map((stella) => {
-              const isSelected = selectedStars.includes(stella);
-              const count = tutte.filter(r => r.stelle === stella).length;
-              
+      {/* === Tab paesi === */}
+      <div className="relative border-b border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16">
+          <div className="flex gap-1 overflow-x-auto -mb-px scrollbar-none py-2">
+            {EU_MARKETPLACES.map((mp) => {
+              const active = marketplace === mp.code;
               return (
                 <button
-                  key={stella}
-                  onClick={() => toggleFiltro(stella)}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-lg border-2 font-semibold transition-all ${
-                    isSelected
-                      ? "bg-yellow-500 border-yellow-500 text-black scale-105"
-                      : "bg-zinc-800 border-zinc-700 text-white hover:border-yellow-500/50"
-                  }`}
-                  aria-pressed={isSelected}
+                  key={mp.code}
+                  onClick={() => setMarketplace(mp.code)}
                   type="button"
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] font-medium whitespace-nowrap border transition-all ${
+                    active
+                      ? "bg-amber-500/15 border-amber-500/50 text-amber-200"
+                      : "bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-slate-200"
+                  }`}
                 >
-                  <span className="text-lg">{stella}</span>
-                  <Star className={`w-4 h-4 ${isSelected ? "fill-black" : "fill-yellow-400 text-yellow-400"}`} />
-                  <span className="text-sm">({count})</span>
+                  <Flag code={mp.code} className="h-3 w-auto" />
+                  {mp.label}
                 </button>
               );
             })}
           </div>
         </div>
-
-        {/* ========== RECENSIONI ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-white">
-            <MessageSquare className="w-5 h-5 text-blue-400" />
-            Recensioni
-            {selectedStars.length > 0 && (
-              <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full text-sm font-normal">
-                Filtrate: {filtrate.length}
-              </span>
-            )}
-          </h2>
-
-          {filtrate.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-2xl bg-zinc-800 flex items-center justify-center mx-auto mb-4">
-                <MessageSquare className="w-8 h-8 text-zinc-600" />
-              </div>
-              <p className="text-zinc-400 text-lg">Nessuna recensione trovata</p>
-              <p className="text-zinc-500 text-sm mt-2">
-                {selectedStars.length > 0 
-                  ? "Prova a modificare i filtri selezionati"
-                  : "Non ci sono recensioni disponibili per questo prodotto"}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtrate.map((r) => (
-                <article
-                  key={r.id}
-                  className="bg-zinc-800 border border-zinc-700 rounded-xl p-5 hover:border-zinc-600 transition-all"
-                  tabIndex={0}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className={`flex items-center gap-1 px-3 py-1 rounded-lg border ${getStarBg(r.stelle)}`}>
-                      <span className={`font-bold ${getStarColor(r.stelle)}`}>{r.stelle}</span>
-                      <Star className={`w-4 h-4 ${getStarColor(r.stelle)} fill-current`} />
-                    </div>
-                  </div>
-
-                  <h3 className="text-lg font-semibold text-white mb-3 line-clamp-2">
-                    {r.titolo}
-                  </h3>
-
-                  <p className="text-sm text-zinc-300 leading-relaxed line-clamp-4">
-                    {r.testo}
-                  </p>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
+
+      {/* === Sub-tab Vista === */}
+      <div className="relative px-6 sm:px-10 lg:px-16 pt-6">
+        <div className="inline-flex items-center gap-1 p-0.5 rounded-md bg-slate-900/60 border border-slate-800">
+          <button
+            onClick={() => { setView("catalog"); clearAsin(); }}
+            type="button"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-medium transition-colors ${
+              view === "catalog"
+                ? "bg-amber-500/20 text-amber-200"
+                : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            <Package className="w-3.5 h-3.5" />
+            Catalogo
+            <span className="text-[10px] font-mono opacity-60">({catalog.length})</span>
+          </button>
+          <button
+            onClick={() => setView("list")}
+            type="button"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] font-medium transition-colors ${
+              view === "list"
+                ? "bg-amber-500/20 text-amber-200"
+                : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+            Cronologico
+            <span className="text-[10px] font-mono opacity-60">({stats.totale})</span>
+          </button>
+        </div>
+
+        {asinFilter && (
+          <button
+            onClick={clearAsin}
+            type="button"
+            className="ml-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 text-[11px] font-mono transition-colors"
+          >
+            <X className="w-3 h-3" />
+            ASIN: {asinFilter}
+          </button>
+        )}
+      </div>
+
+      {/* === Contenuto === */}
+      <div className="relative flex-1 px-6 sm:px-10 lg:px-16 py-6 space-y-6">
+        {loading && !data ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader className="w-6 h-6 text-amber-400 animate-spin" />
+            <p className="text-slate-500 text-sm">Caricamento feedback…</p>
+          </div>
+        ) : error ? (
+          <div className="relative bg-slate-900/60 border border-rose-500/30 rounded-lg overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-400/60" />
+            <div className="px-6 py-6 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="text-sm font-semibold text-white">Errore nel caricamento</div>
+                <div className="text-[13px] text-slate-400 mt-1">{error}</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* === Statistiche === */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <StatTile
+                icon={MessageSquare}
+                label="Feedback totali"
+                value={stats.totale}
+                accent="amber"
+                hint={
+                  stats.totale > 0 && (
+                    <TrendingUp className="w-4 h-4 text-emerald-400/70" />
+                  )
+                }
+              />
+              <StatTile
+                icon={Star}
+                label="Valutazione media"
+                value={
+                  <span className="inline-flex items-baseline gap-1.5">
+                    {stats.media}
+                    <span className="text-base text-yellow-400">★</span>
+                  </span>
+                }
+                accent="yellow"
+              />
+              <StatTile
+                icon={BarChart3}
+                label={selectedStars.length > 0 ? "Filtrati visibili" : "Visualizzati"}
+                value={feedback.length}
+                accent="blue"
+              />
+            </div>
+
+            {view === "catalog" ? (
+              <SectionCard
+                accent="amber"
+                icon={Package}
+                eyebrow={`${catalog.length} prodotti`}
+                title="Catalogo con feedback aggregato"
+              >
+                {loadingCatalog ? (
+                  <div className="flex items-center justify-center py-10 gap-2">
+                    <Loader className="w-4 h-4 text-amber-400 animate-spin" />
+                    <span className="text-xs text-slate-500">Caricamento catalogo…</span>
+                  </div>
+                ) : catalog.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 gap-3">
+                    <div className="w-12 h-12 rounded-md bg-slate-800/60 border border-slate-800 flex items-center justify-center">
+                      <Package className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <p className="text-sm text-slate-500">
+                      Nessun prodotto in catalogo per {marketplace}.
+                    </p>
+                    <p className="text-[11px] text-slate-600">
+                      Sincronizza il catalogo dalla pagina Europa o avvia un sync feedback.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {catalog.map((p) => {
+                      const tone = getStarTone(Math.round(parseFloat(p.media)) || 5);
+                      const hasFeedback = p.totale > 0;
+                      return (
+                        <button
+                          key={p.asin}
+                          onClick={() => onPickAsin(p.asin)}
+                          type="button"
+                          className="group relative text-left bg-slate-900/60 border border-slate-800 hover:border-slate-700 hover:bg-slate-900 rounded-md overflow-hidden transition-all"
+                        >
+                          {hasFeedback && (
+                            <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${tone.bar}`} />
+                          )}
+                          <div className="px-4 py-3 flex items-center gap-3">
+                            <div className="w-14 h-14 rounded-md bg-slate-800/80 border border-slate-800 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                              {p.image_url ? (
+                                <img src={p.image_url} alt={p.asin} className="w-full h-full object-contain" />
+                              ) : (
+                                <Package className="w-5 h-5 text-slate-700" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[10px] font-mono text-emerald-400/80 truncate">{p.asin}</div>
+                              <div className="text-[12px] font-medium text-slate-200 line-clamp-2 leading-tight mt-0.5">
+                                {p.titolo || <span className="text-slate-600 italic">Senza titolo</span>}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1.5">
+                                {hasFeedback ? (
+                                  <>
+                                    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold tabular-nums ${tone.text}`}>
+                                      {p.media}
+                                      <Star className="w-3 h-3 fill-current" />
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 tabular-nums">
+                                      {p.totale} feedback
+                                    </span>
+                                    {(p.distribuzione[1] + p.distribuzione[2]) > 0 && (
+                                      <span className="text-[10px] text-rose-400 tabular-nums">
+                                        · {p.distribuzione[1] + p.distribuzione[2]} ≤2★
+                                      </span>
+                                    )}
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] text-slate-600">Nessun feedback</span>
+                                )}
+                              </div>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 flex-shrink-0" />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </SectionCard>
+            ) : (
+              <>
+            {/* === Distribuzione === */}
+            <SectionCard
+              accent="violet"
+              icon={BarChart3}
+              eyebrow="Statistiche"
+              title="Distribuzione valutazioni"
+            >
+              {stats.totale === 0 ? (
+                <p className="text-sm text-slate-500">
+                  Nessun feedback disponibile. Premi <span className="text-amber-300">Sincronizza ora</span> per scaricarli da Amazon.
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {stats.distribuzione.map(({ stelle, count, percentuale }) => {
+                    const tone = getStarTone(stelle);
+                    return (
+                      <div key={stelle} className="flex items-center gap-4">
+                        <div className="flex items-center gap-1 w-14 flex-shrink-0">
+                          <span className="text-sm font-medium text-slate-300 tabular-nums">{stelle}</span>
+                          <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                        </div>
+                        <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-500 ${tone.bar}`}
+                            style={{ width: `${percentuale}%` }}
+                          />
+                        </div>
+                        <div className="w-24 text-right text-xs">
+                          <span className="font-semibold text-slate-200 tabular-nums">{count}</span>
+                          <span className="text-slate-600 ml-1.5 tabular-nums">{percentuale}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* === Filtri === */}
+            <SectionCard
+              accent="emerald"
+              icon={Filter}
+              eyebrow="Filtri"
+              title="Filtra per valutazione"
+              action={
+                selectedStars.length > 0 && (
+                  <button
+                    onClick={() => setSelectedStars([])}
+                    type="button"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-[11px] uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                    Cancella
+                  </button>
+                )
+              }
+            >
+              <div className="flex flex-wrap gap-2">
+                {[5, 4, 3, 2, 1].map((stella) => {
+                  const isSelected = selectedStars.includes(stella);
+                  const count = stats.distribuzione.find((d) => d.stelle === stella)?.count ?? 0;
+                  const tone = getStarTone(stella);
+                  return (
+                    <button
+                      key={stella}
+                      onClick={() => toggleStar(stella)}
+                      type="button"
+                      aria-pressed={isSelected}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-xs font-medium transition-all ${
+                        isSelected
+                          ? `${tone.bg} ${tone.text}`
+                          : "bg-slate-900/60 border-slate-800 text-slate-400 hover:bg-slate-800 hover:border-slate-700 hover:text-slate-200"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3" />}
+                      <span className="tabular-nums">{stella}</span>
+                      <Star className={`w-3.5 h-3.5 ${isSelected ? "fill-current" : "text-yellow-400 fill-yellow-400"}`} />
+                      <span className="text-[10px] font-mono opacity-70">({count})</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            {/* === Lista feedback === */}
+            <SectionCard
+              accent="amber"
+              icon={MessageSquare}
+              eyebrow={`${feedback.length} risultati`}
+              title="Feedback ricevuti"
+            >
+              {feedback.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3">
+                  <div className="w-12 h-12 rounded-md bg-slate-800/60 border border-slate-800 flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 text-slate-600" />
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    {stats.totale === 0
+                      ? "Nessun feedback in cache. Sincronizza per scaricarli."
+                      : selectedStars.length > 0
+                      ? "Nessun feedback corrisponde ai filtri selezionati"
+                      : "Nessun feedback disponibile"}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {feedback.map((r) => {
+                    const tone = getStarTone(r.rating);
+                    return (
+                      <article
+                        key={r.id}
+                        className="relative bg-slate-900/60 border border-slate-800 rounded-md overflow-hidden hover:border-slate-700 transition-colors"
+                      >
+                        <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${tone.bar}`} />
+                        <div className="px-5 py-4">
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-semibold ${tone.bg} ${tone.text}`}>
+                              <span className="tabular-nums">{r.rating}</span>
+                              <Star className="w-3 h-3 fill-current" />
+                            </div>
+                            <span className="text-[10px] font-mono text-slate-600 tabular-nums">{r.date}</span>
+                          </div>
+
+                          {r.comments && (
+                            <p className="text-[13px] text-slate-300 leading-relaxed line-clamp-4 mb-3">
+                              {r.comments}
+                            </p>
+                          )}
+
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 border-t border-slate-800">
+                            {r.asin && (
+                              <span className="text-[10px] font-mono text-emerald-400/80">{r.asin}</span>
+                            )}
+                            {r.order_id && (
+                              <span className="text-[10px] font-mono text-slate-600">
+                                #{r.order_id.slice(-8)}
+                              </span>
+                            )}
+                            {r.response && (
+                              <span className="text-[10px] uppercase tracking-wider text-blue-400/80">
+                                Risposto
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/40">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>© {new Date().getFullYear()} Nexus · Seller Feedback</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
-};
-
-export default Recensioni;
+}

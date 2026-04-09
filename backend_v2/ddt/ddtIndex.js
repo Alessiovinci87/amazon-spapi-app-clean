@@ -158,6 +158,88 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
       `inline; filename=ddt_${spedizione.progressivo}.pdf`
     );
     res.end(pdfBuffer);
+
+    // 🔗 Hook One Step: scarica stock per ogni ASIN One Step presente nel DDT
+    try {
+      const { checkSottoSogliaOnestep } = require("../services/stockAlerts.service");
+      const onestepAsins = new Set(
+        db.prepare("SELECT asin FROM onestep_prodotti").all().map(r => r.asin)
+      );
+      const righeOnestep = righe.filter(r => onestepAsins.has(r.asin));
+      if (righeOnestep.length > 0) {
+        db.transaction(() => {
+          for (const r of righeOnestep) {
+            db.prepare(`
+              INSERT INTO onestep_movimenti (asin, tipo, quantita, riferimento_tipo, riferimento_id, note, operatore)
+              VALUES (?, 'SCARICO_DDT', ?, 'ddt', ?, ?, 'ddt')
+            `).run(r.asin, -Math.abs(r.quantita), idSpedizione, `Scarico DDT spedizione #${spedizione.progressivo}`);
+            db.prepare(`
+              UPDATE onestep_prodotti SET quantita = MAX(0, quantita - ?), updated_at = datetime('now','localtime') WHERE asin = ?
+            `).run(Math.abs(r.quantita), r.asin);
+            checkSottoSogliaOnestep(db, r.asin);
+          }
+        })();
+        console.log(`📦 [OneStep] Scaricati ${righeOnestep.length} ASIN da DDT #${spedizione.progressivo}`);
+      }
+    } catch (hookErr) {
+      console.warn("⚠️ [OneStep] Hook DDT non critico:", hookErr.message);
+    }
+
+    // 🔗 Hook Top Coat: scarica stock per ogni ASIN Top Coat presente nel DDT
+    try {
+      const { checkSottoSogliaTopcoat } = require("../services/stockAlerts.service");
+      const topcoatAsins = new Set(
+        db.prepare("SELECT asin FROM topcoat_prodotti").all().map(r => r.asin)
+      );
+      const righeTopcoat = righe.filter(r => topcoatAsins.has(r.asin));
+      if (righeTopcoat.length > 0) {
+        db.transaction(() => {
+          for (const r of righeTopcoat) {
+            db.prepare(`
+              INSERT INTO topcoat_movimenti (asin, tipo, quantita, riferimento_tipo, riferimento_id, note, operatore)
+              VALUES (?, 'SCARICO_DDT', ?, 'ddt', ?, ?, 'ddt')
+            `).run(r.asin, -Math.abs(r.quantita), idSpedizione, `Scarico DDT spedizione #${spedizione.progressivo}`);
+            db.prepare(`
+              UPDATE topcoat_prodotti SET quantita = MAX(0, quantita - ?), updated_at = datetime('now','localtime') WHERE asin = ?
+            `).run(Math.abs(r.quantita), r.asin);
+            checkSottoSogliaTopcoat(db, r.asin);
+          }
+        })();
+        console.log(`📦 [TopCoat] Scaricati ${righeTopcoat.length} ASIN da DDT #${spedizione.progressivo}`);
+      }
+    } catch (hookErr) {
+      console.warn("⚠️ [TopCoat] Hook DDT non critico:", hookErr.message);
+    }
+
+    // 🔗 Hook Moduli Custom: scarica stock per ogni modulo dinamico
+    try {
+      const { checkSottoSogliaModulo } = require("../services/stockAlerts.service");
+      const moduli = db.prepare("SELECT id, slug, label FROM moduli_custom").all();
+      for (const m of moduli) {
+        const asins = new Set(
+          db.prepare("SELECT asin FROM moduli_prodotti WHERE modulo_id = ?").all(m.id).map(r => r.asin)
+        );
+        const righeModulo = righe.filter(r => asins.has(r.asin));
+        if (righeModulo.length > 0) {
+          db.transaction(() => {
+            for (const r of righeModulo) {
+              db.prepare(`
+                INSERT INTO moduli_movimenti (modulo_id, asin, tipo, quantita, riferimento_tipo, riferimento_id, note, operatore)
+                VALUES (?, ?, 'SCARICO_DDT', ?, 'ddt', ?, ?, 'ddt')
+              `).run(m.id, r.asin, -Math.abs(r.quantita), idSpedizione, `Scarico DDT spedizione #${spedizione.progressivo}`);
+              db.prepare(`
+                UPDATE moduli_prodotti SET quantita = MAX(0, quantita - ?), updated_at = datetime('now','localtime')
+                WHERE modulo_id = ? AND asin = ?
+              `).run(Math.abs(r.quantita), m.id, r.asin);
+              checkSottoSogliaModulo(db, m.id, r.asin);
+            }
+          })();
+          console.log(`📦 [Modulo ${m.label}] Scaricati ${righeModulo.length} ASIN da DDT #${spedizione.progressivo}`);
+        }
+      }
+    } catch (hookErr) {
+      console.warn("⚠️ [Moduli Custom] Hook DDT non critico:", hookErr.message);
+    }
   } catch (err) {
     console.error("❌ Errore Puppeteer (PDF):", err);
     res

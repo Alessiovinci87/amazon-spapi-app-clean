@@ -14,38 +14,30 @@ function registraStoricoProduzione({
   litri_usati = null,
   evento = "CREATA",
   note = "",
-  operatore = "system"
+  operatore = "system",
+  data_evento = null
 }) {
 
   const db = getDb();
 
-  // 📝 INSERT storico
-  db.prepare(`
-    INSERT INTO storico_produzioni_sfuso (
-      id_produzione,
-      id_sfuso,
-      asin_prodotto,
-      nome_prodotto,
-      formato,
-      quantita,
-      litri_usati,
-      evento,
-      note,
-      operatore,
-      data_evento
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
-  `).run(
-    id_produzione,
-    id_sfuso,
-    asin_prodotto,
-    nome_prodotto,
-    formato,
-    quantita,
-    litri_usati,
-    evento,
-    note,
-    operatore
-  );
+  // 📝 INSERT storico — data_evento opzionale (default: ora locale)
+  if (data_evento) {
+    db.prepare(`
+      INSERT INTO storico_produzioni_sfuso (
+        id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
+        quantita, litri_usati, evento, note, operatore, data_evento
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
+           quantita, litri_usati, evento, note, operatore, data_evento);
+  } else {
+    db.prepare(`
+      INSERT INTO storico_produzioni_sfuso (
+        id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
+        quantita, litri_usati, evento, note, operatore, data_evento
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
+    `).run(id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
+           quantita, litri_usati, evento, note, operatore);
+  }
 
   return { ok: true };
 }

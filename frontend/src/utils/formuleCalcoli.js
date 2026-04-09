@@ -7,35 +7,38 @@
  */
 export function sommaPerTipo(dati, tipoCercato, campoSomma) {
   return dati
-    .filter(row => row.tipo === tipoCercato)
+    .filter(row => row.tipo?.toLowerCase() === tipoCercato.toLowerCase())
     .reduce((sum, row) => sum + (parseFloat(row[campoSomma]) || 0), 0);
 }
 
 /**
- * Calcola il costo totale sommando i vari componenti
- * @param {number} costoBase
- * @param {number} altreSpese
- * @param {number} commissioni
- * @param {number} speseSpedizione
+ * Calcola il costo totale: A + B + C
+ * @param {number} costoBase - somma imponibili tipo A
+ * @param {number} commissioni - somma imponibili tipo B
+ * @param {number} speseSpedizione - somma imponibili tipo C
  * @returns {number} costo totale
  */
-export function calcolaCostoTotale(costoBase, altreSpese, commissioni, speseSpedizione) {
+export function calcolaCostoTotale(costoBase, commissioni, speseSpedizione) {
   return (
     (parseFloat(costoBase) || 0) +
-    (parseFloat(altreSpese) || 0) +
     (parseFloat(commissioni) || 0) +
     (parseFloat(speseSpedizione) || 0)
   );
 }
 
 /**
- * Calcola il margine tra prezzo vendita e costo totale
- * @param {number} prezzoVendita
+ * Calcola il margine no IVA: scorporo IVA dal prezzo vendita, poi sottraggo costo totale
+ * Formula Excel: PrezzoVenditaIvato / (1 + IVA%) - CostoTotale
+ * @param {number} prezzoVenditaIvato
+ * @param {number} ivaPercentuale - es. 22
  * @param {number} costoTotale
- * @returns {number} margine
+ * @returns {number} margine senza IVA
  */
-export function calcolaMargine(prezzoVendita, costoTotale) {
-  return (parseFloat(prezzoVendita) || 0) - (parseFloat(costoTotale) || 0);
+export function calcolaMargine(prezzoVenditaIvato, ivaPercentuale, costoTotale) {
+  const prezzo = parseFloat(prezzoVenditaIvato) || 0;
+  const iva = (parseFloat(ivaPercentuale) || 0) / 100;
+  const costo = parseFloat(costoTotale) || 0;
+  return (prezzo / (1 + iva)) - costo;
 }
 
 /**
@@ -54,48 +57,75 @@ export function sommaDueColonne(dati, col1, col2) {
 }
 
 /**
- * Calcola il margine moltiplicato per un fattore (es. 2x, 3x, 4x)
- * @param {number} margineBase
- * @param {number} moltiplicatore
- * @returns {number} margine moltiplicato
+ * Calcola il costo base moltiplicato (margine Nx nel foglio Excel)
+ * Formula Excel: CostoBase(A) * N
+ * @param {number} costoBase - somma imponibili tipo A
+ * @param {number} moltiplicatore - es. 2, 3, 4
+ * @returns {number} costo base moltiplicato
  */
-export function calcolaMargineMultiplo(margineBase, moltiplicatore) {
-  return (parseFloat(margineBase) || 0) * moltiplicatore;
+export function calcolaMargineMultiplo(costoBase, moltiplicatore) {
+  return (parseFloat(costoBase) || 0) * moltiplicatore;
 }
 
 /**
- * Calcola la percentuale del costo rispetto al prezzo di vendita
- * @param {number} costoBase
- * @param {number} prezzoVendita
- * @returns {number} percentuale costo
+ * Calcola la pubblicita massima spendibile per un dato moltiplicatore
+ * Formula Excel: MargineNoIVA - (CostoBase * N)
+ * @param {number} margineNoIva
+ * @param {number} costoBase - somma imponibili tipo A
+ * @param {number} moltiplicatore - es. 2, 3, 4
+ * @returns {number} pubblicita massima (negativo = non sostenibile)
  */
-export function calcolaPercentualeCosto(costoBase, prezzoVendita) {
+export function calcolaPubblicitaMax(margineNoIva, costoBase, moltiplicatore) {
+  const margine = parseFloat(margineNoIva) || 0;
   const costo = parseFloat(costoBase) || 0;
-  const prezzo = parseFloat(prezzoVendita) || 1; // evita divisione per zero
-  return (costo / prezzo) * 100;
+  return margine - (costo * moltiplicatore);
 }
 
 /**
- * Calcola il prezzo minimo (prezzo di vendita - costo totale)
- * @param {number} prezzoVenditaIvato
+ * Calcola la percentuale di utile effettivo
+ * Formula Excel: (MargineNoIVA / CostoTotale) * 100
+ * @param {number} margineNoIva
  * @param {number} costoTotale
- * @returns {number} prezzo minimo
+ * @returns {number} percentuale utile
  */
-export function calcolaPrezzoMinimo(prezzoVenditaIvato, costoTotale) {
-  const prezzo = parseFloat(prezzoVenditaIvato) || 0;
+export function calcolaPercentualeCosto(margineNoIva, costoTotale) {
+  const margine = parseFloat(margineNoIva) || 0;
   const costo = parseFloat(costoTotale) || 0;
-  return prezzo - costo;
+  if (costo === 0) return 0;
+  return (margine / costo) * 100;
 }
 
 /**
- * Somma i valori di 4 colonne di una singola riga (row)
+ * Calcola l'utile effettivo
+ * Formula Excel: MargineNoIVA - CostoPubblicitario
+ * @param {number} margineNoIva
+ * @param {number} costoPubblicitario
+ * @returns {number} utile effettivo
+ */
+export function calcolaUtileEffettivo(margineNoIva, costoPubblicitario) {
+  return (parseFloat(margineNoIva) || 0) - (parseFloat(costoPubblicitario) || 0);
+}
+
+/**
+ * Calcola il prezzo minimo al pubblico
+ * Formula Excel: CostoTotale * (1 + IVA%)
+ * @param {number} costoTotale
+ * @param {number} ivaPercentuale - es. 22
+ * @returns {number} prezzo minimo ivato
+ */
+export function calcolaPrezzoMinimo(costoTotale, ivaPercentuale) {
+  const costo = parseFloat(costoTotale) || 0;
+  const iva = (parseFloat(ivaPercentuale) || 0) / 100;
+  return costo * (1 + iva);
+}
+
+/**
+ * Calcola il totale fattura di una singola riga: Imponibile + IVA Pagata
  * @param {Object} row - singola riga dati
- * @returns {number} somma delle 4 colonne g, h, i, j
+ * @returns {number} totale fattura
  */
 export function sommaTotFattura(row) {
-  const g = parseFloat(row.g) || 0;
-  const h = parseFloat(row.h) || 0;
-  const i = parseFloat(row.i) || 0;
-  const j = parseFloat(row.j) || 0;
-  return g + h + i + j;
+  const imponibile = parseFloat(row.imponibile) || 0;
+  const ivaPagata = parseFloat(row.ivaPagata) || 0;
+  return imponibile + ivaPagata;
 }

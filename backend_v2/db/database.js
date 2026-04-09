@@ -17,9 +17,10 @@ function getDbPath() {
 }
 
 /**
- * Apertura database con controlli di sicurezza
+ * Apertura database con controlli di sicurezza.
+ * Se il WAL è corrotto (SQLITE_IOERR_TRUNCATE), rimuove i file WAL/SHM e riprova una volta.
  */
-function openDb() {
+function openDb(retry = true) {
   const dbFile = getDbPath();
 
   console.log("\n=========================================");
@@ -35,17 +36,29 @@ function openDb() {
     );
   }
 
-  const db = new Database(dbFile, { fileMustExist: true });
+  try {
+    const db = new Database(dbFile, { fileMustExist: true });
 
-  db.pragma("journal_mode = WAL");
-  db.pragma("synchronous = NORMAL");
-  db.pragma("foreign_keys = ON");
-  db.pragma("busy_timeout = 5000");
+    db.pragma("journal_mode = WAL");
+    db.pragma("synchronous = NORMAL");
+    db.pragma("foreign_keys = ON");
+    db.pragma("busy_timeout = 5000");
 
-  const mode = db.pragma("journal_mode", { simple: true });
-  console.log(`🧩 PRAGMA impostate correttamente (journal_mode=${mode}).`);
+    const mode = db.pragma("journal_mode", { simple: true });
+    console.log(`🧩 PRAGMA impostate correttamente (journal_mode=${mode}).`);
 
-  return db;
+    return db;
+  } catch (err) {
+    if (err.code === "SQLITE_IOERR_TRUNCATE" && retry) {
+      console.warn("⚠️  WAL corrotto rilevato — rimozione automatica dei file WAL/SHM e nuovo tentativo…");
+      const walFile = dbFile + "-wal";
+      const shmFile = dbFile + "-shm";
+      try { fs.unlinkSync(walFile); } catch (_) {}
+      try { fs.unlinkSync(shmFile); } catch (_) {}
+      return openDb(false); // un solo retry
+    }
+    throw err;
+  }
 }
 
 /**
@@ -72,6 +85,280 @@ function seedPasswordAdmin(db) {
 /**
  * Inizializza il database e fa il seed della password admin se necessario.
  */
+function runMigrations(db) {
+  // Aggiunge quantita_impegnata ad accessori se mancante
+  const cols = db.pragma("table_info(accessori)");
+  if (!cols.some(c => c.name === "quantita_impegnata")) {
+    db.prepare("ALTER TABLE accessori ADD COLUMN quantita_impegnata INTEGER NOT NULL DEFAULT 0").run();
+    console.log("🔧 Migrazione: aggiunta colonna quantita_impegnata ad accessori");
+  }
+
+  // ===== ONE STEP =====
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS onestep_prodotti (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      asin            TEXT    UNIQUE NOT NULL,
+      sku             TEXT,
+      codice_colore   TEXT,
+      nome            TEXT,
+      image_url       TEXT,
+      quantita        INTEGER NOT NULL DEFAULT 0,
+      soglia_minima   INTEGER NOT NULL DEFAULT 10,
+      created_at      TEXT DEFAULT (datetime('now','localtime')),
+      updated_at      TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS onestep_ordini (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      fornitore             TEXT    NOT NULL,
+      data_ordine           TEXT    DEFAULT (datetime('now','localtime')),
+      data_consegna_prevista TEXT,
+      stato                 TEXT    NOT NULL DEFAULT 'bozza',
+      note                  TEXT,
+      operatore             TEXT    DEFAULT 'admin',
+      created_at            TEXT    DEFAULT (datetime('now','localtime')),
+      updated_at            TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS onestep_ordini_righe (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_ordine          INTEGER NOT NULL REFERENCES onestep_ordini(id) ON DELETE CASCADE,
+      asin               TEXT    NOT NULL,
+      quantita_ordinata  INTEGER NOT NULL DEFAULT 0,
+      quantita_ricevuta  INTEGER,
+      stato              TEXT    DEFAULT 'in_attesa',
+      created_at         TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS onestep_movimenti (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      asin             TEXT    NOT NULL,
+      tipo             TEXT    NOT NULL,
+      quantita         INTEGER NOT NULL,
+      riferimento_tipo TEXT,
+      riferimento_id   INTEGER,
+      note             TEXT,
+      operatore        TEXT    DEFAULT 'system',
+      created_at       TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  console.log("✅ Migrazione One Step completata");
+
+  // ===== TOP COAT =====
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS topcoat_prodotti (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      asin            TEXT    UNIQUE NOT NULL,
+      sku             TEXT,
+      codice_colore   TEXT,
+      nome            TEXT,
+      image_url       TEXT,
+      quantita        INTEGER NOT NULL DEFAULT 0,
+      soglia_minima   INTEGER NOT NULL DEFAULT 10,
+      created_at      TEXT DEFAULT (datetime('now','localtime')),
+      updated_at      TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS topcoat_ordini (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      fornitore             TEXT    NOT NULL,
+      data_ordine           TEXT    DEFAULT (datetime('now','localtime')),
+      data_consegna_prevista TEXT,
+      stato                 TEXT    NOT NULL DEFAULT 'bozza',
+      note                  TEXT,
+      operatore             TEXT    DEFAULT 'admin',
+      created_at            TEXT    DEFAULT (datetime('now','localtime')),
+      updated_at            TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS topcoat_ordini_righe (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_ordine          INTEGER NOT NULL REFERENCES topcoat_ordini(id) ON DELETE CASCADE,
+      asin               TEXT    NOT NULL,
+      quantita_ordinata  INTEGER NOT NULL DEFAULT 0,
+      quantita_ricevuta  INTEGER,
+      stato              TEXT    DEFAULT 'in_attesa',
+      created_at         TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS topcoat_movimenti (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      asin             TEXT    NOT NULL,
+      tipo             TEXT    NOT NULL,
+      quantita         INTEGER NOT NULL,
+      riferimento_tipo TEXT,
+      riferimento_id   INTEGER,
+      note             TEXT,
+      operatore        TEXT    DEFAULT 'system',
+      created_at       TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  console.log("✅ Migrazione Top Coat completata");
+
+  // ===== MODULI CUSTOM (sistema generico) =====
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS moduli_custom (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug          TEXT    UNIQUE NOT NULL,
+      label         TEXT    NOT NULL,
+      icona         TEXT    DEFAULT '📦',
+      stile_codice  TEXT    NOT NULL DEFAULT 'numerico',  -- 'numerico' | 'testuale'
+      colore        TEXT    DEFAULT 'blue',                -- tailwind color name
+      created_at    TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS moduli_prodotti (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      modulo_id       INTEGER NOT NULL REFERENCES moduli_custom(id) ON DELETE CASCADE,
+      asin            TEXT    NOT NULL,
+      sku             TEXT,
+      codice_colore   TEXT,
+      nome            TEXT,
+      image_url       TEXT,
+      quantita        INTEGER NOT NULL DEFAULT 0,
+      soglia_minima   INTEGER NOT NULL DEFAULT 10,
+      created_at      TEXT DEFAULT (datetime('now','localtime')),
+      updated_at      TEXT DEFAULT (datetime('now','localtime')),
+      UNIQUE(modulo_id, asin)
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS moduli_ordini (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      modulo_id             INTEGER NOT NULL REFERENCES moduli_custom(id) ON DELETE CASCADE,
+      fornitore             TEXT    NOT NULL,
+      data_ordine           TEXT    DEFAULT (datetime('now','localtime')),
+      data_consegna_prevista TEXT,
+      stato                 TEXT    NOT NULL DEFAULT 'bozza',
+      note                  TEXT,
+      operatore             TEXT    DEFAULT 'admin',
+      created_at            TEXT    DEFAULT (datetime('now','localtime')),
+      updated_at            TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS moduli_ordini_righe (
+      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_ordine          INTEGER NOT NULL REFERENCES moduli_ordini(id) ON DELETE CASCADE,
+      asin               TEXT    NOT NULL,
+      quantita_ordinata  INTEGER NOT NULL DEFAULT 0,
+      quantita_ricevuta  INTEGER,
+      stato              TEXT    DEFAULT 'in_attesa',
+      created_at         TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS moduli_movimenti (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      modulo_id        INTEGER NOT NULL REFERENCES moduli_custom(id) ON DELETE CASCADE,
+      asin             TEXT    NOT NULL,
+      tipo             TEXT    NOT NULL,
+      quantita         INTEGER NOT NULL,
+      riferimento_tipo TEXT,
+      riferimento_id   INTEGER,
+      note             TEXT,
+      operatore        TEXT    DEFAULT 'system',
+      created_at       TEXT    DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  console.log("✅ Migrazione Moduli Custom completata");
+
+  // ===== ALERT EVENTS: aggiungi colonna 'source' se mancante =====
+  try {
+    const colsAlert = db.pragma("table_info(alert_events)");
+    if (colsAlert.length > 0 && !colsAlert.some(c => c.name === "source")) {
+      db.prepare("ALTER TABLE alert_events ADD COLUMN source TEXT").run();
+      console.log("🔧 Migrazione: aggiunta colonna source ad alert_events");
+    }
+  } catch (_) { /* tabella non esiste ancora, sarà creata dalla migration europa */ }
+
+  // ===== SELLER FEEDBACK (SP-API GET_SELLER_FEEDBACK_DATA) =====
+  // Migrazione: se la tabella esiste con il vecchio unique constraint
+  // (marketplace_id, order_id, date, rating), la droppiamo e ricreiamo
+  // con la nuova chiave (order_id, rating). I dati sono solo cache di Amazon.
+  try {
+    const oldSchema = db
+      .prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='seller_feedback'")
+      .get();
+    if (
+      oldSchema?.sql &&
+      oldSchema.sql.includes("UNIQUE(marketplace_id, order_id, date, rating)")
+    ) {
+      db.prepare("DROP TABLE seller_feedback").run();
+      console.log("🔧 Migrazione: drop seller_feedback (vecchio schema)");
+    }
+  } catch (_) {}
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS seller_feedback (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      marketplace_id    TEXT    NOT NULL,
+      order_id          TEXT,
+      date              TEXT    NOT NULL,
+      rating            INTEGER NOT NULL,
+      comments          TEXT,
+      response          TEXT,
+      rater_email       TEXT,
+      asin              TEXT,
+      synced_at         TEXT    NOT NULL,
+      UNIQUE(order_id, rating)
+    )
+  `).run();
+  db.prepare(`CREATE INDEX IF NOT EXISTS idx_seller_feedback_mp   ON seller_feedback(marketplace_id)`).run();
+  db.prepare(`CREATE INDEX IF NOT EXISTS idx_seller_feedback_date ON seller_feedback(date)`).run();
+  db.prepare(`CREATE INDEX IF NOT EXISTS idx_seller_feedback_asin ON seller_feedback(asin)`).run();
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS seller_feedback_sync (
+      marketplace_id TEXT PRIMARY KEY,
+      last_sync      TEXT NOT NULL,
+      status         TEXT,
+      records        INTEGER DEFAULT 0
+    )
+  `).run();
+
+  // Cache info ordine: per evitare di richiamare ripetutamente Orders API
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS amazon_order_cache (
+      order_id        TEXT PRIMARY KEY,
+      marketplace_id  TEXT,
+      asin            TEXT,
+      title           TEXT,
+      purchase_date   TEXT,
+      fetched_at      TEXT NOT NULL
+    )
+  `).run();
+
+  console.log("✅ Migrazione Seller Feedback completata");
+
+  // ===== PRODOTTI: aggiungi soglia_minima se mancante =====
+  const colsProdotti = db.pragma("table_info(prodotti)");
+  if (colsProdotti.length > 0 && !colsProdotti.some(c => c.name === "soglia_minima")) {
+    db.prepare("ALTER TABLE prodotti ADD COLUMN soglia_minima INTEGER NOT NULL DEFAULT 10").run();
+    console.log("🔧 Migrazione: aggiunta colonna soglia_minima a prodotti");
+  }
+}
+
 async function ensureDatabaseReady() {
   if (dbInstance) return dbInstance;
 
@@ -81,6 +368,7 @@ async function ensureDatabaseReady() {
   dbInstance = db;
 
   seedPasswordAdmin(db);
+  runMigrations(db);
 
   return dbInstance;
 }

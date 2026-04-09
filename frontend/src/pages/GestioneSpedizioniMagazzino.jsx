@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import SpedizioneCard from "../components/spedizioni/SpedizioneCard";
 import ExportCSVButton from "../components/ui/ExportCSVButton";
 import { cleanText } from "../utils/gestioneSpedizioni";
-
 import {
   ArrowLeft,
   Truck,
@@ -14,8 +13,59 @@ import {
   Clock,
   Search,
   X,
-  Filter,
+  LogOut,
 } from "lucide-react";
+
+function SectionCard({ accent = "emerald", icon: Icon, eyebrow, title, badge, children }) {
+  const bar = { emerald: "bg-emerald-400/60", cyan: "bg-cyan-400/60", violet: "bg-violet-400/60" };
+  const iBg = { emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400", cyan: "bg-cyan-500/10 border-cyan-500/40 text-cyan-400", violet: "bg-violet-500/10 border-violet-500/40 text-violet-400" };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${bar[accent]}`} />
+      <div className="px-6 py-5 sm:px-8 sm:py-6">
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div className="flex items-center gap-3 min-w-0">
+            {Icon && (
+              <div className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 ${iBg[accent]}`}>
+                <Icon className="w-[18px] h-[18px]" />
+              </div>
+            )}
+            <div className="min-w-0">
+              {eyebrow && <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{eyebrow}</div>}
+              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight truncate">{title}</h2>
+            </div>
+          </div>
+          {badge}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function StatTile({ icon: Icon, label, value, accent = "emerald" }) {
+  const m = { emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400", amber: "bg-amber-500/10 border-amber-500/40 text-amber-400", blue: "bg-blue-500/10 border-blue-500/40 text-blue-400", cyan: "bg-cyan-500/10 border-cyan-500/40 text-cyan-400" };
+  return (
+    <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg px-6 py-5">
+      <div className="flex items-start justify-between mb-3">
+        <div className={`w-9 h-9 rounded-md border flex items-center justify-center ${m[accent]}`}>
+          <Icon className="w-[18px] h-[18px]" />
+        </div>
+      </div>
+      <div className="text-3xl font-semibold text-white tabular-nums tracking-tight">{value}</div>
+      <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{label}</div>
+    </div>
+  );
+}
+
+const inputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/60 focus:border-emerald-500/60 transition-colors";
+
+const STATI = [
+  { key: "TUTTI", label: "Tutti gli stati" },
+  { key: "BOZZA", label: "Da Preparare (Bozza)" },
+  { key: "CONFERMATA", label: "Pronte (Confermate)" },
+  { key: "SPEDITA", label: "Spedite" },
+];
 
 const GestioneSpedizioniMagazzino = () => {
   const navigate = useNavigate();
@@ -23,278 +73,163 @@ const GestioneSpedizioniMagazzino = () => {
   const [filterSearchTerm, setFilterSearchTerm] = useState("");
   const [filterStato, setFilterStato] = useState("TUTTI");
 
-  // ========== FETCH SPEDIZIONI ==========
   useEffect(() => {
-    const fetchSpedizioni = async () => {
-      try {
-        const res = await fetch("/api/v2/spedizioni");
-        const data = await res.json();
-        setSpedizioni(data);
-      } catch (err) {
-        console.error("Errore fetch spedizioni:", err);
-      }
-    };
-    fetchSpedizioni();
+    fetch("/api/v2/spedizioni").then((r) => r.json()).then(setSpedizioni).catch(() => {});
   }, []);
 
-  // ========== FUNZIONI GESTIONE ==========
   const aggiornaSpedizione = async (id, dati) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(dati),
-      });
+      const res = await fetch(`/api/v2/spedizioni/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dati) });
       const aggiornata = await res.json();
-      setSpedizioni((prev) =>
-        prev.map((s) => (s.id === id ? aggiornata : s))
-      );
-    } catch (err) {
-      console.error("Errore aggiornamento spedizione:", err);
-    }
+      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+    } catch {}
   };
 
   const confermaSpedizione = async (id) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}/conferma`, {
-        method: "PATCH",
-      });
+      const res = await fetch(`/api/v2/spedizioni/${id}/conferma`, { method: "PATCH" });
       const aggiornata = await res.json();
-      setSpedizioni((prev) =>
-        prev.map((s) => (s.id === id ? aggiornata : s))
-      );
-    } catch (err) {
-      console.error("Errore conferma spedizione:", err);
-    }
+      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+    } catch {}
   };
 
   const eliminaSpedizione = async (id) => {
-    try {
-      await fetch(`/api/v2/spedizioni/${id}`, { method: "DELETE" });
-      setSpedizioni((prev) => prev.filter((s) => s.id !== id));
-    } catch (err) {
-      console.error("Errore eliminazione spedizione:", err);
-    }
+    try { await fetch(`/api/v2/spedizioni/${id}`, { method: "DELETE" }); setSpedizioni((p) => p.filter((s) => s.id !== id)); } catch {}
   };
 
   const handleExportCSV = (spedizione) => {
     const oggi = new Date();
-    const dataStr = `${String(oggi.getDate()).padStart(2, "0")}-${String(
-      oggi.getMonth() + 1
-    ).padStart(2, "0")}-${oggi.getFullYear()}`;
-
+    const dataStr = `${String(oggi.getDate()).padStart(2, "0")}-${String(oggi.getMonth() + 1).padStart(2, "0")}-${oggi.getFullYear()}`;
     const meta = `Paese: ${spedizione.paese};Data: ${spedizione.data || dataStr};Progressivo: ${spedizione.progressivo}\n\n`;
     const header = "ASIN;Prodotto;Quantità\n";
-    const rows = spedizione.righe
-      .map((r) => `${r.asin};"${r.prodotto_nome}";${r.quantita}`)
-      .join("\n");
-
-    const csvContent = meta + header + rows;
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const rows = spedizione.righe.map((r) => `${r.asin};"${r.prodotto_nome}";${r.quantita}`).join("\n");
+    const blob = new Blob([meta + header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute(
-      "download",
-      `spedizione_${spedizione.progressivo}_${dataStr}.csv`
-    );
+    link.setAttribute("download", `spedizione_${spedizione.progressivo}_${dataStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // ========== FILTRI ==========
   const spedizioniFiltrate = spedizioni.filter((s) => {
-    // Filtro per stato
     if (filterStato !== "TUTTI" && s.stato !== filterStato) return false;
-
-    // Filtro per ricerca
     if (filterSearchTerm.trim()) {
       const term = filterSearchTerm.toLowerCase();
-      const paese = (s.paese || "").toLowerCase();
-      const progressivo = (s.progressivo || "").toString().toLowerCase();
-      const operatore = (s.operatore || "").toLowerCase();
-      const prodotti = (s.righe || [])
-        .map((r) => r.prodotto_nome?.toLowerCase() || "")
-        .join(" ");
-
-      if (
-        !paese.includes(term) &&
-        !progressivo.includes(term) &&
-        !operatore.includes(term) &&
-        !prodotti.includes(term)
-      ) {
-        return false;
-      }
+      const hay = [(s.paese || ""), (s.progressivo || "").toString(), (s.operatore || ""), ...(s.righe || []).map((r) => r.prodotto_nome || "")].join(" ").toLowerCase();
+      if (!hay.includes(term)) return false;
     }
     return true;
   });
 
-  // ========== STATISTICHE ==========
-  const stats = {
-    totali: spedizioni.length,
-    bozze: spedizioni.filter((s) => s.stato === "BOZZA").length,
-    confermate: spedizioni.filter((s) => s.stato === "CONFERMATA").length,
-    spedite: spedizioni.filter((s) => s.stato === "SPEDITA").length,
-  };
+  const nBozze = spedizioni.filter((s) => s.stato === "BOZZA").length;
+  const nConfermate = spedizioni.filter((s) => s.stato === "CONFERMATA").length;
+  const nSpedite = spedizioni.filter((s) => s.stato === "SPEDITA").length;
 
-  // ========== RENDER ==========
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-4 md:p-8">
-      <div className="max-w-8xl mx-auto space-y-6">
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      {/* Texture grid */}
+      <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-        {/* ========== HEADER ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-                <Truck className="w-8 h-8 text-emerald-400" />
-                Gestione Spedizioni Magazzino
-              </h1>
-              <p className="text-zinc-400">Visualizza e gestisci le spedizioni create dagli uffici</p>
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate("/magazzino")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+              <Truck className="w-[18px] h-[18px] text-emerald-400" />
             </div>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Spedizioni Magazzino</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Magazzino</span>
+            </div>
+          </div>
 
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => navigate("/uffici/spedizioni/storico")}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
-              >
-                <FileText className="w-4 h-4" />
-                Storico
-              </button>
-              <button
-                onClick={() => navigate("/magazzino")}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Magazzino
-              </button>
-            </div>
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+            <button onClick={() => navigate("/uffici/spedizioni/storico")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all">
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Storico</span>
+            </button>
+            <button onClick={() => navigate("/magazzino")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
+              <LogOut className="w-3.5 h-3.5" /> Magazzino
+            </button>
           </div>
         </div>
+      </header>
 
-        {/* ========== STATISTICHE ========== */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 border border-blue-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-blue-600 rounded-full">
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{stats.totali}</p>
-            <p className="text-sm text-blue-200 font-medium">Totali</p>
-          </div>
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Spedizioni · Magazzino</div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            Gestione spedizioni <span className="text-slate-500">— create dagli uffici.</span>
+          </h1>
+          <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
+            Visualizza, conferma e gestisci le spedizioni. Filtra per stato o cerca per paese, progressivo o prodotto.
+          </p>
+        </div>
+      </section>
 
-          <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-yellow-600 rounded-full">
-                <Clock className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{stats.bozze}</p>
-            <p className="text-sm text-yellow-200 font-medium">Da Preparare</p>
-          </div>
+      {/* === Contenuto === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-6">
 
-          <div className="bg-gradient-to-br from-orange-900/40 to-orange-800/20 border border-orange-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-orange-600 rounded-full">
-                <Package className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{stats.confermate}</p>
-            <p className="text-sm text-orange-200 font-medium">Pronte</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-900/40 to-green-800/20 border border-green-700/30 rounded-xl p-5 text-center hover:scale-105 transition-transform">
-            <div className="flex justify-center mb-2">
-              <div className="p-3 bg-green-600 rounded-full">
-                <CheckCircle className="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <p className="text-4xl font-bold text-white mb-1">{stats.spedite}</p>
-            <p className="text-sm text-green-200 font-medium">Spedite</p>
-          </div>
+        {/* Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatTile icon={BarChart3} label="Totali" value={spedizioni.length} accent="blue" />
+          <StatTile icon={Clock} label="Da preparare" value={nBozze} accent="amber" />
+          <StatTile icon={Package} label="Pronte" value={nConfermate} accent="cyan" />
+          <StatTile icon={CheckCircle} label="Spedite" value={nSpedite} accent="emerald" />
         </div>
 
-        {/* ========== FILTRI ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-white">
-            <Filter className="w-5 h-5 text-emerald-400" />
-            Filtra Spedizioni
-          </h2>
-
+        {/* Filtri */}
+        <SectionCard accent="cyan" icon={Search} eyebrow="Filtri" title="Filtra Spedizioni">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Ricerca */}
             <div className="relative">
-              <input
-                type="text"
-                placeholder="Cerca per paese, progressivo, operatore o prodotto..."
-                value={filterSearchTerm}
-                onChange={(e) => setFilterSearchTerm(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 text-white px-12 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-              />
-              <Search className="w-5 h-5 text-zinc-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              <input type="text" placeholder="Cerca per paese, progressivo, operatore o prodotto..." value={filterSearchTerm} onChange={(e) => setFilterSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               {filterSearchTerm && (
-                <button
-                  onClick={() => setFilterSearchTerm("")}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <X className="w-5 h-5" />
+                <button onClick={() => setFilterSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
+                  <X className="w-4 h-4" />
                 </button>
               )}
             </div>
-
-            {/* Filtro stato */}
-            <select
-              value={filterStato}
-              onChange={(e) => setFilterStato(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-            >
-              <option value="TUTTI">Tutti gli stati</option>
-              <option value="BOZZA">🟡 Da Preparare (Bozza)</option>
-              <option value="CONFERMATA">🟠 Pronte (Confermate)</option>
-              <option value="SPEDITA">🟢 Spedite</option>
+            <select value={filterStato} onChange={(e) => setFilterStato(e.target.value)} className={`${inputCls} appearance-none cursor-pointer`}>
+              {STATI.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
             </select>
           </div>
 
           {(filterSearchTerm || filterStato !== "TUTTI") && (
-            <div className="mt-3 px-3 py-2 bg-emerald-900/20 border border-emerald-700/30 rounded-lg flex items-center justify-between">
-              <p className="text-sm text-emerald-400">
-                Trovate <strong>{spedizioniFiltrate.length}</strong> spedizioni
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-[11px] text-emerald-400">
+                Trovate <span className="font-semibold">{spedizioniFiltrate.length}</span> spedizioni
               </p>
-              <button
-                onClick={() => {
-                  setFilterSearchTerm("");
-                  setFilterStato("TUTTI");
-                }}
-                className="text-sm text-emerald-400 hover:text-emerald-300 font-medium"
-              >
+              <button onClick={() => { setFilterSearchTerm(""); setFilterStato("TUTTI"); }} type="button" className="text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 font-medium transition-colors">
                 Reset filtri
               </button>
             </div>
           )}
-        </div>
+        </SectionCard>
 
-        {/* ========== LISTA SPEDIZIONI ========== */}
-        <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
-              <Truck className="w-5 h-5 text-emerald-400" />
-              Spedizioni da Gestire
-              <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm font-normal">
-                {spedizioniFiltrate.length}
-              </span>
-            </h2>
-          </div>
-
+        {/* Lista spedizioni */}
+        <SectionCard
+          accent="emerald"
+          icon={Truck}
+          eyebrow="Spedizioni attive"
+          title="Spedizioni da Gestire"
+          badge={
+            <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">
+              {spedizioniFiltrate.length}
+            </span>
+          }
+        >
           {spedizioniFiltrate.length === 0 ? (
             <div className="text-center py-12">
-              <Truck className="w-16 h-16 text-zinc-700 mx-auto mb-4" />
-              <p className="text-zinc-400 text-lg">Nessuna spedizione trovata</p>
-              <p className="text-zinc-500 text-sm mt-2">
-                Le spedizioni verranno create dagli uffici
-              </p>
+              <Truck className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+              <p className="text-sm text-slate-500">Nessuna spedizione trovata</p>
+              <p className="text-xs text-slate-600 mt-1">Le spedizioni verranno create dagli uffici</p>
             </div>
           ) : (
             <SpedizioneCard
@@ -305,15 +240,23 @@ const GestioneSpedizioniMagazzino = () => {
               onUpdate={aggiornaSpedizione}
             />
           )}
-        </div>
+        </SectionCard>
 
-        {/* ========== EXPORT CSV ========== */}
+        {/* Export CSV */}
         {spedizioni.length > 0 && (
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <SectionCard accent="violet" icon={FileText} eyebrow="Esporta" title="Export CSV">
             <ExportCSVButton spedizioni={spedizioni} cleanText={cleanText} />
-          </div>
+          </SectionCard>
         )}
-      </div>
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/30">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>Nexus · Spedizioni Magazzino</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
     </div>
   );
 };
