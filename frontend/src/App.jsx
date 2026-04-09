@@ -65,6 +65,8 @@ import StoricoMovimenti from "./pages/StoricoMovimenti";
 import StoricoScatolette from "./pages/StoricoScatolette";
 import Settings from "./pages/Settings";
 import CentroAlert from "./pages/CentroAlert";
+import ResiFBA from "./pages/ResiFBA";
+import DashboardVendite from "./pages/DashboardVendite";
 
 function App() {
   return (
@@ -133,6 +135,8 @@ function App() {
         <Route path="/recensioni" element={<Recensioni />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/uffici/alert-center" element={<CentroAlert />} />
+        <Route path="/uffici/resi-fba" element={<ResiFBA />} />
+        <Route path="/uffici/vendite" element={<DashboardVendite />} />
 
         {/* ==================== REDIRECT VECCHIE ROTTE ==================== */}
 

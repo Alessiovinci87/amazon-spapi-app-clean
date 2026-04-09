@@ -5,6 +5,7 @@ const { getDb } = require("../db/database");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
 const { registraStoricoProduzione } = require("../services/storicoProduzioniSfuso.service");
 const { impegnaAccessori, rilasciaImpegno, scalaAccessori } = require("../services/accessoriImpegno.service");
+const { checkSottoSogliaSfuso, checkSfusoCopertura } = require("../services/stockAlerts.service");
 
 
 
@@ -333,6 +334,10 @@ router.post("/prenotazione", (req, res) => {
     } catch (errAcc) {
       console.warn("⚠️ Impossibile impegnare accessori:", errAcc.message);
     }
+
+    // 🔔 Verifica copertura sfuso per ordini aperti
+    try { checkSfusoCopertura(db); } catch {}
+
 
     const prenotazioneCompleta = {
       ...newRow,
@@ -673,6 +678,9 @@ router.patch("/:id/rettifica", (req, res) => {
       sfusoRow.lotto
     );
 
+    // Verifica alert sotto soglia
+    checkSottoSogliaSfuso(db, id);
+
     const updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
 
     res.json({
@@ -753,6 +761,9 @@ router.patch("/:id/rettifica-old", (req, res) => {
         error: "Errore inserimento storico_sfuso: " + insertErr.message,
       });
     }
+
+    // Verifica alert sotto soglia
+    checkSottoSogliaSfuso(db, id);
 
     // 🔹 Recupera valori aggiornati
     const updated = db
@@ -1256,6 +1267,16 @@ router.patch("/prenotazione/:id", async (req, res) => {
         `UPDATE sfuso SET litri_disponibili = litri_disponibili - ? WHERE id = ?`
       ).run(delta, pren.id_sfuso);
 
+      // 📌 5b) Aggiorna impegno accessori in base al delta pezzi
+      const deltaPezzi = quantitaDopo - quantitaPrima;
+      if (deltaPezzi < 0) {
+        // Quantità diminuita → rilascia impegno degli accessori in eccesso
+        rilasciaImpegno(pren.formato, Math.abs(deltaPezzi), db);
+      } else if (deltaPezzi > 0) {
+        // Quantità aumentata → impegna accessori aggiuntivi
+        impegnaAccessori(pren.formato, deltaPezzi, db);
+      }
+
       // 📌 6) Ricarica prenotazione aggiornata
       const prenAgg = db.prepare("SELECT * FROM prenotazioni_sfuso WHERE id = ?").get(id);
 
@@ -1281,8 +1302,8 @@ router.patch("/prenotazione/:id", async (req, res) => {
         prenAgg.id
       );
 
-      // 📌 8) Storico PRODUZIONE (quello della tua tabella frontend)
-
+      // 📌 8) Verifica copertura sfuso
+      try { checkSfusoCopertura(db); } catch {}
 
       // 📌 9) Risposta finale
       return res.json({
@@ -1418,6 +1439,9 @@ router.patch("/prenotazione/:id", async (req, res) => {
           console.warn("⚠️ Errore rilascio impegno accessori:", errAcc.message);
         }
 
+        // 🔔 Ricalcola copertura sfuso
+        try { checkSfusoCopertura(db); } catch {}
+
         // 3️⃣ Storico SFUSO → ANNULLATA (come prima)
         runWithRetry(() =>
           db
@@ -1480,6 +1504,9 @@ router.patch("/prenotazione/:id", async (req, res) => {
             console.warn("⚠️ Errore scala accessori:", errAcc.message);
           }
 
+          // 🔔 Ricalcola copertura sfuso
+          try { checkSfusoCopertura(db); } catch {}
+
           if (prodotto) {
             runWithRetry(() =>
               db.prepare(`UPDATE prodotti SET pronto = pronto + ? WHERE asin = ?`)
@@ -1489,8 +1516,8 @@ router.patch("/prenotazione/:id", async (req, res) => {
             runWithRetry(() =>
               db.prepare(`
                 INSERT INTO storico_movimenti
-                  (asin_prodotto, nome_prodotto, tipo, delta_quantita, note, operatore, created_at)
-                VALUES (?, ?, 'PRODUZIONE', ?, ?, ?, datetime('now','localtime'))
+                  (asin_prodotto, nome_prodotto, tipo, delta_quantita, note, operatore, created_at, lotto)
+                VALUES (?, ?, 'PRODUZIONE', ?, ?, ?, datetime('now','localtime'), ?)
               `).run(
                 prodotto.asin,
                 prodotto.nome,
@@ -1498,7 +1525,8 @@ router.patch("/prenotazione/:id", async (req, res) => {
                 rimanenza > 0
                   ? `Produzione parziale - Lotto ${prenAgg.lotto} (${rimanenza} pendenti)`
                   : `Produzione completata - Lotto ${prenAgg.lotto}`,
-                operatore || "admin"
+                operatore || "admin",
+                prenAgg.lotto || null
               )
             );
           } else {
@@ -1644,6 +1672,9 @@ router.patch("/prenotazione/:id/conferma", (req, res) => {
       WHERE id = ?
     `).run(id);
 
+    // 🔹 Scala accessori (consumo fisico + rilascio impegno)
+    scalaAccessori(prenotazione.formato, prenotazione.prodotti, db);
+
     // 🔹 Aggiorna quantità 'pronto' nel prodotto corrispondente
     const updateInventario = db.prepare(`
   UPDATE prodotti
@@ -1655,7 +1686,7 @@ router.patch("/prenotazione/:id/conferma", (req, res) => {
 
     // 🔹 Registra nello storico
     db.prepare(`
-  INSERT INTO storico_sfuso 
+  INSERT INTO storico_sfuso
   (tipo, campo, nuovoValore, nota, operatore, formato, stato, lotto, prodotti, id_sfuso)
   VALUES ('Confermata', 'pronto', ?, ?, ?, ?, 'Confermata', ?, ?, ?)
 `).run(

@@ -139,6 +139,7 @@ const AccessorioCard = ({
   asin_accessorio,
   nome,
   quantita,
+  soglia_minima: sogliaProp = 0,
   immagine,
   fetchAccessori,
   layout = "default",
@@ -146,14 +147,37 @@ const AccessorioCard = ({
   const asinAccessorioFinale = normalizzaAsinAccessorio(nome, asin_accessorio);
 
   const [quantitaLocale, setQuantitaLocale] = useState(quantita || 0);
+  const [sogliaLocale, setSogliaLocale] = useState(sogliaProp || 0);
+  const [editSoglia, setEditSoglia] = useState(false);
+  const [sogliaInput, setSogliaInput] = useState(String(sogliaProp || 0));
   const [showRettifica, setShowRettifica] = useState(false);
 
   useEffect(() => {
     setQuantitaLocale(quantita || 0);
   }, [quantita]);
 
-  const stockBasso = quantitaLocale > 0 && quantitaLocale < 50;
+  useEffect(() => {
+    setSogliaLocale(sogliaProp || 0);
+    setSogliaInput(String(sogliaProp || 0));
+  }, [sogliaProp]);
+
+  const sottoSoglia = sogliaLocale > 0 && quantitaLocale < sogliaLocale;
+  const stockBasso = sottoSoglia || (quantitaLocale > 0 && quantitaLocale < 50);
   const stockZero  = quantitaLocale === 0;
+
+  const salvaSoglia = async () => {
+    const val = Math.max(0, parseInt(sogliaInput, 10) || 0);
+    try {
+      const res = await fetch(`/api/v2/accessori/${asinAccessorioFinale}/soglia`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soglia_minima: val }),
+      });
+      if (!res.ok) throw new Error("Errore");
+      setSogliaLocale(val);
+      setEditSoglia(false);
+    } catch { /* silenzioso */ }
+  };
 
   // === Layout small (griglia compatta) ===
   if (layout === "small") {
@@ -173,11 +197,43 @@ const AccessorioCard = ({
             </div>
             <h3 className="text-sm font-medium text-white mb-1 line-clamp-2">{nome}</h3>
             <p className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-1">Quantità</p>
-            <p className={`text-lg font-semibold tabular-nums mb-3 ${
+            <p className={`text-lg font-semibold tabular-nums ${
               stockZero ? "text-rose-400" : stockBasso ? "text-amber-400" : "text-emerald-400"
             }`}>
               {quantitaLocale}
             </p>
+            {sottoSoglia && (
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-400 font-medium">
+                sotto soglia ({sogliaLocale})
+              </span>
+            )}
+            {/* Soglia inline */}
+            <div className="mt-2 flex items-center justify-center gap-1">
+              {editSoglia ? (
+                <>
+                  <input
+                    type="number"
+                    min="0"
+                    value={sogliaInput}
+                    onChange={(e) => setSogliaInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && salvaSoglia()}
+                    className="w-14 px-1.5 py-1 rounded bg-slate-950 border border-slate-700 text-white text-xs text-center tabular-nums focus:outline-none focus:border-amber-500/50"
+                    autoFocus
+                  />
+                  <button onClick={salvaSoglia} type="button" className="text-emerald-400 hover:text-emerald-300 text-[10px] font-medium">OK</button>
+                  <button onClick={() => { setEditSoglia(false); setSogliaInput(String(sogliaLocale)); }} type="button" className="text-slate-500 hover:text-slate-300 text-[10px]">✕</button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setEditSoglia(true)}
+                  type="button"
+                  className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                  title="Imposta soglia minima"
+                >
+                  Soglia: {sogliaLocale > 0 ? sogliaLocale : "—"}
+                </button>
+              )}
+            </div>
           </div>
           <div className="px-4 pb-4">
             <button
@@ -239,6 +295,38 @@ const AccessorioCard = ({
                   {quantitaLocale}
                 </span>
               </span>
+              {sottoSoglia && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-400 font-medium">
+                  sotto soglia ({sogliaLocale})
+                </span>
+              )}
+              {/* Soglia inline */}
+              <div className="flex items-center gap-1">
+                {editSoglia ? (
+                  <>
+                    <input
+                      type="number"
+                      min="0"
+                      value={sogliaInput}
+                      onChange={(e) => setSogliaInput(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && salvaSoglia()}
+                      className="w-14 px-1.5 py-1 rounded bg-slate-950 border border-slate-700 text-white text-xs text-center tabular-nums focus:outline-none focus:border-amber-500/50"
+                      autoFocus
+                    />
+                    <button onClick={salvaSoglia} type="button" className="text-emerald-400 hover:text-emerald-300 text-[10px] font-medium">OK</button>
+                    <button onClick={() => { setEditSoglia(false); setSogliaInput(String(sogliaLocale)); }} type="button" className="text-slate-500 hover:text-slate-300 text-[10px]">✕</button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setEditSoglia(true)}
+                    type="button"
+                    className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                    title="Imposta soglia minima"
+                  >
+                    Soglia: {sogliaLocale > 0 ? sogliaLocale : "—"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

@@ -66,11 +66,11 @@ const DDTNuovo = () => {
   const [tracking, setTracking] = useState("");
 
   const [righe, setRighe] = useState([
-    { asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "" },
+    { asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "", lotto: "" },
   ]);
 
   const aggiungiRiga = () => {
-    setRighe([...righe, { asin: "", sku: "", prodottoNome: "", quantita: 0, cartone: 0, pacco: 0 }]);
+    setRighe([...righe, { asin: "", sku: "", prodottoNome: "", quantita: 0, cartone: 0, pacco: 0, lotto: "" }]);
   };
 
   const rimuoviRiga = (index) => {
@@ -253,8 +253,9 @@ const DDTNuovo = () => {
                     <input type="number" min="0" placeholder="Qty" className={rowInputCls} value={r.quantita} onChange={(e) => aggiornaRiga(i, "quantita", Number(e.target.value))} />
                     <input type="number" min="0" placeholder="Cartone" className={rowInputCls} value={r.cartone} onChange={(e) => aggiornaRiga(i, "cartone", Number(e.target.value))} />
                   </div>
-                  <div className="mt-3">
-                    <input type="text" placeholder="N. Pacco (lettere e numeri)" className={`w-full ${rowInputCls}`} value={r.pacco} onChange={(e) => aggiornaRiga(i, "pacco", e.target.value)} />
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input type="text" placeholder="N. Pacco (lettere e numeri)" className={rowInputCls} value={r.pacco} onChange={(e) => aggiornaRiga(i, "pacco", e.target.value)} />
+                    <input type="text" placeholder="Lotto (es. G456789)" className={rowInputCls} value={r.lotto} onChange={(e) => aggiornaRiga(i, "lotto", e.target.value)} />
                   </div>
                 </div>
               ))}

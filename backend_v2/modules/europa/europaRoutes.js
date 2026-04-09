@@ -125,7 +125,16 @@ router.get("/alert-events", (req, res) => {
 
     const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
     const rows = db.prepare(
-      `SELECT * FROM alert_events ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+      `SELECT ae.*,
+        COALESCE(ae.nome,
+          (SELECT p.nome FROM prodotti p WHERE p.asin = ae.asin LIMIT 1),
+          (SELECT fs.product_name FROM fba_stock fs WHERE fs.asin = ae.asin LIMIT 1),
+          (SELECT a.nome FROM accessori a WHERE a.asin_accessorio = ae.asin LIMIT 1),
+          (SELECT s.nome_prodotto FROM sfuso s WHERE CAST(s.id AS TEXT) = ae.asin LIMIT 1),
+          (SELECT op.nome FROM onestep_prodotti op WHERE op.asin = ae.asin LIMIT 1),
+          (SELECT tp.nome FROM topcoat_prodotti tp WHERE tp.asin = ae.asin LIMIT 1)
+        ) AS nome
+      FROM alert_events ae ${whereClause} ORDER BY ae.created_at DESC LIMIT ? OFFSET ?`
     ).all(...params, Number(limit), Number(offset));
 
     const total = db.prepare(`SELECT COUNT(*) as n FROM alert_events ${whereClause}`).get(...params);

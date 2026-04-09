@@ -72,6 +72,7 @@ function creaProduzioneDaPrenotazione(prenotazione) {
   let nome_prodotto = prenotazione.nome_prodotto || prenotazione.nomeProdotto || prenotazione.nome || "";
   const note = prenotazione.note || prenotazione.nota || "";
   const operatore = prenotazione.operatore || "system";
+  const lotto = prenotazione.lotto || null;
 
   // 🔧 Se manca asin_prodotto o nome_prodotto, recuperali dalla tabella sfuso
   if ((!asin_prodotto || !nome_prodotto) && id_sfuso) {
@@ -107,9 +108,9 @@ function creaProduzioneDaPrenotazione(prenotazione) {
 
   const result = db.prepare(`
     INSERT INTO produzioni_sfuso
-      (id_sfuso, asin_prodotto, nome_prodotto, formato, quantita, litri_usati, stato, note, operatore)
-    VALUES (?, ?, ?, ?, ?, ?, 'Pianificata', ?, ?)
-  `).run(id_sfuso, asin_prodotto, nome_prodotto, formato, prodotti, litriStimati, note, operatore);
+      (id_sfuso, asin_prodotto, nome_prodotto, formato, quantita, litri_usati, stato, note, operatore, lotto)
+    VALUES (?, ?, ?, ?, ?, ?, 'Pianificata', ?, ?, ?)
+  `).run(id_sfuso, asin_prodotto, nome_prodotto, formato, prodotti, litriStimati, note, operatore, lotto);
 
   registraStoricoProduzione({
     id_produzione: result.lastInsertRowid,
@@ -124,6 +125,7 @@ function creaProduzioneDaPrenotazione(prenotazione) {
     evento: "CREATA",
     note: `da ${prenotazione.quantita_iniziale ?? prodotti} a ${prenotazione.quantita_finale ?? prodotti}`,
     operatore,
+    lotto,
   });
 
   return {
@@ -280,9 +282,10 @@ function completaProduzione(id, operatore = "system") {
     for (const acc of accessoriCalcolati) {
       db.prepare(`
         UPDATE accessori
-        SET quantita = quantita - ?
+        SET quantita = MAX(0, quantita - ?),
+            quantita_impegnata = MAX(0, quantita_impegnata - ?)
         WHERE asin_accessorio = ?
-      `).run(acc.quantita, acc.asin_accessorio);
+      `).run(acc.quantita, acc.quantita, acc.asin_accessorio);
 
       db.prepare(`
         INSERT INTO storico_movimenti
@@ -327,6 +330,7 @@ function completaProduzione(id, operatore = "system") {
       evento: "COMPLETATA",
       note: produzione.note,
       operatore,
+      lotto: produzione.lotto,
     });
 
     return {

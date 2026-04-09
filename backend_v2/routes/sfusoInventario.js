@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { checkSottoSogliaSfuso } = require("../services/stockAlerts.service");
 
 // ===========================
 //  BASE: Gestione inventario sfuso
@@ -76,6 +77,9 @@ router.patch("/:id/rettifica", (req, res) => {
       id,
       sfusoRow.lotto
     );
+
+    // Verifica alert sotto soglia
+    checkSottoSogliaSfuso(db, id);
 
     const updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
 
@@ -156,5 +160,29 @@ router.patch("/:id/rettifica-lotto", (req, res) => {
 });
 
 
+
+// ✅ Imposta soglia minima sfuso
+router.patch("/:id/soglia", (req, res) => {
+  const { id } = req.params;
+  const { soglia_minima } = req.body;
+
+  if (typeof soglia_minima !== "number" || soglia_minima < 0) {
+    return res.status(400).json({ error: '"soglia_minima" deve essere un numero >= 0' });
+  }
+
+  try {
+    const db = getDb();
+    const sfusoRow = db.prepare("SELECT id FROM sfuso WHERE id = ?").get(id);
+    if (!sfusoRow) return res.status(404).json({ error: "Record sfuso non trovato." });
+
+    db.prepare("UPDATE sfuso SET soglia_minima = ? WHERE id = ?").run(soglia_minima, id);
+    checkSottoSogliaSfuso(db, id);
+
+    res.json({ ok: true, id, soglia_minima });
+  } catch (err) {
+    console.error("❌ Errore PATCH /sfuso-inventario/:id/soglia:", err);
+    res.status(500).json({ error: "Errore nell'aggiornamento soglia sfuso" });
+  }
+});
 
 module.exports = router;

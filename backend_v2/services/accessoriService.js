@@ -1,11 +1,12 @@
 const { getDb } = require("../db/database");
+const { checkSottoSogliaAccessori } = require("./stockAlerts.service");
 
 /** 🔎 Ritorna tutti gli accessori */
 function getAllAccessori() {
   const db = getDb();
   return db
     .prepare(`
-      SELECT asin_accessorio, nome, quantita
+      SELECT asin_accessorio, nome, quantita, soglia_minima
       FROM accessori
       ORDER BY asin_accessorio
     `)
@@ -17,7 +18,7 @@ function getAccessorio(asin_accessorio) {
   const db = getDb();
   return db
     .prepare(`
-      SELECT asin_accessorio, nome, quantita
+      SELECT asin_accessorio, nome, quantita, soglia_minima
       FROM accessori
       WHERE asin_accessorio = ?
     `)
@@ -55,6 +56,9 @@ function updateQuantitaAccessorio(asin_accessorio, quantitaNuova, nota = "", ope
       ('RETTIFICA_ACCESSORIO', ?, ?, ?, ?, datetime('now','localtime'))`
   ).run(asin_accessorio, delta, nota, operatore);
 
+  // Verifica alert sotto soglia
+  checkSottoSogliaAccessori(db, asin_accessorio);
+
   return {
     ok: true,
     asin_accessorio,
@@ -62,6 +66,20 @@ function updateQuantitaAccessorio(asin_accessorio, quantitaNuova, nota = "", ope
     nuova: quantitaNuova,
     delta,
   };
+}
+
+/** Imposta la soglia minima di un accessorio */
+function updateSogliaAccessorio(asin_accessorio, soglia_minima) {
+  const db = getDb();
+  const acc = db.prepare("SELECT asin_accessorio FROM accessori WHERE asin_accessorio = ?").get(asin_accessorio);
+  if (!acc) throw new Error(`Accessorio ${asin_accessorio} non trovato`);
+
+  db.prepare("UPDATE accessori SET soglia_minima = ? WHERE asin_accessorio = ?").run(soglia_minima, asin_accessorio);
+
+  // Ricalcola alert dopo cambio soglia
+  checkSottoSogliaAccessori(db, asin_accessorio);
+
+  return { ok: true, asin_accessorio, soglia_minima };
 }
 
 /** 📜 Ritorna lo storico dei movimenti accessori */
@@ -81,5 +99,6 @@ module.exports = {
   getAllAccessori,
   getAccessorio,
   updateQuantitaAccessorio,
+  updateSogliaAccessorio,
   getStoricoAccessori,
 };

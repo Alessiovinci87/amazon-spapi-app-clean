@@ -8,7 +8,16 @@ const { getAccessToken } = require("../auth/authService");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 const DB_PATH = path.join(__dirname, "../../db/inventario.db");
-const MARKETPLACES = { IT: "APJ6JRA9NG5V4" };
+const MARKETPLACES = {
+  IT: "APJ6JRA9NG5V4",
+  FR: "A13V1IB3VIYZZH",
+  ES: "A1RKKUPIHCS9HS",
+  DE: "A1PA6795UKMFR9",
+  UK: "A1F83G8C2ARO7P",
+  NL: "A1805IZSGTT6HS",
+  BE: "AMEN7PMS3EDWL",
+  PL: "A1C3SOZRARQ6R3",
+};
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // =====================================================

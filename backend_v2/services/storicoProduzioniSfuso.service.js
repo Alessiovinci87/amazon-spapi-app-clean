@@ -15,7 +15,8 @@ function registraStoricoProduzione({
   evento = "CREATA",
   note = "",
   operatore = "system",
-  data_evento = null
+  data_evento = null,
+  lotto = null
 }) {
 
   const db = getDb();
@@ -25,18 +26,18 @@ function registraStoricoProduzione({
     db.prepare(`
       INSERT INTO storico_produzioni_sfuso (
         id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
-        quantita, litri_usati, evento, note, operatore, data_evento
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        quantita, litri_usati, evento, note, operatore, data_evento, lotto
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
-           quantita, litri_usati, evento, note, operatore, data_evento);
+           quantita, litri_usati, evento, note, operatore, data_evento, lotto);
   } else {
     db.prepare(`
       INSERT INTO storico_produzioni_sfuso (
         id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
-        quantita, litri_usati, evento, note, operatore, data_evento
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
+        quantita, litri_usati, evento, note, operatore, data_evento, lotto
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'), ?)
     `).run(id_produzione, id_sfuso, asin_prodotto, nome_prodotto, formato,
-           quantita, litri_usati, evento, note, operatore);
+           quantita, litri_usati, evento, note, operatore, lotto);
   }
 
   return { ok: true };

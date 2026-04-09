@@ -19,6 +19,8 @@ import {
 /* ── Configurazione categorie ──────────────────────────────── */
 const CATEGORIES = [
   { key: "prodotti",   label: "Inventario Prodotti",  icon: Boxes,        color: "blue" },
+  { key: "accessori",  label: "Accessori",            icon: Package,      color: "amber" },
+  { key: "sfuso",      label: "Sfuso",                icon: AlertTriangle, color: "orange" },
   { key: "onestep",    label: "One Step",             icon: Sparkles,     color: "pink" },
   { key: "topcoat",    label: "Top Coat",             icon: Sparkles,     color: "cyan" },
   { key: "modulo",     label: "Moduli Custom",        icon: Puzzle,       color: "purple" },
@@ -27,6 +29,8 @@ const CATEGORIES = [
 
 const COLOR_MAP = {
   blue:   { badge: "bg-blue-500/10 border-blue-500/30 text-blue-400",   accent: "bg-blue-400/60",   stat: "text-blue-400" },
+  amber:  { badge: "bg-amber-500/10 border-amber-500/30 text-amber-400", accent: "bg-amber-400/60", stat: "text-amber-400" },
+  orange: { badge: "bg-orange-500/10 border-orange-500/30 text-orange-400", accent: "bg-orange-400/60", stat: "text-orange-400" },
   pink:   { badge: "bg-pink-500/10 border-pink-500/30 text-pink-400",   accent: "bg-pink-400/60",   stat: "text-pink-400" },
   cyan:   { badge: "bg-cyan-500/10 border-cyan-500/30 text-cyan-400",   accent: "bg-cyan-400/60",   stat: "text-cyan-400" },
   purple: { badge: "bg-purple-500/10 border-purple-500/30 text-purple-400", accent: "bg-purple-400/60", stat: "text-purple-400" },
@@ -40,6 +44,8 @@ function classifySource(source, tipo) {
     return "europa";
   }
   if (source === "prodotti") return "prodotti";
+  if (source === "accessori") return "accessori";
+  if (source === "sfuso" || source === "sfuso_copertura") return "sfuso";
   if (source === "onestep") return "onestep";
   if (source === "topcoat") return "topcoat";
   if (source.startsWith("modulo:")) return "modulo";
@@ -57,6 +63,7 @@ const TIPO_ICON = {
   BUYBOX_LOST: TrendingDown,
   LISTING_CHANGED: AlertTriangle,
   STOCK_LOW: Package,
+  SFUSO_INSUFFICIENTE: AlertTriangle,
 };
 
 /* ── Componente principale ──────────────────────────────────── */
@@ -187,7 +194,7 @@ const CentroAlert = () => {
       <main className="relative flex-1 px-6 sm:px-10 lg:px-16 pb-12 space-y-6">
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {CATEGORIES.map((cat) => {
             const c = COLOR_MAP[cat.color];
             const Icon = cat.icon;
@@ -293,6 +300,9 @@ const CentroAlert = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{alert.asin}</span>
+                                {alert.nome && (
+                                  <span className="text-xs text-slate-300 font-medium truncate max-w-[200px]">{alert.nome}</span>
+                                )}
                                 {alert.source?.startsWith("modulo:") && (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/30 text-purple-400">
                                     {alert.source.replace("modulo:", "")}

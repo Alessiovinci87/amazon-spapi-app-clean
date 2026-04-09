@@ -229,6 +229,11 @@ async function bootstrap() {
   app.use("/api/v2/feedback", require("./modules/feedback/feedbackRoutes"));
 
   // =========================================================
+  // 📦 RESI FBA (Amazon returns via SP-API Reports)
+  // =========================================================
+  app.use("/api/v2/returns", require("./modules/returns/returnsRoutes"));
+
+  // =========================================================
   // 🧭 STATIC FILES + HEALTHCHECK
   // =========================================================
   app.use("/static", express.static(path.join(__dirname, "../frontend/public")));

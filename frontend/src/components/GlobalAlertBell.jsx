@@ -10,14 +10,17 @@ const TIPO_CONFIG = {
 };
 
 const SOURCE_CONFIG = {
-  prodotti: { label: "Prodotti",   icon: Boxes,    color: "text-blue-400",   bg: "bg-blue-500/10 border-blue-500/20" },
-  onestep:  { label: "One Step",   icon: Sparkles, color: "text-pink-400",   bg: "bg-pink-500/10 border-pink-500/20" },
-  topcoat:  { label: "Top Coat",   icon: Sparkles, color: "text-cyan-400",   bg: "bg-cyan-500/10 border-cyan-500/20" },
+  prodotti:  { label: "Prodotti",   icon: Boxes,    color: "text-blue-400",   bg: "bg-blue-500/10 border-blue-500/20" },
+  accessori: { label: "Accessori",  icon: Package,  color: "text-amber-400",  bg: "bg-amber-500/10 border-amber-500/20" },
+  sfuso:     { label: "Sfuso",      icon: Package,  color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
+  onestep:   { label: "One Step",   icon: Sparkles, color: "text-pink-400",   bg: "bg-pink-500/10 border-pink-500/20" },
+  topcoat:   { label: "Top Coat",   icon: Sparkles, color: "text-cyan-400",   bg: "bg-cyan-500/10 border-cyan-500/20" },
 };
 
 function getSourceCfg(source) {
   if (!source) return null;
   if (SOURCE_CONFIG[source]) return SOURCE_CONFIG[source];
+  if (source === "sfuso_copertura") return SOURCE_CONFIG["sfuso"];
   if (source.startsWith("modulo:")) return { label: source.replace("modulo:", ""), icon: Puzzle, color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" };
   return null;
 }
@@ -205,6 +208,9 @@ export default function GlobalAlertBell() {
                                 onClick={() => navigator.clipboard.writeText(alert.asin)}
                                 title="Copia ASIN"
                               >{alert.asin}</span>
+                              {alert.nome && (
+                                <span className="text-xs text-slate-400 truncate max-w-[140px]">{alert.nome}</span>
+                              )}
                             </div>
                             <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{alert.messaggio}</p>
                             <p className="text-xs text-slate-600 mt-1">{formatTs(alert.created_at)}</p>

@@ -11,6 +11,9 @@ router.use((req, _res, next) => {
 /** 📜 GET storico accessori */
 router.get('/storico', AccessoriController.getStoricoAccessori);
 
+/** PATCH imposta soglia minima */
+router.patch('/:asin_accessorio/soglia', AccessoriController.updateSogliaAccessorio);
+
 /** PATCH aggiorna quantità */
 router.patch('/:asin_accessorio', AccessoriController.updateQuantitaAccessorio);
 

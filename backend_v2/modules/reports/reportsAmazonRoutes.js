@@ -79,6 +79,157 @@ router.get("/sales-traffic", async (req, res) => {
   }
 });
 
+// 📊 GET → riepilogo vendite aggregato
+router.get("/sales-traffic/summary", async (req, res) => {
+  try {
+    const { getDb } = require("../../db/database");
+    const db = getDb();
+
+    // Totali globali
+    const totals = db.prepare(`
+      SELECT
+        COALESCE(SUM(units_ordered), 0) AS unita_totali,
+        COALESCE(SUM(ordered_product_sales), 0) AS fatturato_totale,
+        COUNT(DISTINCT asin) AS asin_attivi,
+        COUNT(DISTINCT country) AS marketplace_attivi,
+        COUNT(DISTINCT date) AS giorni_con_dati
+      FROM sales_traffic
+    `).get();
+
+    // Per marketplace
+    const perMarketplace = db.prepare(`
+      SELECT country,
+        SUM(units_ordered) AS unita,
+        SUM(ordered_product_sales) AS fatturato,
+        COUNT(DISTINCT asin) AS asin_count
+      FROM sales_traffic
+      GROUP BY country
+      ORDER BY fatturato DESC
+    `).all();
+
+    // Top ASIN per fatturato
+    const topAsin = db.prepare(`
+      SELECT asin, sku,
+        SUM(units_ordered) AS unita,
+        SUM(ordered_product_sales) AS fatturato,
+        ROUND(AVG(conversion_rate), 2) AS conv_rate_avg,
+        SUM(sessions) AS sessioni
+      FROM sales_traffic
+      GROUP BY asin
+      ORDER BY fatturato DESC
+      LIMIT 20
+    `).all();
+
+    // Per data (trend)
+    const perData = db.prepare(`
+      SELECT date,
+        SUM(units_ordered) AS unita,
+        SUM(ordered_product_sales) AS fatturato,
+        SUM(sessions) AS sessioni
+      FROM sales_traffic
+      GROUP BY date
+      ORDER BY date DESC
+      LIMIT 30
+    `).all();
+
+    res.json({ ok: true, totals, perMarketplace, topAsin, perData });
+  } catch (err) {
+    console.error("❌ Errore sales-traffic/summary:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 📊 GET → confronto periodi (thisWeek vs lastWeek, thisMonth vs lastMonth)
+router.get("/sales-traffic/compare", (req, res) => {
+  try {
+    const { getDb } = require("../../db/database");
+    const db = getDb();
+
+    function periodStats(startDate, endDate) {
+      return db.prepare(`
+        SELECT
+          COALESCE(SUM(units_ordered), 0) AS unita,
+          COALESCE(SUM(ordered_product_sales), 0) AS fatturato,
+          COALESCE(SUM(sessions), 0) AS sessioni
+        FROM sales_traffic
+        WHERE date >= ? AND date <= ?
+      `).get(startDate, endDate);
+    }
+
+    const today = new Date();
+    const fmt = (d) => d.toISOString().slice(0, 10);
+
+    // Settimana corrente (lun-dom)
+    const dayOfWeek = (today.getDay() + 6) % 7;
+    const thisWeekStart = new Date(today); thisWeekStart.setDate(today.getDate() - dayOfWeek);
+    const lastWeekStart = new Date(thisWeekStart); lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+    const lastWeekEnd = new Date(thisWeekStart); lastWeekEnd.setDate(thisWeekStart.getDate() - 1);
+
+    // Mese corrente
+    const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+
+    const thisWeek = periodStats(fmt(thisWeekStart), fmt(today));
+    const lastWeek = periodStats(fmt(lastWeekStart), fmt(lastWeekEnd));
+    const thisMonth = periodStats(fmt(thisMonthStart), fmt(today));
+    const lastMonth = periodStats(fmt(lastMonthStart), fmt(lastMonthEnd));
+
+    res.json({ ok: true, thisWeek, lastWeek, thisMonth, lastMonth });
+  } catch (err) {
+    console.error("❌ Errore sales-traffic/compare:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 📊 GET → margine per prodotto (fatturato - fees - costo produzione)
+router.get("/sales-traffic/margins", (req, res) => {
+  try {
+    const { getDb } = require("../../db/database");
+    const db = getDb();
+
+    const rows = db.prepare(`
+      SELECT
+        st.asin,
+        st.sku,
+        SUM(st.units_ordered) AS unita,
+        SUM(st.ordered_product_sales) AS fatturato,
+        COALESCE(AVG(ff.total_fee), 0) AS fee_media,
+        COALESCE(bc.costo, 0) AS costo_produzione
+      FROM sales_traffic st
+      LEFT JOIN fba_fees ff ON ff.asin = st.asin AND ff.country = st.country
+      LEFT JOIN prodotti p ON p.asin = st.asin
+      LEFT JOIN bilancio_catalogo bc ON bc.tipo = 'prodotto' AND bc.id_riferimento = p.rowid
+      WHERE st.units_ordered > 0
+      GROUP BY st.asin
+      ORDER BY fatturato DESC
+      LIMIT 30
+    `).all();
+
+    const result = rows.map((r) => {
+      const feeTotale = (r.fee_media || 0) * (r.unita || 0);
+      const costoTotale = (r.costo_produzione || 0) * (r.unita || 0);
+      const margine = (r.fatturato || 0) - feeTotale - costoTotale;
+      const marginePct = r.fatturato > 0 ? Math.round((margine / r.fatturato) * 100) : 0;
+      return {
+        asin: r.asin,
+        sku: r.sku,
+        unita: r.unita,
+        fatturato: Math.round(r.fatturato * 100) / 100,
+        fee_totale: Math.round(feeTotale * 100) / 100,
+        costo_totale: Math.round(costoTotale * 100) / 100,
+        margine: Math.round(margine * 100) / 100,
+        margine_pct: marginePct,
+      };
+    });
+
+    res.json({ ok: true, data: result });
+  } catch (err) {
+    console.error("❌ Errore sales-traffic/margins:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // 🔄 POST → genera o aggiorna report commissioni FBA
 router.post("/fba-fees/update", async (req, res) => {
   try {

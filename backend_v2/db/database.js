@@ -92,6 +92,82 @@ function runMigrations(db) {
     db.prepare("ALTER TABLE accessori ADD COLUMN quantita_impegnata INTEGER NOT NULL DEFAULT 0").run();
     console.log("🔧 Migrazione: aggiunta colonna quantita_impegnata ad accessori");
   }
+  // Aggiunge soglia_minima ad accessori se mancante
+  if (!cols.some(c => c.name === "soglia_minima")) {
+    db.prepare("ALTER TABLE accessori ADD COLUMN soglia_minima INTEGER NOT NULL DEFAULT 0").run();
+    console.log("🔧 Migrazione: aggiunta colonna soglia_minima ad accessori");
+  }
+
+  // Aggiunge soglia_minima a sfuso se mancante
+  const colsSfuso = db.pragma("table_info(sfuso)");
+  if (colsSfuso.length > 0 && !colsSfuso.some(c => c.name === "soglia_minima")) {
+    db.prepare("ALTER TABLE sfuso ADD COLUMN soglia_minima REAL NOT NULL DEFAULT 0").run();
+    console.log("🔧 Migrazione: aggiunta colonna soglia_minima a sfuso");
+  }
+
+  // Aggiunge nome a alert_events se mancante (per mostrare nome prodotto accanto all'ASIN)
+  const colsAlertEv = db.pragma("table_info(alert_events)");
+  if (colsAlertEv.length > 0 && !colsAlertEv.some(c => c.name === "nome")) {
+    db.prepare("ALTER TABLE alert_events ADD COLUMN nome TEXT").run();
+    console.log("🔧 Migrazione: aggiunta colonna nome ad alert_events");
+
+    // Backfill: popola nome dagli alert esistenti usando fba_stock.product_name
+    try {
+      db.prepare(`
+        UPDATE alert_events SET nome = (
+          SELECT fs.product_name FROM fba_stock fs WHERE fs.asin = alert_events.asin LIMIT 1
+        ) WHERE nome IS NULL AND asin IS NOT NULL
+      `).run();
+      console.log("🔧 Backfill: nome popolato per alert esistenti da fba_stock");
+    } catch (e) { console.warn("⚠️ Backfill nome alert:", e.message); }
+  }
+
+  // ===== RESI FBA =====
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS fba_returns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      return_date TEXT,
+      order_id TEXT,
+      asin TEXT,
+      sku TEXT,
+      product_name TEXT,
+      quantity INTEGER DEFAULT 0,
+      fulfillment_center TEXT,
+      disposition TEXT,
+      reason TEXT,
+      status TEXT,
+      customer_comments TEXT,
+      country TEXT,
+      updated_at TEXT DEFAULT (datetime('now','localtime')),
+      UNIQUE(order_id, asin, return_date)
+    )
+  `).run();
+
+  // ===== TRACCIABILITÀ LOTTI =====
+  // Aggiunge lotto a produzioni_sfuso se mancante
+  const colsProdSfuso = db.pragma("table_info(produzioni_sfuso)");
+  if (colsProdSfuso.length > 0 && !colsProdSfuso.some(c => c.name === "lotto")) {
+    db.prepare("ALTER TABLE produzioni_sfuso ADD COLUMN lotto TEXT").run();
+    console.log("🔧 Migrazione: aggiunta colonna lotto a produzioni_sfuso");
+  }
+  // Aggiunge lotto a storico_produzioni_sfuso se mancante
+  const colsStoricoProd = db.pragma("table_info(storico_produzioni_sfuso)");
+  if (colsStoricoProd.length > 0 && !colsStoricoProd.some(c => c.name === "lotto")) {
+    db.prepare("ALTER TABLE storico_produzioni_sfuso ADD COLUMN lotto TEXT").run();
+    console.log("🔧 Migrazione: aggiunta colonna lotto a storico_produzioni_sfuso");
+  }
+  // Aggiunge lotto a storico_movimenti se mancante
+  const colsStoricoMov = db.pragma("table_info(storico_movimenti)");
+  if (colsStoricoMov.length > 0 && !colsStoricoMov.some(c => c.name === "lotto")) {
+    db.prepare("ALTER TABLE storico_movimenti ADD COLUMN lotto TEXT").run();
+    console.log("🔧 Migrazione: aggiunta colonna lotto a storico_movimenti");
+  }
+  // Aggiunge lotto a ddt_generici_righe se mancante
+  const colsDdtRighe = db.pragma("table_info(ddt_generici_righe)");
+  if (colsDdtRighe.length > 0 && !colsDdtRighe.some(c => c.name === "lotto")) {
+    db.prepare("ALTER TABLE ddt_generici_righe ADD COLUMN lotto TEXT").run();
+    console.log("🔧 Migrazione: aggiunta colonna lotto a ddt_generici_righe");
+  }
 
   // ===== ONE STEP =====
   db.prepare(`

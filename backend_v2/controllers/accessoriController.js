@@ -60,6 +60,24 @@ const AccessoriController = {
     }
   },
 
+  /** 🎯 PATCH imposta soglia minima */
+  updateSogliaAccessorio: (req, res) => {
+    try {
+      const { asin_accessorio } = req.params;
+      const { soglia_minima } = req.body;
+
+      if (typeof soglia_minima !== "number" || soglia_minima < 0) {
+        return res.status(400).json({ error: '"soglia_minima" deve essere un numero >= 0' });
+      }
+
+      const result = AccessoriService.updateSogliaAccessorio(asin_accessorio, soglia_minima);
+      return res.json(result);
+    } catch (err) {
+      console.error("❌ [ACCESSORI][SOGLIA] Errore:", err.message);
+      return res.status(500).json({ error: "Errore nell'aggiornamento soglia" });
+    }
+  },
+
   /** 📜 GET storico movimenti accessori */
   getStoricoAccessori: (req, res) => {
     try {

@@ -26,6 +26,44 @@ import {
 
 const inputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/60 focus:border-cyan-500/60 transition-colors";
 
+function SogliaSfusoInline({ id, soglia, onUpdate }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(String(soglia || 0));
+
+  useEffect(() => { setVal(String(soglia || 0)); }, [soglia]);
+
+  const salva = async () => {
+    const num = Math.max(0, parseFloat(val) || 0);
+    try {
+      const res = await fetch(`/api/v2/sfuso-inventario/${id}/soglia`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soglia_minima: num }),
+      });
+      if (!res.ok) throw new Error();
+      onUpdate(num);
+      setEditing(false);
+    } catch { toast.error("Errore aggiornamento soglia"); }
+  };
+
+  return (
+    <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-3 py-2">
+      <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Soglia alert (L)</p>
+      {editing ? (
+        <div className="flex items-center gap-1">
+          <input type="number" min="0" step="0.1" value={val} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => e.key === "Enter" && salva()} className="w-16 px-1.5 py-0.5 rounded bg-slate-950 border border-slate-700 text-white text-xs text-center tabular-nums focus:outline-none focus:border-cyan-500/50" autoFocus />
+          <button onClick={salva} type="button" className="text-emerald-400 hover:text-emerald-300 text-[10px] font-medium">OK</button>
+          <button onClick={() => { setEditing(false); setVal(String(soglia || 0)); }} type="button" className="text-slate-500 hover:text-slate-300 text-[10px]">✕</button>
+        </div>
+      ) : (
+        <button onClick={() => setEditing(true)} type="button" className="text-sm text-white font-medium hover:text-cyan-300 transition-colors">
+          {soglia > 0 ? `${soglia} L` : "—"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function StatTile({ icon: Icon, label, value, accent = "cyan" }) {
   const m = {
     cyan:    "bg-cyan-500/10 border-cyan-500/40 text-cyan-400",
@@ -108,6 +146,7 @@ const Sfuso = () => {
         quantita: Number(s.litri_disponibili || 0), quantita_old: Number(s.litri_disponibili_old || 0),
         lotto: s.lotto, lotto_old: s.lotto_old, fornitore: s.fornitore || "-",
         asin_collegati: JSON.parse(s.asin_collegati || "[]"), immagine: s.immagine || "/images/no_image2.png",
+        soglia_minima: Number(s.soglia_minima || 0),
       }));
       setSfusi(mapped);
       const ordiniMap = {};
@@ -331,6 +370,11 @@ const Sfuso = () => {
                           <span className="text-xs text-slate-400 flex items-center gap-1">
                             <Droplet className="w-3 h-3" /> {((s.quantita_old || 0) + (s.quantita || 0)).toFixed(1)} L
                           </span>
+                          {s.soglia_minima > 0 && ((s.quantita_old || 0) + (s.quantita || 0)) < s.soglia_minima && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-[10px] text-rose-400 font-medium">
+                              sotto soglia ({s.soglia_minima}L)
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button type="button" className="text-slate-500 hover:text-slate-200 transition-colors flex-shrink-0" onClick={(e) => { e.stopPropagation(); toggleCardExpansion(s.id); }}>
@@ -421,7 +465,7 @@ const Sfuso = () => {
                       </div>
 
                       {/* Info aggiuntive */}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-3 py-2">
                           <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Quantita in arrivo</p>
                           <p className="text-sm text-white font-medium">{totaleInArrivo} L</p>
@@ -430,6 +474,7 @@ const Sfuso = () => {
                           <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Fornitore</p>
                           <p className="text-sm text-white font-medium">{fornitorePrincipale}</p>
                         </div>
+                        <SogliaSfusoInline id={s.id} soglia={s.soglia_minima} onUpdate={(val) => setSfusi(prev => prev.map(x => x.id === s.id ? { ...x, soglia_minima: val } : x))} />
                       </div>
 
                       {/* Ordini in arrivo */}

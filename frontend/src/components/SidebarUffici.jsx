@@ -49,6 +49,10 @@ const MENU = [
   { to: "/scatolette",            label: "Scatolette",          icon: BoxSelect },
   { to: "/recensioni",            label: "Seller Feedback",     icon: Star },
 
+  { divider: true, label: "Analytics" },
+  { to: "/uffici/vendite",         label: "Dashboard Vendite",   icon: TrendingUp },
+  { to: "/uffici/resi-fba",       label: "Resi FBA",            icon: Package },
+
   { divider: true, label: "Storici e report" },
   { to: "/uffici/storici/movimenti", label: "Storico movimenti", icon: Archive },
   { to: "/uffici/spedizioni/storico", label: "Storico spedizioni", icon: Archive },

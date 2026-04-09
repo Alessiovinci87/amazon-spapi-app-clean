@@ -24,7 +24,7 @@ const MP_TO_COUNTRY = Object.fromEntries(MARKETPLACES.map(m => [m.marketplaceId,
 /**
  * Inserisce un evento di alert nel DB (evita duplicati nella stessa ora).
  */
-function fireAlert(db, { asin, tipo, marketplace_id, messaggio, valore_attuale, valore_precedente }) {
+function fireAlert(db, { asin, tipo, marketplace_id, messaggio, valore_attuale, valore_precedente, nome }) {
   const recent = db.prepare(`
     SELECT id FROM alert_events
     WHERE asin = ? AND tipo = ? AND marketplace_id IS ? AND letto = 0
@@ -35,9 +35,9 @@ function fireAlert(db, { asin, tipo, marketplace_id, messaggio, valore_attuale, 
   if (recent) return;
 
   db.prepare(`
-    INSERT INTO alert_events (asin, tipo, marketplace_id, messaggio, valore_attuale, valore_precedente)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run(asin, tipo, marketplace_id ?? null, messaggio, valore_attuale ?? null, valore_precedente ?? null);
+    INSERT INTO alert_events (asin, tipo, marketplace_id, messaggio, valore_attuale, valore_precedente, nome)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(asin, tipo, marketplace_id ?? null, messaggio, valore_attuale ?? null, valore_precedente ?? null, nome ?? null);
 }
 
 /**
@@ -192,6 +192,7 @@ async function checkAndFireAlerts(asin) {
           asin, tipo: "BUYBOX_LOST", marketplace_id: mid,
           messaggio: `[${mp.paese}] Buy Box persa per ASIN ${asin}`,
           valore_attuale: "0", valore_precedente: "1",
+          nome: productName,
         });
         alertsFired.push({ tipo: "BUYBOX_LOST", marketplace_id: mid });
       }
@@ -207,6 +208,7 @@ async function checkAndFireAlerts(asin) {
             messaggio: `[${mp.paese}] Listing modificato (${campi}) per ASIN ${asin}`,
             valore_attuale: JSON.stringify({ titolo, prezzo }),
             valore_precedente: JSON.stringify({ titolo: prev.titolo, prezzo: prev.prezzo }),
+            nome: productName,
           });
           alertsFired.push({ tipo: "LISTING_CHANGED", marketplace_id: mid });
         }
@@ -221,6 +223,7 @@ async function checkAndFireAlerts(asin) {
             asin, tipo: "STOCK_LOW", marketplace_id: mid,
             messaggio: `[${mp.paese}] Stock FBA sotto soglia (${stock} ≤ ${rule.soglia}) per ASIN ${asin}`,
             valore_attuale: String(stock), valore_precedente: null,
+            nome: productName,
           });
           alertsFired.push({ tipo: "STOCK_LOW", marketplace_id: mid, stock });
         }

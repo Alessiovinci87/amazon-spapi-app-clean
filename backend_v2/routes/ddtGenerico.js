@@ -101,12 +101,12 @@ function salvaDdtNelDb(db, brand, fields, righe, totUnita, totColli) {
 
   const insertRiga = db.prepare(
     `INSERT INTO ddt_generici_righe
-     (ddt_id, prodottoNome, asin, sku, quantita, cartone, pacco)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+     (ddt_id, prodottoNome, asin, sku, quantita, cartone, pacco, lotto)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   for (const r of righe) {
-    insertRiga.run(ddtId, r.prodottoNome || "", r.asin || "", r.sku || "", r.quantita || 0, r.cartone || "", r.pacco || "");
+    insertRiga.run(ddtId, r.prodottoNome || "", r.asin || "", r.sku || "", r.quantita || 0, r.cartone || "", r.pacco || "", r.lotto || null);
   }
 
   return ddtId;
