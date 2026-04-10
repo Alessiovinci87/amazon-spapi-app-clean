@@ -14,6 +14,8 @@ import {
   Boxes,
   Filter,
   Search,
+  Clock,
+  CalendarX2,
 } from "lucide-react";
 
 /* ── Configurazione categorie ──────────────────────────────── */
@@ -24,6 +26,7 @@ const CATEGORIES = [
   { key: "onestep",    label: "One Step",             icon: Sparkles,     color: "pink" },
   { key: "topcoat",    label: "Top Coat",             icon: Sparkles,     color: "cyan" },
   { key: "modulo",     label: "Moduli Custom",        icon: Puzzle,       color: "purple" },
+  { key: "lotti",      label: "Scadenze Lotti",       icon: CalendarX2,   color: "red" },
   { key: "europa",     label: "Europa SP-API",        icon: TrendingDown, color: "rose" },
 ];
 
@@ -34,6 +37,7 @@ const COLOR_MAP = {
   pink:   { badge: "bg-pink-500/10 border-pink-500/30 text-pink-400",   accent: "bg-pink-400/60",   stat: "text-pink-400" },
   cyan:   { badge: "bg-cyan-500/10 border-cyan-500/30 text-cyan-400",   accent: "bg-cyan-400/60",   stat: "text-cyan-400" },
   purple: { badge: "bg-purple-500/10 border-purple-500/30 text-purple-400", accent: "bg-purple-400/60", stat: "text-purple-400" },
+  red:    { badge: "bg-red-500/10 border-red-500/30 text-red-400",     accent: "bg-red-400/60",     stat: "text-red-400" },
   rose:   { badge: "bg-rose-500/10 border-rose-500/30 text-rose-400",   accent: "bg-rose-400/60",   stat: "text-rose-400" },
 };
 
@@ -46,6 +50,7 @@ function classifySource(source, tipo) {
   if (source === "prodotti") return "prodotti";
   if (source === "accessori") return "accessori";
   if (source === "sfuso" || source === "sfuso_copertura") return "sfuso";
+  if (source === "lotto_scadenza") return "lotti";
   if (source === "onestep") return "onestep";
   if (source === "topcoat") return "topcoat";
   if (source.startsWith("modulo:")) return "modulo";
@@ -64,6 +69,8 @@ const TIPO_ICON = {
   LISTING_CHANGED: AlertTriangle,
   STOCK_LOW: Package,
   SFUSO_INSUFFICIENTE: AlertTriangle,
+  LOTTO_IN_SCADENZA: Clock,
+  LOTTO_SCADUTO: CalendarX2,
 };
 
 /* ── Componente principale ──────────────────────────────────── */

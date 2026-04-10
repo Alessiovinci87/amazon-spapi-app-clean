@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, X, ExternalLink, CheckCheck, AlertTriangle, TrendingDown, Package, RefreshCw, Sparkles, Puzzle, Boxes } from "lucide-react";
+import { Bell, X, ExternalLink, CheckCheck, AlertTriangle, TrendingDown, Package, RefreshCw, Sparkles, Puzzle, Boxes, Clock, CalendarX2 } from "lucide-react";
 import { toast } from "sonner";
 
 const TIPO_CONFIG = {
-  BUYBOX_LOST:      { label: "Buy Box persa",       icon: TrendingDown,   color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20" },
-  LISTING_CHANGED:  { label: "Listing modificato",  icon: AlertTriangle,  color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
-  STOCK_LOW:        { label: "Stock basso",          icon: Package,        color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
+  BUYBOX_LOST:        { label: "Buy Box persa",       icon: TrendingDown,   color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20" },
+  LISTING_CHANGED:    { label: "Listing modificato",  icon: AlertTriangle,  color: "text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20" },
+  STOCK_LOW:          { label: "Stock basso",          icon: Package,        color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
+  LOTTO_IN_SCADENZA:  { label: "Lotto in scadenza",   icon: Clock,          color: "text-amber-400",  bg: "bg-amber-500/10 border-amber-500/20" },
+  LOTTO_SCADUTO:      { label: "Lotto scaduto",       icon: CalendarX2,     color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20" },
+  SFUSO_INSUFFICIENTE:{ label: "Sfuso insufficiente",  icon: AlertTriangle,  color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/20" },
 };
 
 const SOURCE_CONFIG = {
@@ -21,6 +24,7 @@ function getSourceCfg(source) {
   if (!source) return null;
   if (SOURCE_CONFIG[source]) return SOURCE_CONFIG[source];
   if (source === "sfuso_copertura") return SOURCE_CONFIG["sfuso"];
+  if (source === "lotto_scadenza") return { label: "Scadenze Lotti", icon: CalendarX2, color: "text-red-400", bg: "bg-red-500/10 border-red-500/20" };
   if (source.startsWith("modulo:")) return { label: source.replace("modulo:", ""), icon: Puzzle, color: "text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" };
   return null;
 }
