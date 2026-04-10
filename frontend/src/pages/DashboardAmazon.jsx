@@ -10,8 +10,9 @@ import {
   Globe,
   Bell,
   Wrench,
-  LogOut,
   ArrowRight,
+  DollarSign,
+  TrendingUp,
 } from "lucide-react";
 
 const containerVariants = {
@@ -36,6 +37,8 @@ const MODULES = [
   { to: "/uffici/ddt",             icon: FileText,   label: "DDT",          desc: "Documenti di trasporto",          accent: "pink",    code: "06" },
   { to: "/uffici/fornitori",       icon: Users,      label: "Fornitori",    desc: "Anagrafica e gestione",           accent: "orange",  code: "07" },
   { to: "/fba-gestione-prodotti",  icon: Box,        label: "FBA Prodotti", desc: "Catalogo Amazon FBA",             accent: "cyan",    code: "08" },
+  { to: "/uffici/bilancio",        icon: DollarSign, label: "Bilancio",     desc: "Costi, valore magazzino, movimenti", accent: "emerald", code: "09" },
+  { to: "/uffici/vendite",         icon: TrendingUp, label: "Vendite",      desc: "Dashboard vendite e margini",     accent: "blue",    code: "10" },
 ];
 
 const ACCENT_BG = {
@@ -47,6 +50,7 @@ const ACCENT_BG = {
   pink:    "group-hover:border-pink-500/40 group-hover:bg-pink-500/5",
   orange:  "group-hover:border-orange-500/40 group-hover:bg-orange-500/5",
   cyan:    "group-hover:border-cyan-500/40 group-hover:bg-cyan-500/5",
+  blue:    "group-hover:border-blue-500/40 group-hover:bg-blue-500/5",
 };
 
 const ACCENT_ICON = {
@@ -58,16 +62,11 @@ const ACCENT_ICON = {
   pink:    "group-hover:text-pink-400 group-hover:border-pink-500/40",
   orange:  "group-hover:text-orange-400 group-hover:border-orange-500/40",
   cyan:    "group-hover:text-cyan-400 group-hover:border-cyan-500/40",
+  blue:    "group-hover:text-blue-400 group-hover:border-blue-500/40",
 };
 
 const DashboardAmazon = () => {
   const navigate = useNavigate();
-
-  const handleBackToSelection = () => {
-    localStorage.removeItem("auth");
-    localStorage.removeItem("role");
-    navigate("/");
-  };
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -80,36 +79,6 @@ const DashboardAmazon = () => {
           backgroundSize: "32px 32px",
         }}
       />
-
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-md bg-indigo-500/10 border border-indigo-500/40 flex items-center justify-center">
-              <ShoppingCart className="w-[18px] h-[18px] text-indigo-400" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-[15px] font-semibold tracking-tight text-white">Nexus</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Amazon SP-API</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-5">
-            <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30">
-              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-              <span className="text-[11px] uppercase tracking-[0.12em] text-indigo-400 font-medium">Sessione attiva</span>
-            </div>
-            <button
-              onClick={handleBackToSelection}
-              className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
-              title="Torna alla selezione"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Esci</span>
-            </button>
-          </div>
-        </div>
-      </header>
 
       {/* === Hero === */}
       <section className="relative">
