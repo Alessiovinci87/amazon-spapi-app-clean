@@ -64,6 +64,102 @@ function SogliaSfusoInline({ id, soglia, onUpdate }) {
   );
 }
 
+function ScadenzaLottoInline({ id, dataScadenza, paoMesi, onUpdate }) {
+  const [editScad, setEditScad] = useState(false);
+  const [editPao, setEditPao] = useState(false);
+  const [scadVal, setScadVal] = useState(dataScadenza || "");
+  const [paoVal, setPaoVal] = useState(String(paoMesi || ""));
+
+  useEffect(() => { setScadVal(dataScadenza || ""); }, [dataScadenza]);
+  useEffect(() => { setPaoVal(String(paoMesi || "")); }, [paoMesi]);
+
+  const salvaScadenza = async () => {
+    try {
+      const res = await fetch(`/api/v2/sfuso/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campo: "data_scadenza", nuovoValore: scadVal || null }),
+      });
+      if (!res.ok) throw new Error();
+      onUpdate("data_scadenza", scadVal || null);
+      setEditScad(false);
+    } catch { toast.error("Errore aggiornamento scadenza"); }
+  };
+
+  const salvaPao = async () => {
+    try {
+      const res = await fetch(`/api/v2/sfuso/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campo: "pao_mesi", nuovoValore: paoVal || null }),
+      });
+      if (!res.ok) throw new Error();
+      onUpdate("pao_mesi", paoVal ? parseInt(paoVal, 10) : null);
+      setEditPao(false);
+    } catch { toast.error("Errore aggiornamento PAO"); }
+  };
+
+  // Calcola stato scadenza
+  let statoScad = null;
+  let giorniRim = null;
+  if (dataScadenza) {
+    const oggi = new Date(); oggi.setHours(0,0,0,0);
+    const scad = new Date(dataScadenza); scad.setHours(0,0,0,0);
+    giorniRim = Math.ceil((scad - oggi) / (1000*60*60*24));
+    if (giorniRim <= 0) statoScad = "scaduto";
+    else if (giorniRim <= 30) statoScad = "in_scadenza";
+    else statoScad = "ok";
+  }
+
+  const scadColor = statoScad === "scaduto" ? "border-red-500/40 bg-red-500/5" :
+                    statoScad === "in_scadenza" ? "border-amber-500/40 bg-amber-500/5" :
+                    "border-slate-700/60 bg-slate-800/40";
+  const scadText = statoScad === "scaduto" ? "text-red-400" :
+                   statoScad === "in_scadenza" ? "text-amber-400" : "text-white";
+
+  return (
+    <div className={`grid grid-cols-2 gap-2`}>
+      <div className={`rounded-md px-3 py-2 border ${scadColor}`}>
+        <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Scadenza lotto</p>
+        {editScad ? (
+          <div className="flex items-center gap-2">
+            <input type="date" value={scadVal} onChange={e => setScadVal(e.target.value)} className="flex-1 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white" />
+            <button onClick={salvaScadenza} type="button" className="text-emerald-400 hover:text-emerald-300 text-[10px] font-medium">OK</button>
+            <button onClick={() => { setEditScad(false); setScadVal(dataScadenza || ""); }} type="button" className="text-slate-500 hover:text-slate-300 text-[10px]">✕</button>
+          </div>
+        ) : (
+          <button onClick={() => setEditScad(true)} type="button" className={`text-sm font-medium hover:text-cyan-300 transition-colors ${scadText}`}>
+            {dataScadenza ? (
+              <>
+                {new Date(dataScadenza).toLocaleDateString("it-IT")}
+                {giorniRim !== null && (
+                  <span className={`ml-1.5 text-[10px] ${scadText}`}>
+                    ({giorniRim <= 0 ? "SCADUTO" : `${giorniRim}gg`})
+                  </span>
+                )}
+              </>
+            ) : "—"}
+          </button>
+        )}
+      </div>
+      <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-3 py-2">
+        <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">PAO (mesi)</p>
+        {editPao ? (
+          <div className="flex items-center gap-2">
+            <input type="number" min="0" value={paoVal} onChange={e => setPaoVal(e.target.value)} className="w-16 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white" placeholder="12" />
+            <button onClick={salvaPao} type="button" className="text-emerald-400 hover:text-emerald-300 text-[10px] font-medium">OK</button>
+            <button onClick={() => { setEditPao(false); setPaoVal(String(paoMesi || "")); }} type="button" className="text-slate-500 hover:text-slate-300 text-[10px]">✕</button>
+          </div>
+        ) : (
+          <button onClick={() => setEditPao(true)} type="button" className="text-sm text-white font-medium hover:text-cyan-300 transition-colors">
+            {paoMesi ? `${paoMesi}M` : "—"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function StatTile({ icon: Icon, label, value, accent = "cyan" }) {
   const m = {
     cyan:    "bg-cyan-500/10 border-cyan-500/40 text-cyan-400",
@@ -147,6 +243,7 @@ const Sfuso = () => {
         lotto: s.lotto, lotto_old: s.lotto_old, fornitore: s.fornitore || "-",
         asin_collegati: JSON.parse(s.asin_collegati || "[]"), immagine: s.immagine || "/images/no_image2.png",
         soglia_minima: Number(s.soglia_minima || 0),
+        data_scadenza: s.data_scadenza || null, pao_mesi: s.pao_mesi || null,
       }));
       setSfusi(mapped);
       const ordiniMap = {};
@@ -476,6 +573,14 @@ const Sfuso = () => {
                         </div>
                         <SogliaSfusoInline id={s.id} soglia={s.soglia_minima} onUpdate={(val) => setSfusi(prev => prev.map(x => x.id === s.id ? { ...x, soglia_minima: val } : x))} />
                       </div>
+
+                      {/* Scadenza lotto */}
+                      <ScadenzaLottoInline
+                        id={s.id}
+                        dataScadenza={s.data_scadenza}
+                        paoMesi={s.pao_mesi}
+                        onUpdate={(field, val) => setSfusi(prev => prev.map(x => x.id === s.id ? { ...x, [field]: val } : x))}
+                      />
 
                       {/* Ordini in arrivo */}
                       <div className={`rounded-md px-4 py-3 ${hasOrdini ? "bg-amber-500/5 border border-amber-500/20" : "bg-slate-800/40 border border-slate-700/60"}`}>
