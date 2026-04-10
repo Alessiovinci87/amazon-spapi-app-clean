@@ -71,9 +71,9 @@ const DashboardVendite = () => {
   const fetchData = useCallback(async () => {
     try {
       const [resSummary, resCompare, resMargins] = await Promise.all([
-        fetch("/api/v2/reports/sales-traffic/summary"),
-        fetch("/api/v2/reports/sales-traffic/compare"),
-        fetch("/api/v2/reports/sales-traffic/margins"),
+        fetch("/api/v2/reports-amazon/sales-traffic/summary"),
+        fetch("/api/v2/reports-amazon/sales-traffic/compare"),
+        fetch("/api/v2/reports-amazon/sales-traffic/margins"),
       ]);
       if (resSummary.ok) setData(await resSummary.json());
       if (resCompare.ok) setCompare(await resCompare.json());
@@ -90,7 +90,7 @@ const DashboardVendite = () => {
   const syncSales = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("/api/v2/reports/sales-traffic/update", { method: "POST" });
+      const res = await fetch("/api/v2/reports-amazon/sales-traffic/update", { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Errore");
       toast.success("Aggiornamento vendite avviato in background");
