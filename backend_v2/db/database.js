@@ -480,6 +480,13 @@ function runMigrations(db) {
 
   console.log("✅ Migrazione Scadenze Lotti completata");
 
+  // ===== ORDINI FORNITORI: aggiungi quantita_ricevuta se mancante =====
+  const colsOrdForn = db.pragma("table_info(ordini_fornitori)");
+  if (colsOrdForn.length > 0 && !colsOrdForn.some(c => c.name === "quantita_ricevuta")) {
+    db.prepare("ALTER TABLE ordini_fornitori ADD COLUMN quantita_ricevuta REAL").run();
+    console.log("🔧 Migrazione: aggiunta colonna quantita_ricevuta a ordini_fornitori");
+  }
+
   // ===== PRODOTTI: aggiungi soglia_minima se mancante =====
   const colsProdotti = db.pragma("table_info(prodotti)");
   if (colsProdotti.length > 0 && !colsProdotti.some(c => c.name === "soglia_minima")) {

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { toast } from "sonner";
 
 const StoricoOrdini = () => {
   const [ordini, setOrdini] = useState([]);
   const [fornitori, setFornitori] = useState([]);
+  const [ricezionePending, setRicezionePending] = useState(null); // {id, quantita, lotto, data_scadenza}
 
   // Filtri
   const [filtroFornitore, setFiltroFornitore] = useState("");
@@ -37,6 +39,46 @@ const StoricoOrdini = () => {
     setFiltroDataFine(null);
     setRicercaLibera("");
     setFiltroPagamenti([]);
+  };
+
+  const reloadOrdini = () => {
+    fetch("/api/v2/fornitori/ordini-tutti")
+      .then((res) => res.json())
+      .then(setOrdini);
+  };
+
+  const apriRicezione = (ordine) => {
+    setRicezionePending({
+      id: ordine.id,
+      quantita: ordine.quantita || 0,
+      quantita_ricevuta: ordine.quantita || 0,
+      lotto: "",
+      data_scadenza: "",
+      fornitore: ordine.fornitore,
+      nome_prodotto: ordine.nome_prodotto || ordine.prodotti,
+    });
+  };
+
+  const confermaRicezione = async () => {
+    if (!ricezionePending) return;
+    try {
+      const res = await fetch(`/api/v2/fornitori/ordini/${ricezionePending.id}/ricevi`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantita_ricevuta: Number(ricezionePending.quantita_ricevuta),
+          lotto: ricezionePending.lotto || undefined,
+          data_scadenza: ricezionePending.data_scadenza || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Errore ricezione");
+      toast.success(`Ricezione confermata: ${ricezionePending.quantita_ricevuta}L di ${ricezionePending.nome_prodotto}`);
+      setRicezionePending(null);
+      reloadOrdini();
+    } catch (err) {
+      toast.error(err.message);
+    }
   };
 
   // Calcola se almeno un filtro è attivo
@@ -184,12 +226,13 @@ const StoricoOrdini = () => {
                 <th className="p-2">Costo Totale (€)</th>
                 <th className="p-2">Pagamento</th>
                 <th className="p-2">Stato</th>
+                <th className="p-2">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {ordiniFiltrati.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center p-4 text-gray-400">
+                  <td colSpan="8" className="text-center p-4 text-gray-400">
                     Nessun ordine trovato.
                   </td>
                 </tr>
@@ -200,23 +243,109 @@ const StoricoOrdini = () => {
                     <td className="p-2">
                       {(() => {
                         const d = new Date(o.dataOrdine);
-                        if (isNaN(d)) return o.dataOrdine; // fallback in caso non sia una vera data
+                        if (isNaN(d)) return o.dataOrdine;
                         const day = String(d.getDate()).padStart(2, "0");
                         const month = String(d.getMonth() + 1).padStart(2, "0");
                         const year = d.getFullYear();
                         return `${day}/${month}/${year}`;
                       })()}
                     </td>
-                    <td className="p-2">{o.prodotti}</td>
+                    <td className="p-2">{o.prodotti || o.nome_prodotto}</td>
                     <td className="p-2">{o.quantita}</td>
-                    <td className="p-2">€ {o.costoTotale}</td>
-                    <td className="p-2">{o.pagamento}</td>
-                    <td className="p-2">{o.stato}</td>
+                    <td className="p-2">€ {o.costoTotale || "—"}</td>
+                    <td className="p-2">{o.pagamento || "—"}</td>
+                    <td className="p-2">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        o.stato === "Consegnato" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
+                        o.stato === "In attesa" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" :
+                        "bg-slate-500/20 text-slate-300 border border-slate-500/30"
+                      }`}>
+                        {o.stato}
+                      </span>
+                    </td>
+                    <td className="p-2">
+                      {o.stato === "In attesa" && (
+                        <button
+                          onClick={() => apriRicezione(o)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-xs font-medium"
+                        >
+                          Conferma Ricezione
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+
+          {/* === Modale Ricezione Merce === */}
+          {ricezionePending && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-6 w-full max-w-md space-y-4">
+                <h3 className="text-lg font-semibold text-white">Conferma Ricezione</h3>
+                <p className="text-sm text-slate-400">
+                  Ordine da <span className="text-white font-medium">{ricezionePending.fornitore}</span> — {ricezionePending.nome_prodotto}
+                </p>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-slate-500 mb-1">
+                    Quantità ricevuta (litri)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={ricezionePending.quantita_ricevuta}
+                    onChange={(e) => setRicezionePending({ ...ricezionePending, quantita_ricevuta: e.target.value })}
+                    className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    Ordinati: {ricezionePending.quantita}L — modifica se ricezione parziale
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-slate-500 mb-1">
+                    Lotto (opzionale)
+                  </label>
+                  <input
+                    type="text"
+                    value={ricezionePending.lotto}
+                    onChange={(e) => setRicezionePending({ ...ricezionePending, lotto: e.target.value })}
+                    placeholder="es. LOT-2026-04"
+                    className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-slate-500 mb-1">
+                    Data scadenza (opzionale)
+                  </label>
+                  <input
+                    type="date"
+                    value={ricezionePending.data_scadenza}
+                    onChange={(e) => setRicezionePending({ ...ricezionePending, data_scadenza: e.target.value })}
+                    className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={confermaRicezione}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium text-sm"
+                  >
+                    Conferma
+                  </button>
+                  <button
+                    onClick={() => setRicezionePending(null)}
+                    className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white py-2 rounded font-medium text-sm"
+                  >
+                    Annulla
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {filtroPagamenti.length > 0 && (
             <div className="text-right text-green-400 font-semibold space-y-1">

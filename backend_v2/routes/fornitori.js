@@ -76,6 +76,95 @@ router.delete("/ordini/:idOrdine", (req, res) => {
 });
 
 /* =============================
+   ✅ PATCH - Conferma ricezione singolo ordine
+   Aggiorna stock sfuso, registra movimento, segna come Consegnato
+============================= */
+router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
+  try {
+    const db = getDb();
+    const { idOrdine } = req.params;
+    const { quantita_ricevuta, lotto, data_scadenza, operatore } = req.body;
+
+    const ordine = db.prepare("SELECT * FROM ordini_fornitori WHERE id = ?").get(idOrdine);
+    if (!ordine) return res.status(404).json({ ok: false, message: "Ordine non trovato" });
+    if (ordine.stato === "Consegnato") {
+      return res.status(400).json({ ok: false, message: "Ordine già consegnato." });
+    }
+
+    // Quantità ricevuta: se non specificata, usa quella ordinata
+    const qtaRicevuta = quantita_ricevuta != null ? Number(quantita_ricevuta) : Number(ordine.quantita_litri);
+    if (isNaN(qtaRicevuta) || qtaRicevuta <= 0) {
+      return res.status(400).json({ ok: false, message: "Quantità ricevuta non valida." });
+    }
+
+    const transaction = db.transaction(() => {
+      // 1. Segna ordine come consegnato
+      db.prepare(`
+        UPDATE ordini_fornitori
+        SET stato = 'Consegnato',
+            quantita_ricevuta = ?,
+            data_consegna_effettiva = datetime('now','localtime')
+        WHERE id = ?
+      `).run(qtaRicevuta, idOrdine);
+
+      // 2. Aggiorna stock sfuso
+      if (ordine.id_sfuso) {
+        db.prepare(`
+          UPDATE sfuso
+          SET litri_disponibili = litri_disponibili + ?,
+              litri_in_arrivo = MAX(litri_in_arrivo - ?, 0),
+              updated_at = datetime('now','localtime')
+          WHERE id = ?
+        `).run(qtaRicevuta, Number(ordine.quantita_litri), ordine.id_sfuso);
+
+        // 3. Aggiorna lotto e data_scadenza se forniti
+        if (lotto) {
+          db.prepare("UPDATE sfuso SET lotto = ? WHERE id = ?").run(lotto, ordine.id_sfuso);
+        }
+        if (data_scadenza) {
+          db.prepare("UPDATE sfuso SET data_scadenza = ? WHERE id = ?").run(data_scadenza, ordine.id_sfuso);
+        }
+
+        // 4. Registra movimento storico
+        const fornitore = db.prepare("SELECT nome FROM fornitori WHERE id = ?").get(ordine.id_fornitore);
+        const sfuso = db.prepare("SELECT formato, nome_prodotto FROM sfuso WHERE id = ?").get(ordine.id_sfuso);
+
+        db.prepare(`
+          INSERT INTO sfuso_movimenti
+          (id_sfuso, nome_prodotto, formato, lotto, fornitore, tipo, quantita, operatore, note, data_scadenza)
+          VALUES (?, ?, ?, ?, ?, 'CARICO DDT', ?, ?, ?, ?)
+        `).run(
+          ordine.id_sfuso,
+          sfuso?.nome_prodotto || null,
+          sfuso?.formato || null,
+          lotto || null,
+          fornitore?.nome || null,
+          qtaRicevuta,
+          operatore || "system",
+          `Ricezione ordine #${idOrdine}${qtaRicevuta < ordine.quantita_litri ? ` (parziale: ${qtaRicevuta}/${ordine.quantita_litri}L)` : ""}`,
+          data_scadenza || null
+        );
+      }
+    });
+
+    transaction();
+
+    const updated = db.prepare(`
+      SELECT o.*, f.nome AS fornitore, s.nome_prodotto, s.formato, s.litri_disponibili
+      FROM ordini_fornitori o
+      LEFT JOIN fornitori f ON f.id = o.id_fornitore
+      LEFT JOIN sfuso s ON s.id = o.id_sfuso
+      WHERE o.id = ?
+    `).get(idOrdine);
+
+    res.json({ ok: true, message: "Ricezione confermata", ordine: updated });
+  } catch (err) {
+    console.error("❌ Errore ricezione ordine:", err);
+    res.status(500).json({ ok: false, message: "Errore durante la ricezione." });
+  }
+});
+
+/* =============================
    📦 GET - Elenco fornitori
 ============================= */
 router.get("/", (req, res) => {
