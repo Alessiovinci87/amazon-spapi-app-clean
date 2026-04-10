@@ -78,6 +78,7 @@ const StoricoOrdini = () => {
       reloadOrdini();
     } catch (err) {
       toast.error(err.message);
+      setRicezionePending(null);
     }
   };
 

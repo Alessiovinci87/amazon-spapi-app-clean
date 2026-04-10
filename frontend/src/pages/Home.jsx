@@ -183,7 +183,7 @@ const Home = () => {
 
               <div className="space-y-3">
                 <button
-                  onClick={() => setShowLogin(true)}
+                  onClick={() => { localStorage.setItem("auth", "magazzino"); localStorage.setItem("role", "magazzino"); setIsMagazzino(true); }}
                   className="group w-full flex items-center gap-4 px-5 py-4 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-lg transition-all text-left"
                 >
                   <div className="w-10 h-10 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5 transition-colors">
