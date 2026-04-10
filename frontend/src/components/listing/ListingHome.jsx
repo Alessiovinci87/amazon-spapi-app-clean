@@ -1,118 +1,79 @@
-import React from "react";
 import { useNavigate } from "react-router-dom";
-
-const abbreviaNome = (nome) => {
-  if (!nome) return "";
-  const parole = nome.split(" ");
-  return parole.slice(0, 4).join(" ") + (parole.length > 4 ? "..." : "");
-};
-
-const renderStars = (valutazione = 0) => {
-  const stelle = [];
-  const piena = Math.floor(valutazione);
-  const decimale = valutazione - piena;
-
-  const fullStar = (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#facc15" stroke="#eab308" strokeWidth="0.5" className="w-3 h-3" aria-hidden="true">
-      <path d="M10 15l-5.878 3.09 1.122-6.545L.488 6.91l6.561-.954L10 0l2.951 5.956 6.561.954-4.756 4.635 1.122 6.545z" />
-    </svg>
-  );
-
-  const halfStar = (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" className="w-3 h-3" aria-hidden="true">
-      <defs>
-        <linearGradient id="half3d">
-          <stop offset="50%" stopColor="#facc15" />
-          <stop offset="50%" stopColor="#d1d5db" />
-        </linearGradient>
-      </defs>
-      <path fill="url(#half3d)" stroke="#eab308" strokeWidth="0.5" d="M10 15l-5.878 3.09 1.122-6.545L.488 6.91l6.561-.954L10 0l2.951 5.956 6.561.954-4.756 4.635 1.122 6.545z" />
-    </svg>
-  );
-
-  const emptyStar = (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="#d1d5db" stroke="#9ca3af" strokeWidth="0.5" className="w-3 h-3" aria-hidden="true">
-      <path d="M10 15l-5.878 3.09 1.122-6.545L.488 6.91l6.561-.954L10 0l2.951 5.956 6.561.954-4.756 4.635 1.122 6.545z" />
-    </svg>
-  );
-
-  for (let i = 0; i < piena; i++) {
-    stelle.push(React.cloneElement(fullStar, { key: `full-${i}` }));
-  }
-  if (decimale >= 0.25 && decimale < 0.75) {
-    stelle.push(React.cloneElement(halfStar, { key: "half" }));
-  } else if (decimale >= 0.75) {
-    stelle.push(React.cloneElement(fullStar, { key: "roundup" }));
-  }
-  while (stelle.length < 5) {
-    stelle.push(React.cloneElement(emptyStar, { key: `empty-${stelle.length}` }));
-  }
-
-  return stelle;
-};
+import { getPrezzoPerPaese, getStockPerPaese } from "../../utils/gestioneListing";
+import { Package } from "lucide-react";
 
 const ListingHome = ({ prodotti, paese, filtro, totaleProdotti }) => {
   const navigate = useNavigate();
 
   return (
-    <div className="px-4 py-8 max-w-7xl mx-auto">
-      <h2 className="text-2xl font-bold mb-2 text-center text-white">Seleziona un prodotto</h2>
-      <h3 className="text-sm text-gray-300 text-center mb-8">
-        {totaleProdotti} risultati trovati per <strong>{paese}</strong>
-        {filtro && ` con filtro: "${filtro}"`}
-      </h3>
+    <div>
+      <div className="text-sm text-slate-400 mb-4">
+        {totaleProdotti} prodott{totaleProdotti === 1 ? "o" : "i"} per <span className="text-white font-medium">{paese}</span>
+        {filtro && <> con filtro: "<span className="text-cyan-400">{filtro}</span>"</>}
+      </div>
 
-      <div className="flex flex-wrap justify-center gap-6">
-        {prodotti.map((prod) => (
-          <div
-            key={prod.asin}
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              localStorage.setItem("paese", paese);
-              navigate(`/listing/${prod.asin}`);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {prodotti.map((prod) => {
+          const prezzoInfo = getPrezzoPerPaese(prod, paese);
+          const stock = getStockPerPaese(prod, paese);
+
+          return (
+            <button
+              key={prod.asin}
+              onClick={() => {
                 localStorage.setItem("paese", paese);
-                navigate(`/listing/${prod.asin}`);
-              }
-            }}
-            className="bg-white w-[200px] p-4 rounded-lg border border-gray-200 shadow-md hover:shadow-lg transition-shadow duration-200 text-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            aria-label={`Seleziona prodotto ${prod.nome || prod.sku || prod.asin}`}
-          >
-            <div className="w-full h-[130px] flex items-center justify-center bg-gray-100 rounded mb-3">
-              <img
-                src={prod.immagine_main || "/placeholder.jpg"}
-                alt={prod.nome || prod.asin}
-                className="max-h-[100px] object-contain"
-                loading="lazy"
-              />
-            </div>
-            <div className="text-sm font-semibold text-black truncate mb-1" title={prod.nome || prod.sku || prod.asin}>
-              {abbreviaNome(prod.nome || prod.sku || prod.asin)}
-            </div>
-            <div className="text-xs text-gray-600 truncate" title={`SKU: ${prod.sku}`}>
-              SKU: {prod.sku}
-            </div>
-            <div className="text-xs text-gray-600 truncate mb-1" title={`ASIN: ${prod.asin}`}>
-              ASIN: {prod.asin}
-            </div>
-            {prod.prezzo && (
-              <div className="text-green-600 font-bold text-sm mb-1">
-                €{prod.prezzo}
+                navigate(`/uffici/listing/${prod.asin}`);
+              }}
+              type="button"
+              className="group flex flex-col bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden hover:border-slate-700 hover:bg-slate-900 transition-all text-left"
+            >
+              {/* Immagine */}
+              <div className="w-full aspect-square bg-white flex items-center justify-center p-2">
+                {prod.image_url ? (
+                  <img
+                    src={prod.image_url}
+                    alt={prod.product_name || prod.asin}
+                    className="max-h-full max-w-full object-contain"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Package className="w-10 h-10 text-slate-300" />
+                )}
               </div>
-            )}
-            {prod.valutazione && (
-              <div className="text-sm flex justify-center items-center gap-1" aria-label={`Valutazione: ${prod.valutazione} stelle`}>
-                {renderStars(prod.valutazione)}
-                <span className="text-gray-700 text-xs ml-1">
-                  ({prod.valutazione})
-                </span>
+
+              {/* Info */}
+              <div className="px-3 py-2.5 flex-1 flex flex-col">
+                <p className="text-xs text-white font-medium leading-tight line-clamp-2 mb-1.5">
+                  {prod.product_name || prod.asin}
+                </p>
+                <p className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded w-fit mb-1.5">
+                  {prod.asin}
+                </p>
+
+                <div className="mt-auto flex items-center justify-between">
+                  {prezzoInfo ? (
+                    <span className="text-sm font-semibold text-white tabular-nums">
+                      {prezzoInfo.currency === "GBP" ? "\u00A3" : "\u20AC"}{prezzoInfo.prezzo}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500">—</span>
+                  )}
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                    stock > 0
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                      : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                  }`}>
+                    {stock} pz
+                  </span>
+                </div>
+
+                {prezzoInfo?.buybox && (
+                  <span className="mt-1 text-[9px] uppercase tracking-wider text-amber-400 font-medium">BuyBox</span>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

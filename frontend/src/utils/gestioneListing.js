@@ -1,50 +1,63 @@
 // utils/gestioneListing.js
+// Funzioni helper per la pagina Listing — usa dati reali da europa/catalogo
 
 /**
- * Carica i prodotti mock da un file JSON e aggiorna lo stato con setProdotti
- * @param {Function} setProdotti - Funzione di setState di React per aggiornare i prodotti
+ * Carica i prodotti dal catalogo Europa (dati reali SP-API).
+ * @param {Function} setProdotti - setState React
  */
-export const fetchProdottiMock = async (setProdotti) => {
+export const fetchProdotti = async (setProdotti) => {
   try {
-    const response = await fetch("/mock/prodotti-listing.json");
-    const data = await response.json();
-    setProdotti(data);
+    const res = await fetch("/api/v2/europa/catalogo");
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      setProdotti(data);
+    }
   } catch (error) {
-    console.error("❌ Errore nel caricamento dei prodotti:", error);
+    console.error("Errore caricamento catalogo:", error);
   }
 };
 
 /**
- * Filtra i prodotti in base al paese selezionato e al testo di ricerca
- * @param {Array} prodotti - Lista completa dei prodotti
- * @param {string} paese - Paese selezionato (es: "Italia")
- * @param {string} filtro - Testo da cercare in nome, ASIN o SKU
- * @returns {Array} - Lista filtrata
+ * Filtra i prodotti in base al paese selezionato e al testo di ricerca.
+ * I prodotti hanno countries: [{country: "IT", quantity: ...}, ...]
  */
 export const filtraProdotti = (prodotti, paese, filtro) => {
   if (!paese) return [];
 
   return prodotti.filter((p) => {
-    const testo = `${p.nome} ${p.asin} ${p.sku}`.toLowerCase();
-    return testo.includes(filtro.toLowerCase()) && p.marketplaces?.hasOwnProperty(paese);
+    // Verifica che il prodotto sia presente nel paese selezionato
+    const hasCountry = p.countries?.some(c => c.country === paese);
+    if (!hasCountry) return false;
+
+    // Filtro testo
+    if (filtro) {
+      const testo = `${p.product_name || ""} ${p.asin || ""} ${p.sku || ""}`.toLowerCase();
+      if (!testo.includes(filtro.toLowerCase())) return false;
+    }
+
+    return true;
   });
 };
 
 /**
- * Conta i prodotti che hanno un marketplace attivo per uno specifico paese
- * @param {Array} prodotti - Lista completa dei prodotti
- * @param {string} paese - Paese selezionato
- * @returns {number} - Numero di prodotti per il paese selezionato
+ * Conta i prodotti presenti in un dato paese.
  */
 export const contaProdottiPerPaese = (prodotti, paese) => {
-  return prodotti.filter((p) => p.marketplaces?.hasOwnProperty(paese)).length;
+  return prodotti.filter(p => p.countries?.some(c => c.country === paese)).length;
 };
 
 /**
- * Ritorna solo i prodotti che non sono contrassegnati come nascosti
- * @param {Array} prodotti - Lista completa dei prodotti
- * @returns {Array} - Solo prodotti visibili
+ * Ottieni il prezzo per un prodotto in un dato paese.
  */
-export const prodottiVisibili = (prodotti) => {
-  return prodotti.filter((p) => !p.nascosto);
+export const getPrezzoPerPaese = (prodotto, paese) => {
+  const p = prodotto.prezzi?.find(pr => pr.country === paese);
+  return p ? { prezzo: p.prezzo, currency: p.currency || "EUR", buybox: p.buybox_won } : null;
+};
+
+/**
+ * Ottieni lo stock per un prodotto in un dato paese.
+ */
+export const getStockPerPaese = (prodotto, paese) => {
+  const c = prodotto.countries?.find(co => co.country === paese);
+  return c ? c.quantity : 0;
 };
