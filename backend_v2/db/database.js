@@ -487,6 +487,40 @@ function runMigrations(db) {
     console.log("🔧 Migrazione: aggiunta colonna quantita_ricevuta a ordini_fornitori");
   }
 
+  // ===== PRODUZIONI_SFUSO: FK CASCADE se mancante =====
+  try {
+    const prodSfusoSchema = db.prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='produzioni_sfuso'"
+    ).get();
+    if (prodSfusoSchema?.sql && !prodSfusoSchema.sql.includes("CASCADE")) {
+      db.pragma("foreign_keys = OFF");
+      const cols = db.pragma("table_info(produzioni_sfuso)").map(c => c.name);
+      const colList = cols.join(", ");
+      db.exec("DROP TABLE IF EXISTS produzioni_sfuso_cascade");
+      db.exec(`CREATE TABLE produzioni_sfuso_cascade (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_sfuso INTEGER NOT NULL,
+        asin_prodotto TEXT, nome_prodotto TEXT, formato TEXT,
+        stato TEXT DEFAULT 'Pianificata', note TEXT,
+        prodotti INTEGER DEFAULT 0,
+        data_creazione TEXT DEFAULT (datetime('now')),
+        data_inizio TEXT, data_fine TEXT, gruppo_fifo TEXT,
+        operatore TEXT DEFAULT 'system',
+        quantita INTEGER DEFAULT 0, quantita_iniziale INTEGER DEFAULT 0,
+        quantita_finale INTEGER DEFAULT 0, litri_usati REAL DEFAULT 0,
+        data_effettiva TEXT,
+        quantita_finale_old INTEGER DEFAULT 0, litri_usati_old REAL DEFAULT 0,
+        lotto TEXT,
+        FOREIGN KEY(id_sfuso) REFERENCES sfuso(id) ON UPDATE CASCADE ON DELETE CASCADE
+      )`);
+      db.exec(`INSERT INTO produzioni_sfuso_cascade (${colList}) SELECT ${colList} FROM produzioni_sfuso`);
+      db.exec("DROP TABLE produzioni_sfuso");
+      db.exec("ALTER TABLE produzioni_sfuso_cascade RENAME TO produzioni_sfuso");
+      db.pragma("foreign_keys = ON");
+      console.log("🔧 Migrazione: FK CASCADE aggiunta a produzioni_sfuso");
+    }
+  } catch (e) { console.warn("⚠️ Migrazione FK CASCADE produzioni_sfuso:", e.message); }
+
   // ===== PRODOTTI: aggiungi soglia_minima se mancante =====
   const colsProdotti = db.pragma("table_info(prodotti)");
   if (colsProdotti.length > 0 && !colsProdotti.some(c => c.name === "soglia_minima")) {
