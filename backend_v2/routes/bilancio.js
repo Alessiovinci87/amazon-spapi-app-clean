@@ -112,6 +112,77 @@ router.get("/catalogo/dettagli", (req, res) => {
 });
 
 // ========================================
+// POST /catalogo — salva/aggiorna costo unitario
+// ========================================
+router.post("/catalogo", (req, res) => {
+  try {
+    const db = getDb();
+    const { tipo, id_riferimento, costo, note } = req.body;
+
+    if (!tipo || id_riferimento == null || costo == null) {
+      return res.status(400).json({ ok: false, error: "tipo, id_riferimento e costo sono obbligatori" });
+    }
+
+    db.prepare(`
+      INSERT INTO bilancio_catalogo (tipo, id_riferimento, costo, note)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(tipo, id_riferimento)
+      DO UPDATE SET costo = excluded.costo, note = excluded.note
+    `).run(tipo, id_riferimento, Number(costo), note || null);
+
+    res.json({ ok: true, message: "Costo salvato" });
+  } catch (err) {
+    console.error("Errore POST catalogo:", err);
+    res.status(500).json({ ok: false, error: "Errore nel salvataggio del costo" });
+  }
+});
+
+// ========================================
+// POST /movimenti — registra movimento economico
+// ========================================
+router.post("/movimenti", (req, res) => {
+  try {
+    const db = getDb();
+    const { categoria, importo, tipo_riferimento, id_riferimento, descrizione, operatore } = req.body;
+
+    if (!categoria || importo == null) {
+      return res.status(400).json({ ok: false, error: "categoria e importo sono obbligatori" });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO bilancio_movimenti (categoria, importo, tipo_riferimento, id_riferimento, descrizione, operatore)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      categoria,
+      Number(importo),
+      tipo_riferimento || null,
+      id_riferimento || null,
+      descrizione || null,
+      operatore || "admin"
+    );
+
+    res.json({ ok: true, id: result.lastInsertRowid, message: "Movimento registrato" });
+  } catch (err) {
+    console.error("Errore POST movimenti:", err);
+    res.status(500).json({ ok: false, error: "Errore nella registrazione del movimento" });
+  }
+});
+
+// ========================================
+// DELETE /movimenti/:id — elimina movimento
+// ========================================
+router.delete("/movimenti/:id", (req, res) => {
+  try {
+    const db = getDb();
+    const result = db.prepare("DELETE FROM bilancio_movimenti WHERE id = ?").run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ ok: false, error: "Movimento non trovato" });
+    res.json({ ok: true, message: "Movimento eliminato" });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: "Errore eliminazione movimento" });
+  }
+});
+
+// ========================================
 // POST /catalogo/popola
 // ========================================
 router.post("/catalogo/popola", (req, res) => {

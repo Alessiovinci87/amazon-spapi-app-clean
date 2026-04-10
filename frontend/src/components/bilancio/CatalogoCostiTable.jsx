@@ -1,169 +1,123 @@
-import React, { useEffect, useState } from "react";
-import { fetchJSON, API_BASE } from "../../utils/api";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import ModaleModificaCosto from "./ModaleModificaCosto";
-
 export default function CatalogoCostiTable() {
-    const [righe, setRighe] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [savingId, setSavingId] = useState(null);
+  const [righe, setRighe] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState(null);
 
-    const [modale, setModale] = useState(null);
+  async function loadData() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v2/bilancio/catalogo/dettagli");
+      const json = await res.json();
+      if (json.ok) setRighe(json.data);
+    } catch (err) { console.error("Errore load:", err); }
+    setLoading(false);
+  }
 
-    // ============================
-    // 1️⃣ CARICA I DATI
-    // ============================
-    async function loadData() {
-        setLoading(true);
-        try {
-            const res = await fetchJSON(`${API_BASE}/bilancio/catalogo/dettagli`);
-            if (res.ok) setRighe(res.data);
-        } catch (err) {
-            console.error("Errore load:", err);
-        }
-        setLoading(false);
-    }
+  useEffect(() => { loadData(); }, []);
 
-    // Load on mount
-    useEffect(() => {
+  async function salvaCosto(riga) {
+    setSavingId(`${riga.tipo}-${riga.id_riferimento}`);
+    try {
+      const res = await fetch("/api/v2/bilancio/catalogo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipo: riga.tipo, id_riferimento: riga.id_riferimento, costo: riga.costo_unitario, note: riga.note }),
+      });
+      const json = await res.json();
+      if (json.ok) toast.success("Costo salvato");
+      else toast.error("Errore salvataggio");
+    } catch { toast.error("Errore salvataggio"); }
+    setSavingId(null);
+    loadData();
+  }
+
+  async function popola() {
+    try {
+      const res = await fetch("/api/v2/bilancio/catalogo/popola", { method: "POST" });
+      const json = await res.json();
+      if (json.ok) {
+        toast.success(`Catalogo popolato: ${json.inseriti} nuovi, ${json.gia} esistenti`);
         loadData();
-    }, []);
+      }
+    } catch { toast.error("Errore popolamento"); }
+  }
 
-    // ============================
-    // 2️⃣ SALVA UN SINGOLO COSTO
-    // ============================
-    async function salvaCosto(riga) {
-        setSavingId(riga.id_riferimento);
+  if (loading) return <p className="text-sm text-slate-500">Caricamento...</p>;
 
-        const payload = {
-            tipo: riga.tipo,
-            id_riferimento: riga.id_riferimento,
-            costo: riga.costo_unitario,
-            note: riga.note,
-        };
+  const tipoColor = { prodotto: "text-emerald-400", accessorio: "text-amber-400", sfuso: "text-blue-400" };
 
-        try {
-            const res = await fetch(`${API_BASE}/bilancio/catalogo`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <button onClick={popola} type="button" className="px-3 py-1.5 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 text-violet-300 text-[11px] font-medium transition-all">
+          Popola catalogo
+        </button>
+      </div>
 
-            const out = await res.json();
-            if (!out.ok) {
-                toast.error("Errore salvataggio");
-            }
-        } catch (err) {
-            toast.error("Errore salvataggio");
-        }
-
-        setSavingId(null);
-        loadData();
-    }
-
-    if (loading) return <p>Caricamento...</p>;
-
-    return (
-        <div className="p-4">
-            <h2 className="text-xl font-bold mb-3">Catalogo Costi</h2>
-
-            <table className="w-full border-collapse">
-                <thead>
-                    <tr className="bg-dark-200">
-                        <th className="border p-2">Tipo</th>
-                        <th className="border p-2">Nome</th>
-                        <th className="border p-2">Q.ta</th>
-                        <th className="border p-2">Costo</th>
-                        <th className="border p-2">Valore</th>
-                        <th className="border p-2">Note</th>
-                        <th className="border p-2"></th>
-                    </tr>
-                </thead>
-
-                <tbody>
-                    {righe.map((r) => (
-                        <tr key={`${r.tipo}-${r.id_riferimento}`} className="border">
-                            <td className="border p-2">{r.tipo}</td>
-                            <td className="border p-2">{r.nome}</td>
-
-                            <td className="border p-2 text-center">{r.quantita_disponibile}</td>
-
-                            {/* Costo */}
-                            <td className="border p-2">
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={r.costo_unitario}
-                                    onChange={(e) => {
-                                        const value = Number(e.target.value);
-                                        setRighe((prev) =>
-                                            prev.map((x) =>
-                                                x.tipo === r.tipo && x.id_riferimento === r.id_riferimento
-                                                    ? { ...x, costo_unitario: value }
-                                                    : x
-                                            )
-                                        );
-                                    }}
-                                    className="w-20 border rounded px-1"
-                                />
-                            </td>
-
-                            {/* VALORE TOTALE CALCOLATO */}
-                            <td className="border p-2">
-                                {(r.costo_unitario * r.quantita_disponibile).toFixed(2)} €
-                            </td>
-
-                            {/* NOTE */}
-                            <td className="border p-2">
-                                <input
-                                    type="text"
-                                    value={r.note || ""}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        setRighe((prev) =>
-                                            prev.map((x) =>
-                                                x.tipo === r.tipo && x.id_riferimento === r.id_riferimento
-                                                    ? { ...x, note: value }
-                                                    : x
-                                            )
-                                        );
-                                    }}
-                                    className="w-full border rounded px-1"
-                                />
-                            </td>
-
-                            {/* SALVA */}
-                            <td className="border p-2 flex gap-2">
-
-                                <button
-                                    onClick={() => salvaCosto(r)}
-                                    className="bg-blue-600 text-white px-3 py-1 rounded"
-                                    disabled={savingId === r.id_riferimento}
-                                >
-                                    {savingId === r.id_riferimento ? "..." : "Salva"}
-                                </button>
-
-                                <button
-                                    onClick={() => setModale(r)}
-                                    className="bg-purple-600 text-white px-3 py-1 rounded"
-                                >
-                                    Modifica
-                                </button>
-
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-            {modale && (
-  <ModaleModificaCosto
-    riga={modale}
-    onClose={() => setModale(null)}
-    onUpdate={loadData}
-  />
-)}
+      {righe.length === 0 ? (
+        <p className="text-sm text-slate-500 text-center py-6">Nessun elemento nel catalogo. Clicca "Popola catalogo" per iniziare.</p>
+      ) : (
+        <div className="overflow-x-auto border border-slate-800 rounded-lg">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-slate-900/80 border-b border-slate-800">
+                <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider text-slate-500">Tipo</th>
+                <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider text-slate-500">Nome</th>
+                <th className="px-3 py-2.5 text-right text-[10px] uppercase tracking-wider text-slate-500">Q.ta</th>
+                <th className="px-3 py-2.5 text-right text-[10px] uppercase tracking-wider text-slate-500">Costo unit.</th>
+                <th className="px-3 py-2.5 text-right text-[10px] uppercase tracking-wider text-slate-500">Valore</th>
+                <th className="px-3 py-2.5 text-left text-[10px] uppercase tracking-wider text-slate-500">Note</th>
+                <th className="px-3 py-2.5 w-20"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60">
+              {righe.map(r => {
+                const key = `${r.tipo}-${r.id_riferimento}`;
+                return (
+                  <tr key={key} className="hover:bg-slate-800/20 transition-colors">
+                    <td className={`px-3 py-2 text-xs font-medium capitalize ${tipoColor[r.tipo] || "text-slate-400"}`}>{r.tipo}</td>
+                    <td className="px-3 py-2 text-sm text-white">{r.nome}</td>
+                    <td className="px-3 py-2 text-sm text-slate-300 tabular-nums text-right">{r.quantita_disponibile}</td>
+                    <td className="px-3 py-2 text-right">
+                      <input
+                        type="number" step="0.01"
+                        value={r.costo_unitario}
+                        onChange={e => setRighe(prev => prev.map(x => x.tipo === r.tipo && x.id_riferimento === r.id_riferimento ? { ...x, costo_unitario: Number(e.target.value) } : x))}
+                        className="w-20 bg-slate-800/60 border border-slate-700 rounded px-2 py-1 text-xs text-white text-right tabular-nums focus:outline-none focus:border-violet-500/50"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-sm text-emerald-400 font-medium tabular-nums text-right">
+                      {"\u20AC"} {(r.costo_unitario * r.quantita_disponibile).toFixed(2)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        type="text"
+                        value={r.note || ""}
+                        onChange={e => setRighe(prev => prev.map(x => x.tipo === r.tipo && x.id_riferimento === r.id_riferimento ? { ...x, note: e.target.value } : x))}
+                        placeholder="—"
+                        className="w-full bg-transparent border-none text-xs text-slate-400 focus:outline-none focus:text-white placeholder-slate-600"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        onClick={() => salvaCosto(r)}
+                        disabled={savingId === key}
+                        type="button"
+                        className="px-2.5 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-medium transition-all disabled:opacity-50"
+                      >
+                        {savingId === key ? "..." : "Salva"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-        
-    );
+      )}
+    </div>
+  );
 }

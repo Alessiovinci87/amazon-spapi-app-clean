@@ -1,70 +1,114 @@
-import React from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  DollarSign,
+  Calculator,
+  Receipt,
+} from "lucide-react";
 
 import CatalogoCostiTable from "../components/bilancio/CatalogoCostiTable";
 import RiepilogoValori from "../components/bilancio/RiepilogoValori";
 import MovimentiTable from "../components/bilancio/MovimentiTable";
 
 const GestioneBilancio = () => {
-    return (
+  const navigate = useNavigate();
 
-        <div className="min-h-screen bg-zinc-950 text-white p-8">
+  return (
+    <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
+      <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-
-            <h1 className="text-4xl font-bold mb-6">Gestione Bilancio</h1>
-            <p className="text-zinc-400 mb-10">
-                Analisi completa del valore del magazzino, dei costi e dei movimenti economici.
-            </p>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-                {/* ===================== DASHBOARD VALORE MAGAZZINO ===================== */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                    <h2 className="text-2xl font-semibold mb-4">Dashboard Valore Magazzino</h2>
-                    <p className="text-zinc-400 mb-4">
-                        Qui verranno mostrati i valori di prodotti, sfuso e accessori.
-                    </p>
-
-                    <div className="space-y-3">
-                        <RiepilogoValori />
-                    </div>
-                </div>
-
-                {/* ========================== CATALOGO COSTI ========================== */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                    <h2 className="text-2xl font-semibold mb-4">Catalogo Costi</h2>
-                    <p className="text-zinc-400 mb-4">
-                        Inserisci o modifica i costi unitari di prodotti, accessori e sfuso.
-                    </p>
-
-                    <div className="p-6 bg-zinc-800 rounded-lg border border-zinc-700">
-                        <CatalogoCostiTable />
-                    </div>
-                </div>
-
-                {/* ======================== MOVIMENTI ECONOMICI ======================== */}
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                    <h2 className="text-2xl font-semibold mb-4">Movimenti Economici</h2>
-                    <p className="text-zinc-400 mb-4">
-                        Registra spese, acquisti, rettifiche e costi operativi.
-                    </p>
-
-                    <div className="space-y-3">
-                        <div className="p-4 bg-zinc-800 rounded-lg border border-zinc-700">
-                            <p className="font-semibold mb-3">Registro Movimenti</p>
-                            <MovimentiTable />
-                        </div>
-
-                        <div className="p-4 bg-zinc-800 rounded-lg border border-zinc-700">
-                            <p className="font-semibold">Aggiungi Movimento</p>
-                            <p className="text-zinc-400 text-sm">In arrivo…</p>
-                        </div>
-                    </div>
-                </div>
-
+      {/* === Top bar === */}
+      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button onClick={() => navigate(-1)} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+              <DollarSign className="w-[18px] h-[18px] text-emerald-400" />
             </div>
-
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Nexus</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Gestione Bilancio</span>
+            </div>
+          </div>
         </div>
-    );
+      </header>
+
+      {/* === Hero === */}
+      <section className="relative">
+        <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Bilancio</div>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
+            Valore magazzino <span className="text-slate-500">— costi e movimenti.</span>
+          </h1>
+        </div>
+      </section>
+
+      {/* === Content === */}
+      <main className="relative flex-1 px-6 sm:px-10 lg:px-16 pb-12 space-y-8">
+
+        {/* Riepilogo valori */}
+        <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/60" />
+          <div className="px-5 sm:px-6 py-5">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-md border bg-emerald-500/10 border-emerald-500/30 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Dashboard</div>
+                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Valore Magazzino</h2>
+              </div>
+            </div>
+            <RiepilogoValori />
+          </div>
+        </div>
+
+        {/* Catalogo costi */}
+        <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-400/60" />
+          <div className="px-5 sm:px-6 py-5">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-md border bg-violet-500/10 border-violet-500/30 flex items-center justify-center flex-shrink-0">
+                <Calculator className="w-4 h-4 text-violet-400" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Catalogo</div>
+                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Costi Unitari</h2>
+              </div>
+            </div>
+            <CatalogoCostiTable />
+          </div>
+        </div>
+
+        {/* Movimenti economici */}
+        <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400/60" />
+          <div className="px-5 sm:px-6 py-5">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-8 h-8 rounded-md border bg-cyan-500/10 border-cyan-500/30 flex items-center justify-center flex-shrink-0">
+                <Receipt className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Registro</div>
+                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Movimenti Economici</h2>
+              </div>
+            </div>
+            <MovimentiTable />
+          </div>
+        </div>
+      </main>
+
+      {/* === Footer === */}
+      <footer className="relative border-t border-slate-800 bg-slate-900/40">
+        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
+          <span>&copy; {new Date().getFullYear()} Nexus &middot; Bilancio</span>
+          <span className="font-mono">v2.0</span>
+        </div>
+      </footer>
+    </div>
+  );
 };
 
 export default GestioneBilancio;
