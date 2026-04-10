@@ -26,9 +26,24 @@ const buildUrl = (endpoint = "") => {
 
 console.log("🌍 API_BASE in uso:", API_BASE);
 
+/**
+ * Ritorna gli headers con Authorization JWT se presente in localStorage.
+ */
+function getAuthHeaders(extra = {}) {
+  const token = localStorage.getItem("nexus_token");
+  const headers = { ...extra };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export async function fetchJSON(endpoint, options = {}) {
   const url = buildUrl(endpoint);
   console.log("📡 Fetch JSON →", url);
+
+  // Inietta automaticamente il token JWT
+  options.headers = getAuthHeaders(options.headers || {});
 
   const res = await fetch(url, options);
   if (!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);

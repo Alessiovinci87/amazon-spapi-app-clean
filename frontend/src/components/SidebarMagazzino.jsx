@@ -10,6 +10,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import clsx from "clsx";
+import { useAuth } from "../context/AuthContext";
 
 const MENU = [
   { to: "/magazzino", label: "Home Magazzino", icon: Warehouse },
@@ -28,11 +29,12 @@ const MENU = [
 const SidebarMagazzino = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [hovering, setHovering] = useState(false);
   const isActive = (to) => location.pathname === to;
 
   const handleBackToHome = () => {
-    localStorage.removeItem("auth");
+    logout();
     navigate("/");
   };
 

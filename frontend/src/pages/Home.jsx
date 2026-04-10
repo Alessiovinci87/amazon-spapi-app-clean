@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
 
 import {
   ShoppingCart,
@@ -24,39 +25,53 @@ import {
   Sparkles,
   Home as HomeIcon,
   LogOut,
+  User,
 } from "lucide-react";
 
 const Home = () => {
   const navigate = useNavigate();
+  const { login, logout, user, isAuthenticated, loading } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const [isMagazzino, setIsMagazzino] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
- 
+  // Se già autenticato, reindirizza in base al ruolo
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.ruolo === "magazzino") {
+        setIsMagazzino(true);
+      }
+    }
+  }, []);
 
-  const handleAmazonAccess = () => {
-    localStorage.clear();
-    localStorage.setItem("auth", "amazon");
-    localStorage.setItem("role", "ufficio");
-    navigate("/dashboard");
-  };
-
-  const handleMagazzinoAccess = () => {
-    localStorage.clear();
-    localStorage.setItem("auth", "magazzino");
-    localStorage.setItem("role", "magazzino");
-    setIsMagazzino(true);
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    try {
+      const loggedUser = await login(username, password);
+      if (loggedUser.ruolo === "magazzino") {
+        setIsMagazzino(true);
+        setShowLogin(false);
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      setError(err.message || "Errore di autenticazione.");
+    }
   };
 
   // 🔹 Funzione per tornare alla selezione iniziale
   const handleBackToSelection = () => {
-    localStorage.removeItem("auth");
-    localStorage.removeItem("role");
+    logout();
     setIsMagazzino(false);
     setShowLogin(false);
+    setUsername("");
+    setPassword("");
+    setError("");
   };
 
   const containerVariants = {
@@ -168,7 +183,7 @@ const Home = () => {
 
               <div className="space-y-3">
                 <button
-                  onClick={handleMagazzinoAccess}
+                  onClick={() => setShowLogin(true)}
                   className="group w-full flex items-center gap-4 px-5 py-4 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-lg transition-all text-left"
                 >
                   <div className="w-10 h-10 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5 transition-colors">
@@ -195,11 +210,11 @@ const Home = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-white">Amazon SP-API</span>
-                      <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700">Ufficio</span>
+                      <span className="text-sm font-medium text-white">Ufficio / Admin</span>
+                      <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700">Login</span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 truncate">
-                      Dashboard, analytics, gestione marketplace
+                      Dashboard, analytics, gestione completa
                     </p>
                   </div>
                   <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
@@ -423,9 +438,9 @@ const Home = () => {
 
               <div className="mt-10 grid grid-cols-3 gap-px bg-slate-800 border border-slate-800 rounded-lg overflow-hidden max-w-md">
                 {[
-                  { k: "Auth", v: "Password" },
-                  { k: "Sessione", v: "Locale" },
-                  { k: "Ruolo", v: "Ufficio" },
+                  { k: "Auth", v: "JWT" },
+                  { k: "Sessione", v: "8 ore" },
+                  { k: "Ruoli", v: "3 livelli" },
                 ].map((x) => (
                   <div key={x.k} className="bg-slate-900 px-3 py-3 text-center">
                     <div className="text-[11px] uppercase tracking-wider text-slate-500">{x.k}</div>
@@ -459,7 +474,7 @@ const Home = () => {
                     Accedi al tuo account
                   </h2>
                   <p className="text-sm text-slate-500 mt-2">
-                    Inserisci la password per accedere alla dashboard.
+                    Inserisci le credenziali per accedere alla piattaforma.
                   </p>
                 </div>
                 <button
@@ -476,9 +491,26 @@ const Home = () => {
               </div>
 
               <form
-                onSubmit={(e) => { e.preventDefault(); handleAmazonAccess(); }}
-                className="space-y-5"
+                onSubmit={handleLogin}
+                className="space-y-4"
               >
+                <div>
+                  <label className="block text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
+                    Username
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      autoFocus
+                      className="w-full px-4 py-3 pl-11 rounded-md bg-slate-900 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-all text-sm"
+                      placeholder="admin"
+                    />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
                     Password
@@ -488,7 +520,6 @@ const Home = () => {
                       type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      autoFocus
                       className="w-full px-4 py-3 pr-11 rounded-md bg-slate-900 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 transition-all text-sm"
                       placeholder="••••••••"
                     />
@@ -515,11 +546,12 @@ const Home = () => {
 
                 <button
                   type="submit"
-                  className="group w-full flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 hover:border-indigo-400/60 text-indigo-300 hover:text-indigo-200 rounded-md px-4 py-3 text-sm font-medium transition-all"
+                  disabled={loading}
+                  className="group w-full flex items-center justify-center gap-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/40 hover:border-indigo-400/60 text-indigo-300 hover:text-indigo-200 rounded-md px-4 py-3 text-sm font-medium transition-all disabled:opacity-50"
                 >
                   <LogIn className="w-4 h-4" />
-                  Accedi alla dashboard
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  {loading ? "Accesso in corso…" : "Accedi"}
+                  {!loading && <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />}
                 </button>
               </form>
 

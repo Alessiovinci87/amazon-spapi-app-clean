@@ -5,7 +5,7 @@ const { getDb } = require("../db/database");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
 const { registraStoricoProduzione } = require("../services/storicoProduzioniSfuso.service");
 const { impegnaAccessori, rilasciaImpegno, scalaAccessori } = require("../services/accessoriImpegno.service");
-const { checkSottoSogliaSfuso, checkSfusoCopertura } = require("../services/stockAlerts.service");
+const { checkSottoSogliaSfuso, checkSfusoCopertura, checkScadenzaLotto } = require("../services/stockAlerts.service");
 
 
 
@@ -31,6 +31,43 @@ router.get("/", (req, res) => {
   } catch (err) {
     console.error("❌ Errore GET /sfuso:", err);
     res.status(500).json({ error: "Errore nel recupero sfuso" });
+  }
+});
+
+// ===============================
+// GET scadenze lotti — lista lotti con data scadenza
+// ===============================
+router.get("/scadenze", (req, res) => {
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT id, formato, lotto, lotto_old, data_scadenza, pao_mesi,
+             litri_disponibili, litri_disponibili_old, updated_at
+      FROM sfuso
+      WHERE data_scadenza IS NOT NULL OR pao_mesi IS NOT NULL
+      ORDER BY data_scadenza ASC
+    `).all();
+
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+
+    const result = rows.map(r => {
+      let giorniRimanenti = null;
+      let stato = "ok";
+      if (r.data_scadenza) {
+        const scadenza = new Date(r.data_scadenza);
+        scadenza.setHours(0, 0, 0, 0);
+        giorniRimanenti = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+        if (giorniRimanenti <= 0) stato = "scaduto";
+        else if (giorniRimanenti <= 30) stato = "in_scadenza";
+      }
+      return { ...r, giorniRimanenti, stato };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error("❌ Errore GET /sfuso/scadenze:", err);
+    res.status(500).json({ error: "Errore nel recupero scadenze lotti" });
   }
 });
 
@@ -991,6 +1028,21 @@ router.patch("/:id", (req, res) => {
         null
       );
 
+      updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
+    }
+
+    // 🔹 Rettifica data_scadenza
+    if (campo === "data_scadenza") {
+      db.prepare("UPDATE sfuso SET data_scadenza = ?, updated_at = datetime('now','localtime') WHERE id = ?").run(nuovoValore || null, id);
+      updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
+      // Ricalcola alert scadenza
+      checkScadenzaLotto(db, id);
+    }
+
+    // 🔹 Rettifica PAO (mesi)
+    if (campo === "pao_mesi") {
+      const pao = parseInt(nuovoValore, 10);
+      db.prepare("UPDATE sfuso SET pao_mesi = ?, updated_at = datetime('now','localtime') WHERE id = ?").run(isNaN(pao) ? null : pao, id);
       updated = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
     }
 

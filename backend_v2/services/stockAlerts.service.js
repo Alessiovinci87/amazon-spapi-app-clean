@@ -145,6 +145,88 @@ function checkSfusoCopertura(db) {
   } catch (e) { console.warn("⚠️ checkSfusoCopertura:", e.message); return 0; }
 }
 
+// ─────────────────────────────────────────────────────────────────
+// SCADENZA LOTTI: verifica se un lotto sfuso è in scadenza
+// Alert generato se mancano meno di GIORNI_PREAVVISO alla scadenza
+// ─────────────────────────────────────────────────────────────────
+const GIORNI_PREAVVISO_SCADENZA = 30;
+
+function checkScadenzaLotto(db, sfusoId) {
+  try {
+    const row = db.prepare(
+      "SELECT id, formato, lotto, data_scadenza, litri_disponibili FROM sfuso WHERE id = ?"
+    ).get(sfusoId);
+    if (!row || !row.data_scadenza || !row.lotto) return;
+
+    const source = "lotto_scadenza";
+    const asin = String(row.id);
+    const scadenza = new Date(row.data_scadenza);
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+    scadenza.setHours(0, 0, 0, 0);
+
+    const giorniRimanenti = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+
+    if (giorniRimanenti <= 0) {
+      // Scaduto
+      const existing = db.prepare(
+        "SELECT id FROM alert_events WHERE asin = ? AND tipo = 'LOTTO_SCADUTO' AND letto = 0 AND source = ?"
+      ).get(asin, source);
+      if (!existing) {
+        const messaggio = `[Sfuso ${row.formato}] Lotto ${row.lotto} SCADUTO il ${row.data_scadenza} — ${row.litri_disponibili}L rimanenti`;
+        db.prepare(
+          "INSERT INTO alert_events (asin, tipo, messaggio, valore_attuale, valore_precedente, source, nome) VALUES (?, 'LOTTO_SCADUTO', ?, ?, ?, ?, ?)"
+        ).run(asin, messaggio, String(giorniRimanenti), row.data_scadenza, source, `Lotto ${row.lotto}`);
+      }
+      // Auto-clear alert "in scadenza" se presente
+      db.prepare(
+        "UPDATE alert_events SET letto = 1 WHERE asin = ? AND tipo = 'LOTTO_IN_SCADENZA' AND letto = 0 AND source = ?"
+      ).run(asin, source);
+    } else if (giorniRimanenti <= GIORNI_PREAVVISO_SCADENZA) {
+      // In scadenza
+      const existing = db.prepare(
+        "SELECT id FROM alert_events WHERE asin = ? AND tipo = 'LOTTO_IN_SCADENZA' AND letto = 0 AND source = ?"
+      ).get(asin, source);
+      if (!existing) {
+        const messaggio = `[Sfuso ${row.formato}] Lotto ${row.lotto} scade tra ${giorniRimanenti} giorni (${row.data_scadenza}) — ${row.litri_disponibili}L rimanenti`;
+        db.prepare(
+          "INSERT INTO alert_events (asin, tipo, messaggio, valore_attuale, valore_precedente, source, nome) VALUES (?, 'LOTTO_IN_SCADENZA', ?, ?, ?, ?, ?)"
+        ).run(asin, messaggio, String(giorniRimanenti), row.data_scadenza, source, `Lotto ${row.lotto}`);
+      }
+    } else {
+      // Lontano dalla scadenza → auto-clear
+      db.prepare(
+        "UPDATE alert_events SET letto = 1 WHERE asin = ? AND tipo IN ('LOTTO_IN_SCADENZA', 'LOTTO_SCADUTO') AND letto = 0 AND source = ?"
+      ).run(asin, source);
+    }
+  } catch (e) { console.warn("⚠️ checkScadenzaLotto:", e.message); }
+}
+
+function checkScadenzeTuttiLotti(db) {
+  try {
+    const sfusoRows = db.prepare(
+      "SELECT id FROM sfuso WHERE data_scadenza IS NOT NULL AND lotto IS NOT NULL"
+    ).all();
+    let inScadenza = 0;
+    let scaduti = 0;
+    for (const row of sfusoRows) {
+      checkScadenzaLotto(db, row.id);
+      // Conta per stats
+      const scadenza = new Date(db.prepare("SELECT data_scadenza FROM sfuso WHERE id = ?").get(row.id).data_scadenza);
+      const oggi = new Date();
+      oggi.setHours(0, 0, 0, 0);
+      scadenza.setHours(0, 0, 0, 0);
+      const giorni = Math.ceil((scadenza - oggi) / (1000 * 60 * 60 * 24));
+      if (giorni <= 0) scaduti++;
+      else if (giorni <= GIORNI_PREAVVISO_SCADENZA) inScadenza++;
+    }
+    return { scansionati: sfusoRows.length, inScadenza, scaduti };
+  } catch (e) {
+    console.warn("⚠️ checkScadenzeTuttiLotti:", e.message);
+    return { scansionati: 0, inScadenza: 0, scaduti: 0 };
+  }
+}
+
 function checkSottoSogliaModulo(db, modulo_id, asin) {
   try {
     const m = db.prepare("SELECT slug, label FROM moduli_custom WHERE id = ?").get(modulo_id);
@@ -172,6 +254,7 @@ function rigeneraAlertSottoSoglia(db) {
     accessori:  { scansionati: 0, sottoSoglia: 0 },
     sfuso:      { scansionati: 0, sottoSoglia: 0 },
     sfusoCopertura: { scansionati: 0, insufficienti: 0 },
+    lottiScadenza:  { scansionati: 0, inScadenza: 0, scaduti: 0 },
   };
 
   // Conta gli alert STOCK_LOW non letti prima e dopo per misurare le modifiche
@@ -266,9 +349,14 @@ function rigeneraAlertSottoSoglia(db) {
         if (insuff) stats.sfusoCopertura.insufficienti++;
       }
     } catch (e) { console.warn("⚠️ rigenera sfuso copertura:", e.message); }
+
+    // ── Scadenze lotti ────────────────────────────────────────
+    try {
+      stats.lottiScadenza = checkScadenzeTuttiLotti(db);
+    } catch (e) { console.warn("⚠️ rigenera scadenze lotti:", e.message); }
   })();
 
-  stats.totaleScansionati = stats.prodotti.scansionati + stats.onestep.scansionati + stats.topcoat.scansionati + stats.moduli.scansionati + stats.accessori.scansionati + stats.sfuso.scansionati + stats.sfusoCopertura.scansionati;
+  stats.totaleScansionati = stats.prodotti.scansionati + stats.onestep.scansionati + stats.topcoat.scansionati + stats.moduli.scansionati + stats.accessori.scansionati + stats.sfuso.scansionati + stats.sfusoCopertura.scansionati + stats.lottiScadenza.scansionati;
   const apertiDopo = countOpen();
   stats.alertAperti = { prima: apertiPrima, dopo: apertiDopo, delta: apertiDopo - apertiPrima };
 
@@ -283,5 +371,7 @@ module.exports = {
   checkSottoSogliaAccessori,
   checkSottoSogliaSfuso,
   checkSfusoCopertura,
+  checkScadenzaLotto,
+  checkScadenzeTuttiLotti,
   rigeneraAlertSottoSoglia,
 };

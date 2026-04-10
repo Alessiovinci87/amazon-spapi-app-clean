@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider } from './context/AuthContext';
 import './custom.css';
 import './App.css';
 import App from './App.jsx';
@@ -10,10 +11,12 @@ import App from './App.jsx';
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <ThemeProvider>
-        <App />
-        <Toaster position="top-right" richColors closeButton />
-      </ThemeProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <App />
+          <Toaster position="top-right" richColors closeButton />
+        </ThemeProvider>
+      </AuthProvider>
     </BrowserRouter>
   </StrictMode>
 );

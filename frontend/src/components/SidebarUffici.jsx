@@ -24,6 +24,7 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import clsx from "clsx";
+import { useAuth } from "../context/AuthContext";
 
 const MENU = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -69,8 +70,9 @@ const SidebarUffici = () => {
   const [hovering, setHovering] = useState(false);
   const isActive = (to) => location.pathname === to;
 
+  const { logout } = useAuth();
   const handleBackToHome = () => {
-    localStorage.removeItem("auth");
+    logout();
     navigate("/");
   };
 

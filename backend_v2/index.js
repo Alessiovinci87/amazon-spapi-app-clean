@@ -87,6 +87,12 @@ const appAuthRoutes = require("./routes/appAuth");
 
 const scatoletteRoutes = require("./routes/scatolette");
 
+// --- Auth App (JWT)
+const authAppRoutes = require("./routes/authRoutes");
+
+// --- Backup
+const backupRoutes = require("./modules/backup/backupRoutes");
+
 
 
 // =========================================================
@@ -257,7 +263,17 @@ async function bootstrap() {
   app.use("/api/v2/config", configRoutes);
   app.use("/api/v2/app-auth", appAuthRoutes);
 
+  // =========================================================
+  // 🔐 AUTH JWT (login, utenti, profilo)
+  // =========================================================
+  app.use("/api/v2/auth-app", authAppRoutes);
+
   app.use("/api/statistiche", require("./routes/statistiche"));
+
+  // =========================================================
+  // 💾 BACKUP DB
+  // =========================================================
+  app.use("/api/v2/backup", backupRoutes);
 
 
   
@@ -298,6 +314,10 @@ async function bootstrap() {
   // Cron alert Europa (ogni 2 ore)
   const { startAlertCron } = require("./modules/europa/alertCron");
   startAlertCron();
+
+  // Cron backup DB (ogni notte alle 02:00)
+  const { startBackupCron } = require("./modules/backup/backupService");
+  startBackupCron();
 }
 
 bootstrap().catch((err) => {

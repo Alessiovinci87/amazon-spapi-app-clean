@@ -83,6 +83,28 @@ function seedPasswordAdmin(db) {
 }
 
 /**
+ * Seed utente admin nella tabella utenti (se la tabella esiste e non ha admin).
+ */
+function seedAdminUser(db) {
+  const tableExists = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='utenti'")
+    .get();
+
+  if (!tableExists) return;
+
+  const existing = db.prepare("SELECT 1 FROM utenti WHERE username = 'admin'").get();
+  if (existing) return;
+
+  const defaultPassword = process.env.ADMIN_PASSWORD_DEFAULT || "1234";
+  const hash = hashPassword(defaultPassword);
+
+  db.prepare(
+    "INSERT INTO utenti (username, password, ruolo, nome) VALUES ('admin', ?, 'admin', 'Amministratore')"
+  ).run(hash);
+  console.log("🔐 Utente admin creato con password da ADMIN_PASSWORD_DEFAULT.");
+}
+
+/**
  * Inizializza il database e fa il seed della password admin se necessario.
  */
 function runMigrations(db) {
@@ -120,6 +142,17 @@ function runMigrations(db) {
       `).run();
       console.log("🔧 Backfill: nome popolato per alert esistenti da fba_stock");
     } catch (e) { console.warn("⚠️ Backfill nome alert:", e.message); }
+  }
+
+  // ===== SALES TRAFFIC: aggiunge date + created_at se mancanti =====
+  const colsST = db.pragma("table_info(sales_traffic)");
+  if (colsST.length > 0 && !colsST.some(c => c.name === "date")) {
+    db.prepare("ALTER TABLE sales_traffic ADD COLUMN date TEXT DEFAULT ''").run();
+    console.log("🔧 Migrazione: aggiunta colonna date a sales_traffic");
+  }
+  if (colsST.length > 0 && !colsST.some(c => c.name === "created_at")) {
+    db.prepare("ALTER TABLE sales_traffic ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP").run();
+    console.log("🔧 Migrazione: aggiunta colonna created_at a sales_traffic");
   }
 
   // ===== RESI FBA =====
@@ -427,6 +460,26 @@ function runMigrations(db) {
 
   console.log("✅ Migrazione Seller Feedback completata");
 
+  // ===== SCADENZE LOTTI =====
+  // Aggiunge data_scadenza e pao_mesi a sfuso se mancanti
+  const colsSfusoScad = db.pragma("table_info(sfuso)");
+  if (colsSfusoScad.length > 0 && !colsSfusoScad.some(c => c.name === "data_scadenza")) {
+    db.prepare("ALTER TABLE sfuso ADD COLUMN data_scadenza TEXT").run();
+    console.log("🔧 Migrazione: aggiunta colonna data_scadenza a sfuso");
+  }
+  if (colsSfusoScad.length > 0 && !colsSfusoScad.some(c => c.name === "pao_mesi")) {
+    db.prepare("ALTER TABLE sfuso ADD COLUMN pao_mesi INTEGER").run();
+    console.log("🔧 Migrazione: aggiunta colonna pao_mesi a sfuso");
+  }
+  // Aggiunge data_scadenza a sfuso_movimenti se mancante
+  const colsSfusoMov = db.pragma("table_info(sfuso_movimenti)");
+  if (colsSfusoMov.length > 0 && !colsSfusoMov.some(c => c.name === "data_scadenza")) {
+    db.prepare("ALTER TABLE sfuso_movimenti ADD COLUMN data_scadenza TEXT").run();
+    console.log("🔧 Migrazione: aggiunta colonna data_scadenza a sfuso_movimenti");
+  }
+
+  console.log("✅ Migrazione Scadenze Lotti completata");
+
   // ===== PRODOTTI: aggiungi soglia_minima se mancante =====
   const colsProdotti = db.pragma("table_info(prodotti)");
   if (colsProdotti.length > 0 && !colsProdotti.some(c => c.name === "soglia_minima")) {
@@ -445,6 +498,7 @@ async function ensureDatabaseReady() {
 
   seedPasswordAdmin(db);
   runMigrations(db);
+  seedAdminUser(db);
 
   return dbInstance;
 }
