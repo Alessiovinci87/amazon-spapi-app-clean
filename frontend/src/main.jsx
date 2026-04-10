@@ -1,3 +1,4 @@
+import './utils/fetchInterceptor'; // JWT token su tutte le fetch — DEVE essere il primo import
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
