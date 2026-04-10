@@ -71,12 +71,14 @@ import DashboardVendite from "./pages/DashboardVendite";
 function App() {
   return (
     <Routes>
-      {/* ==================== HOME ==================== */}
+      {/* ==================== HOME (login, senza sidebar) ==================== */}
       <Route path="/" element={<Home />} />
-      <Route path="/dashboard" element={<DashboardAmazon />} />
 
-      {/* ==================== AREA GESTIONALE ==================== */}
+      {/* ==================== AREA GESTIONALE (con sidebar) ==================== */}
       <Route element={<Layout />}>
+
+        {/* ==================== DASHBOARD ==================== */}
+        <Route path="/dashboard" element={<DashboardAmazon />} />
 
         {/* ==================== AREA MAGAZZINO ==================== */}
         <Route path="/magazzino" element={<Magazzino />} />
