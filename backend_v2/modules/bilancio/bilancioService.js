@@ -1,14 +1,10 @@
-const Database = require("better-sqlite3");
-const path = require("path");
-
-const dbPath = path.join(__dirname, "../../db/inventario.db");
-const db = new Database(dbPath);
+const { getDb } = require("../../db/database");
 
 // ============================================================
 // 📘 CATALOGO COSTI — GET
 // ============================================================
 function dbGetCatalogo() {
-  const stmt = db.prepare(`
+  const stmt = getDb().prepare(`
     SELECT
       c.id,
       c.tipo,
@@ -41,7 +37,7 @@ function dbGetCatalogo() {
 // 📘 CATALOGO COSTI — INSERIMENTO O AGGIORNAMENTO
 // ============================================================
 function dbUpsertCosto(tipo, id_riferimento, costo, note = null) {
-  const stmt = db.prepare(`
+  const stmt = getDb().prepare(`
     INSERT INTO bilancio_catalogo (tipo, id_riferimento, costo, note)
     VALUES (@tipo, @id_riferimento, @costo, @note)
     ON CONFLICT(id_riferimento, tipo) DO UPDATE SET
@@ -72,7 +68,7 @@ function dbGetMovimenti(from, to) {
 
   query += ` ORDER BY data DESC`;
 
-  const stmt = db.prepare(query);
+  const stmt = getDb().prepare(query);
   return stmt.all(params);
 }
 
@@ -80,7 +76,7 @@ function dbGetMovimenti(from, to) {
 // 📙 MOVIMENTI — INSERT
 // ============================================================
 function dbRegistraMovimento(tipo, id_riferimento, quantita, costo_totale, note = "") {
-  const stmt = db.prepare(`
+  const stmt = getDb().prepare(`
     INSERT INTO bilancio_movimenti (tipo, id_riferimento, quantita, costo_totale, note)
     VALUES (?, ?, ?, ?, ?)
   `);

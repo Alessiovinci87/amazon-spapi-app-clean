@@ -5,9 +5,10 @@ const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const axios = require("axios");
 const { getAccessToken } = require("../auth/authService");
+const { getDbPath } = require("../../db/database");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
-const DB_PATH = path.join(__dirname, "../../db/inventario.db");
+const DB_PATH = getDbPath();
 const MARKETPLACES = {
   IT: "APJ6JRA9NG5V4",
   FR: "A13V1IB3VIYZZH",
@@ -141,11 +142,12 @@ async function aggiornaSalesTraffic() {
             if (!reportDocumentId) throw new Error("Report non completato");
           }
 
-          // 🔹 Scarica e decomprimi
+          // 🔹 Scarica e decomprimi (rinnova token per sicurezza)
           console.log(`📥 Scarico documento report vendite ${reportDocumentId}...`);
+          const freshToken = (await getAccessToken()).access_token;
           const metaRes = await axios.get(
             `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
-            { headers: { Authorization: `Bearer ${access_token}` } }
+            { headers: { Authorization: `Bearer ${freshToken}` } }
           );
           const { url, compressionAlgorithm } = metaRes.data;
           const fileRes = await axios.get(url, { responseType: "arraybuffer" });
@@ -220,8 +222,8 @@ async function aggiornaSalesTraffic() {
         console.error(`❌ Fallito ${country} dopo 3 tentativi:`, lastError?.message);
       }
 
-      console.log("🕒 Pausa 20s prima del prossimo marketplace...");
-      await sleep(20000);
+      console.log("🕒 Pausa 30s prima del prossimo marketplace...");
+      await sleep(30000);
     }
 
     await db.close();
@@ -237,7 +239,7 @@ async function aggiornaSalesTraffic() {
 // 📊 GET vendite dal DB
 // =====================================================
 async function getSalesTraffic() {
-  const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
+  const db = await open({ filename: getDbPath(), driver: sqlite3.Database });
   const data = await db.all("SELECT * FROM sales_traffic ORDER BY date DESC, asin, country");
   await db.close();
   return data;

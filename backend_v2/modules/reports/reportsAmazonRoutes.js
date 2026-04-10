@@ -35,6 +35,7 @@ const sqlite3 = require("sqlite3").verbose();
 
 
 const path = require("path"); // ✅ AGGIUNTO IMPORT
+const { getDbPath } = require("../../db/database");
 
 
 const { aggiornaFBAFees, getFBAFees } = require("./fbaFeesService");
@@ -460,7 +461,7 @@ router.get("/fba-stock/completo", async (req, res) => {
   let db;
   try {
     db = await open({
-      filename: path.join(__dirname, "../../db/inventario.db"),
+      filename: getDbPath(),
       driver: sqlite3.Database,
     });
 
@@ -524,7 +525,7 @@ router.get("/fba-stock/:asin", async (req, res) => {
     const { asin } = req.params;
 
     db = await open({
-      filename: path.join(__dirname, "../../db/inventario.db"),
+      filename: getDbPath(),
       driver: sqlite3.Database,
     });
 
@@ -691,7 +692,7 @@ router.get("/catalog-images/all", async (req, res) => {
   try {
     const { access_token } = await getAccessToken();
     db = await open({
-      filename: path.join(__dirname, "../../db/inventario.db"),
+      filename: getDbPath(),
       driver: sqlite3.Database,
     });
 
@@ -870,7 +871,7 @@ router.post("/sync-sku", async (req, res) => {
 
         // 5️⃣ Aggiorna DB
         db = await open({
-          filename: path.join(__dirname, "../../db/inventario.db"),
+          filename: getDbPath(),
           driver: sqlite3.Database,
         });
 
@@ -910,7 +911,7 @@ router.get("/sku-status", async (req, res) => {
   let db;
   try {
     db = await open({
-      filename: path.join(__dirname, "../../db/inventario.db"),
+      filename: getDbPath(),
       driver: sqlite3.Database,
     });
 

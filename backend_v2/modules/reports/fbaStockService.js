@@ -5,9 +5,10 @@ const sqlite3 = require("sqlite3").verbose();
 const { open } = require("sqlite");
 const axios = require("axios");
 const { getAccessToken } = require("../auth/authService");
+const { getDbPath } = require("../../db/database");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
-const DB_PATH = path.join(__dirname, "../../db/inventario.db");
+const DB_PATH = getDbPath();
 
 // 🇮🇹 Attivo solo Italia per ora
 const MARKETPLACES = { IT: "APJ6JRA9NG5V4" };
