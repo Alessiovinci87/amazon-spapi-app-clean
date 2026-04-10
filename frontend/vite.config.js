@@ -11,6 +11,10 @@ export default defineConfig({
   },
   server: {
     port: 5174,  // ✅ Porta frontend
+    host: true,  // ✅ Ascolta su 0.0.0.0 (accessibile dalla LAN)
+    hmr: {
+      host: "192.168.1.5",  // ✅ HMR WebSocket raggiungibile dalla LAN
+    },
     proxy: {
       "/api": {
         target: "http://localhost:3005",  // ✅ Backend Express

@@ -2,7 +2,6 @@
 // Context per autenticazione JWT — gestisce token, user info, login/logout
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { API_BASE } from "../utils/api";
 
 const AuthContext = createContext(null);
 
@@ -46,7 +45,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (username, password) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/auth-app/login`, {
+      const res = await fetch("/api/v2/auth-app/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
