@@ -1,5 +1,8 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Settings2,
@@ -8,13 +11,109 @@ import {
   Check,
   Info,
   Monitor,
+  Users,
+  Plus,
+  Shield,
+  ShieldCheck,
+  Warehouse,
+  ToggleLeft,
+  ToggleRight,
+  KeyRound,
+  Trash2,
 } from "lucide-react";
+
+const RUOLO_ICON = { admin: ShieldCheck, ufficio: Shield, magazzino: Warehouse };
+const RUOLO_COLOR = {
+  admin:     "text-rose-400 bg-rose-500/10 border-rose-500/30",
+  ufficio:   "text-indigo-400 bg-indigo-500/10 border-indigo-500/30",
+  magazzino: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+};
 
 const Settings = () => {
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const { user: currentUser } = useAuth();
   const access = localStorage.getItem("auth") || "amazon";
   const backPath = access === "magazzino" ? "/magazzino" : "/dashboard";
+
+  // === Gestione utenti ===
+  const [utenti, setUtenti] = useState([]);
+  const [loadingUtenti, setLoadingUtenti] = useState(false);
+  const [showNuovo, setShowNuovo] = useState(false);
+  const [nuovoForm, setNuovoForm] = useState({ username: "", password: "", ruolo: "magazzino", nome: "" });
+  const [resetPwId, setResetPwId] = useState(null);
+  const [resetPwVal, setResetPwVal] = useState("");
+  const isAdmin = currentUser?.ruolo === "admin";
+
+  const fetchUtenti = async () => {
+    if (!isAdmin) return;
+    setLoadingUtenti(true);
+    try {
+      const res = await fetch("/api/v2/auth-app/utenti");
+      if (!res.ok) return;
+      const data = await res.json();
+      setUtenti(data.utenti || []);
+    } catch { /* silent */ }
+    finally { setLoadingUtenti(false); }
+  };
+
+  useEffect(() => { fetchUtenti(); }, [isAdmin]);
+
+  const creaNuovoUtente = async () => {
+    if (!nuovoForm.username || !nuovoForm.password) { toast.info("Username e password obbligatori"); return; }
+    try {
+      const res = await fetch("/api/v2/auth-app/utenti", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(nuovoForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast.success(`Utente ${nuovoForm.username} creato`);
+      setNuovoForm({ username: "", password: "", ruolo: "magazzino", nome: "" });
+      setShowNuovo(false);
+      fetchUtenti();
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const toggleAttivo = async (id, attivo) => {
+    try {
+      const res = await fetch(`/api/v2/auth-app/utenti/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ attivo: !attivo }),
+      });
+      if (!res.ok) throw new Error();
+      fetchUtenti();
+    } catch { toast.error("Errore aggiornamento utente"); }
+  };
+
+  const cambiaRuolo = async (id, ruolo) => {
+    try {
+      const res = await fetch(`/api/v2/auth-app/utenti/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruolo }),
+      });
+      if (!res.ok) throw new Error();
+      fetchUtenti();
+    } catch { toast.error("Errore cambio ruolo"); }
+  };
+
+  const resetPassword = async (id) => {
+    if (!resetPwVal || resetPwVal.length < 4) { toast.info("Minimo 4 caratteri"); return; }
+    try {
+      const res = await fetch(`/api/v2/auth-app/utenti/${id}/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nuovaPassword: resetPwVal }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Password resettata");
+      setResetPwId(null);
+      setResetPwVal("");
+    } catch { toast.error("Errore reset password"); }
+  };
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -174,6 +273,163 @@ const Settings = () => {
           </div>
         </div>
 
+        {/* ────────── GESTIONE UTENTI (solo admin) ────────── */}
+        {isAdmin && (
+          <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-400/60" />
+            <div className="px-5 sm:px-6 py-5">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-md border bg-rose-500/10 border-rose-500/30 flex items-center justify-center flex-shrink-0">
+                    <Users className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Sicurezza</div>
+                    <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Gestione utenti</h2>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowNuovo(!showNuovo)}
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-[12px] font-medium transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Nuovo utente
+                </button>
+              </div>
+
+              {/* Form nuovo utente */}
+              {showNuovo && (
+                <div className="mb-5 p-4 bg-slate-800/40 border border-slate-700 rounded-lg space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Username"
+                      value={nuovoForm.username}
+                      onChange={e => setNuovoForm({ ...nuovoForm, username: e.target.value })}
+                      className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/50"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Password"
+                      value={nuovoForm.password}
+                      onChange={e => setNuovoForm({ ...nuovoForm, password: e.target.value })}
+                      className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/50"
+                    />
+                    <select
+                      value={nuovoForm.ruolo}
+                      onChange={e => setNuovoForm({ ...nuovoForm, ruolo: e.target.value })}
+                      className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-rose-500/50"
+                    >
+                      <option value="magazzino">Magazzino</option>
+                      <option value="ufficio">Ufficio</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Nome (opzionale)"
+                      value={nuovoForm.nome}
+                      onChange={e => setNuovoForm({ ...nuovoForm, nome: e.target.value })}
+                      className="bg-slate-900 border border-slate-700 rounded-md px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/50"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={creaNuovoUtente} type="button" className="px-4 py-2 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-medium transition-all">
+                      Crea utente
+                    </button>
+                    <button onClick={() => setShowNuovo(false)} type="button" className="px-4 py-2 rounded-md bg-slate-800 border border-slate-700 text-slate-400 text-xs font-medium transition-all hover:text-white">
+                      Annulla
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Lista utenti */}
+              {loadingUtenti ? (
+                <p className="text-sm text-slate-500">Caricamento...</p>
+              ) : (
+                <div className="space-y-2">
+                  {utenti.map(u => {
+                    const RuoloIcon = RUOLO_ICON[u.ruolo] || Shield;
+                    const ruoloColor = RUOLO_COLOR[u.ruolo] || RUOLO_COLOR.magazzino;
+                    const isSelf = currentUser?.id === u.id;
+                    return (
+                      <div key={u.id} className={`flex items-center gap-4 px-4 py-3 rounded-lg border transition-all ${u.attivo ? "bg-slate-800/30 border-slate-700/60" : "bg-slate-800/10 border-slate-800 opacity-50"}`}>
+                        {/* Icona ruolo */}
+                        <div className={`w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 ${ruoloColor}`}>
+                          <RuoloIcon className="w-4 h-4" />
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-white">{u.username}</span>
+                            {u.nome && <span className="text-xs text-slate-400">{u.nome}</span>}
+                            {isSelf && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-400">(tu)</span>}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <select
+                              value={u.ruolo}
+                              onChange={e => cambiaRuolo(u.id, e.target.value)}
+                              disabled={isSelf}
+                              className="bg-transparent border-none text-[11px] uppercase tracking-wider text-slate-500 focus:outline-none cursor-pointer disabled:cursor-default"
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="ufficio">Ufficio</option>
+                              <option value="magazzino">Magazzino</option>
+                            </select>
+                            <span className="text-[10px] text-slate-600 font-mono">
+                              {u.created_at ? new Date(u.created_at).toLocaleDateString("it-IT") : ""}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Azioni */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Reset password */}
+                          {resetPwId === u.id ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="password"
+                                placeholder="Nuova pw"
+                                value={resetPwVal}
+                                onChange={e => setResetPwVal(e.target.value)}
+                                className="w-24 bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white"
+                              />
+                              <button onClick={() => resetPassword(u.id)} type="button" className="text-emerald-400 hover:text-emerald-300 text-xs font-medium">OK</button>
+                              <button onClick={() => { setResetPwId(null); setResetPwVal(""); }} type="button" className="text-slate-500 text-xs">✕</button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setResetPwId(u.id)}
+                              type="button"
+                              title="Reset password"
+                              className="w-8 h-8 rounded-md border border-slate-700 bg-slate-800/60 hover:bg-slate-700 text-slate-500 hover:text-amber-400 transition-colors flex items-center justify-center"
+                            >
+                              <KeyRound className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {/* Toggle attivo */}
+                          {!isSelf && (
+                            <button
+                              onClick={() => toggleAttivo(u.id, u.attivo)}
+                              type="button"
+                              title={u.attivo ? "Disattiva utente" : "Attiva utente"}
+                              className={`w-8 h-8 rounded-md border flex items-center justify-center transition-colors ${u.attivo ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" : "border-slate-700 bg-slate-800/60 text-slate-500 hover:text-white"}`}
+                            >
+                              {u.attivo ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ────────── INFO APP ────────── */}
         <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-500/40" />
@@ -198,7 +454,7 @@ const Settings = () => {
                 { label: "Versione", value: "v2.0" },
                 { label: "Framework", value: "React + Vite" },
                 { label: "Backend", value: "Node.js + Express" },
-                { label: "Database", value: "SQL Server" },
+                { label: "Database", value: "SQLite (WAL)" },
                 { label: "Integrazione", value: "Amazon SP-API" },
               ].map((item) => (
                 <div
