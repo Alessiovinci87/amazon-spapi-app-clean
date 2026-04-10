@@ -93,6 +93,9 @@ const authAppRoutes = require("./routes/authRoutes");
 // --- Backup
 const backupRoutes = require("./modules/backup/backupRoutes");
 
+// --- Notifiche
+const notificationRoutes = require("./modules/notifications/notificationRoutes");
+
 
 
 // =========================================================
@@ -275,6 +278,11 @@ async function bootstrap() {
   // =========================================================
   app.use("/api/v2/backup", backupRoutes);
 
+  // =========================================================
+  // 📧 NOTIFICHE EMAIL
+  // =========================================================
+  app.use("/api/v2/notifications", notificationRoutes);
+
 
   
   app.use(notFoundHandler);
@@ -318,6 +326,10 @@ async function bootstrap() {
   // Cron backup DB (ogni notte alle 02:00)
   const { startBackupCron } = require("./modules/backup/backupService");
   startBackupCron();
+
+  // Cron digest alert email (ogni mattina alle 07:00)
+  const { startDigestCron } = require("./modules/notifications/alertDigest");
+  startDigestCron();
 }
 
 bootstrap().catch((err) => {
