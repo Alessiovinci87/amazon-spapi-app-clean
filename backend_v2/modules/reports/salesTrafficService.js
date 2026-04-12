@@ -89,14 +89,17 @@ async function aggiornaSalesTraffic() {
   for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
     console.log(`[SalesTraffic] Marketplace: ${country}`);
 
-    // Skip se il DB ha gia dati per oggi su questo country
-    const existing = db.prepare(
-      "SELECT COUNT(*) AS n FROM sales_traffic WHERE country = ? AND date = ?"
-    ).get(country, today);
+    // Skip se abbiamo gia aggiornato questo country nelle ultime 12 ore
+    const lastUpdate = db.prepare(
+      "SELECT MAX(created_at) AS last_ts FROM sales_traffic WHERE country = ?"
+    ).get(country);
 
-    if (existing && existing.n > 0) {
-      console.log(`[SalesTraffic] ${country}: ${existing.n} righe gia presenti per ${today}, skip`);
-      continue;
+    if (lastUpdate?.last_ts) {
+      const hoursSince = (Date.now() - new Date(lastUpdate.last_ts).getTime()) / (1000 * 60 * 60);
+      if (hoursSince < 12) {
+        console.log(`[SalesTraffic] ${country}: aggiornato ${hoursSince.toFixed(1)}h fa, skip`);
+        continue;
+      }
     }
 
     let success = false;
@@ -132,16 +135,16 @@ async function aggiornaSalesTraffic() {
         }
 
         if (!useExisting) {
-          // Crea nuovo report (periodo: ieri)
+          // Crea nuovo report (periodo: ultimi 30 giorni)
           const now = new Date();
-          const yesterday = new Date(now);
-          yesterday.setDate(now.getDate() - 1);
+          const startDate = new Date(now);
+          startDate.setDate(now.getDate() - 30);
 
           const createRes = await axios.post(
             `${BASE_URL}/reports/2021-06-30/reports`,
             {
               reportType: "GET_SALES_AND_TRAFFIC_REPORT",
-              dataStartTime: yesterday.toISOString(),
+              dataStartTime: startDate.toISOString(),
               dataEndTime: now.toISOString(),
               marketplaceIds: [marketplaceId],
             },
