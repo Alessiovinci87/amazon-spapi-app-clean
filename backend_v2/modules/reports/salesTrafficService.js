@@ -1,14 +1,10 @@
 // backend_v2/modules/reports/salesTrafficService.js
-const path = require("path");
 const zlib = require("zlib");
-const sqlite3 = require("sqlite3").verbose();
-const { open } = require("sqlite");
 const axios = require("axios");
 const { getAccessToken } = require("../auth/authService");
-const { getDbPath } = require("../../db/database");
+const { getDb } = require("../../db/database");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
-const DB_PATH = getDbPath();
 const MARKETPLACES = {
   IT: "APJ6JRA9NG5V4",
   FR: "A13V1IB3VIYZZH",
@@ -21,9 +17,31 @@ const MARKETPLACES = {
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// =====================================================
-// 🔍 Cerca report vendite già completato (nelle ultime 24h)
-// =====================================================
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function ensureTable() {
+  const db = getDb();
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS sales_traffic (
+      asin TEXT,
+      sku TEXT,
+      country TEXT,
+      units_ordered INTEGER DEFAULT 0,
+      ordered_product_sales REAL DEFAULT 0,
+      average_sales_per_unit REAL DEFAULT 0,
+      conversion_rate REAL DEFAULT 0,
+      sessions INTEGER DEFAULT 0,
+      page_views INTEGER DEFAULT 0,
+      date TEXT NOT NULL DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      PRIMARY KEY (asin, country, date)
+    );
+  `).run();
+}
+
+// Cerca report vendite gia completato (ultime 24h)
 async function checkExistingReport(access_token, marketplaceId) {
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -44,158 +62,154 @@ async function checkExistingReport(access_token, marketplaceId) {
     const latest = reports.sort(
       (a, b) => new Date(b.createdTime) - new Date(a.createdTime)
     )[0];
-    console.log(`🧾 Report vendite pronto: ${latest.reportId}`);
+    console.log(`[SalesTraffic] Report pronto: ${latest.reportId}`);
     return latest;
   } catch (err) {
-    console.warn("⚠️ checkExistingReport vendite:", err.message);
+    console.warn("[SalesTraffic] checkExistingReport:", err.message);
     return null;
   }
 }
 
-// =====================================================
-// 📊 AGGIORNA DATI DI VENDITA E TRAFFICO
-// =====================================================
+// Aggiorna dati di vendita e traffico
 async function aggiornaSalesTraffic() {
-  console.log("📈 Avvio aggiornamento Sales & Traffic report…");
+  console.log("[SalesTraffic] Avvio aggiornamento...");
+  ensureTable();
 
-  try {
-    const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
+  const db = getDb();
+  const today = todayISO();
+  let totalInserted = 0;
 
-    await db.exec(`
-      CREATE TABLE IF NOT EXISTS sales_traffic (
-        asin TEXT,
-        sku TEXT,
-        country TEXT,
-        units_ordered INTEGER DEFAULT 0,
-        ordered_product_sales REAL DEFAULT 0,
-        average_sales_per_unit REAL DEFAULT 0,
-        conversion_rate REAL DEFAULT 0,
-        sessions INTEGER DEFAULT 0,
-        page_views INTEGER DEFAULT 0,
-        date TEXT DEFAULT '',
-        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (asin, country, date)
-      );
-    `);
+  const insertStmt = db.prepare(`
+    INSERT OR REPLACE INTO sales_traffic
+    (asin, sku, country, units_ordered, ordered_product_sales,
+     average_sales_per_unit, conversion_rate, sessions, page_views, date)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
-    let totalInserted = 0;
+  for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
+    console.log(`[SalesTraffic] Marketplace: ${country}`);
 
-    for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
-      console.log(`🌍 Marketplace: ${country}`);
+    // Skip se il DB ha gia dati per oggi su questo country
+    const existing = db.prepare(
+      "SELECT COUNT(*) AS n FROM sales_traffic WHERE country = ? AND date = ?"
+    ).get(country, today);
 
-      // 🛡️ Skip se il DB ha già dati per oggi su questo country
-      const existingRow = await db.get(
-        `SELECT COUNT(*) AS n FROM sales_traffic WHERE country = ? AND date = DATE('now')`,
-        country
-      );
-      if (existingRow && existingRow.n > 0) {
-        console.log(`⏭️  ${country}: ${existingRow.n} righe già presenti per oggi, skip`);
-        continue;
-      }
+    if (existing && existing.n > 0) {
+      console.log(`[SalesTraffic] ${country}: ${existing.n} righe gia presenti per ${today}, skip`);
+      continue;
+    }
 
-      let success = false;
-      let attempt = 0;
-      let lastError = null;
+    let success = false;
+    let attempt = 0;
+    let lastError = null;
 
-      while (!success && attempt < 2) {
-        attempt++;
-        try {
-          const { access_token } = await getAccessToken();
+    while (!success && attempt < 2) {
+      attempt++;
+      try {
+        const { access_token } = await getAccessToken();
 
-          // 🔹 Verifica se c’è già un report pronto
-          let reportId = null;
-          let reportDocumentId = null;
-          const existing = await checkExistingReport(access_token, marketplaceId);
+        // Verifica se c'e gia un report pronto
+        let reportId = null;
+        let reportDocumentId = null;
+        const existingReport = await checkExistingReport(access_token, marketplaceId);
 
-          if (existing && existing.reportDocumentId) {
-            reportId = existing.reportId;
-            reportDocumentId = existing.reportDocumentId;
-            console.log(`♻️ Riutilizzo report vendite ${reportId} (${country})`);
-          } else {
-            // 🔹 Crea nuovo report (periodo: ieri)
-            const today = new Date();
-            const yesterday = new Date(today);
-            yesterday.setDate(today.getDate() - 1);
+        if (existingReport && existingReport.reportDocumentId) {
+          reportId = existingReport.reportId;
+          reportDocumentId = existingReport.reportDocumentId;
+          console.log(`[SalesTraffic] Riutilizzo report ${reportId} (${country})`);
+        } else {
+          // Crea nuovo report (periodo: ieri)
+          const now = new Date();
+          const yesterday = new Date(now);
+          yesterday.setDate(now.getDate() - 1);
 
-            const createRes = await axios.post(
-              `${BASE_URL}/reports/2021-06-30/reports`,
-              {
-                reportType: "GET_SALES_AND_TRAFFIC_REPORT",
-                dataStartTime: yesterday.toISOString(),
-                dataEndTime: today.toISOString(),
-                marketplaceIds: [marketplaceId],
+          const createRes = await axios.post(
+            `${BASE_URL}/reports/2021-06-30/reports`,
+            {
+              reportType: "GET_SALES_AND_TRAFFIC_REPORT",
+              dataStartTime: yesterday.toISOString(),
+              dataEndTime: now.toISOString(),
+              marketplaceIds: [marketplaceId],
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${access_token}`,
+                "x-amz-access-token": access_token,
+                "Content-Type": "application/json",
               },
-              {
-                headers: {
-                  Authorization: `Bearer ${access_token}`,
-                  "x-amz-access-token": access_token,
-                  "Content-Type": "application/json",
-                },
-              }
-            );
-
-            reportId = createRes.data.reportId;
-            console.log(`📝 Creato nuovo report vendite ${reportId} (${country})`);
-
-            // Attendi completamento
-            let status = "IN_PROGRESS";
-            for (let i = 0; i < 30; i++) {
-              await sleep(8000);
-              const res = await axios.get(
-                `${BASE_URL}/reports/2021-06-30/reports/${reportId}`,
-                { headers: { Authorization: `Bearer ${access_token}` } }
-              );
-              status = res.data.processingStatus;
-              reportDocumentId = res.data.reportDocumentId;
-              if (status === "DONE") break;
-              if (["CANCELLED", "FATAL"].includes(status)) break;
             }
-            if (!reportDocumentId) throw new Error("Report non completato");
-          }
-
-          // 🔹 Scarica e decomprimi (rinnova token per sicurezza)
-          console.log(`📥 Scarico documento report vendite ${reportDocumentId}...`);
-          const freshToken = (await getAccessToken()).access_token;
-          const metaRes = await axios.get(
-            `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
-            { headers: { Authorization: `Bearer ${freshToken}` } }
           );
-          const { url, compressionAlgorithm } = metaRes.data;
-          const fileRes = await axios.get(url, { responseType: "arraybuffer" });
 
-          let buffer = Buffer.from(fileRes.data);
-          if (compressionAlgorithm === "GZIP") buffer = zlib.gunzipSync(buffer);
-          const text = buffer.toString("utf-8");
+          reportId = createRes.data.reportId;
+          console.log(`[SalesTraffic] Creato report ${reportId} (${country})`);
 
-          // Log primi 300 caratteri
-          console.log("🧩 Anteprima JSON:", text.slice(0, 300));
-
-          // 🔹 Parsing JSON
-          const json = JSON.parse(text);
-          const asinRows =
-            json?.salesAndTrafficByAsin ||
-            json?.salesAndTrafficByDate?.flatMap((d) => d.salesAndTrafficByAsin) ||
-            [];
-
-          if (!asinRows.length) {
-            console.warn(`⚠️ Nessun dato nel report vendite per ${country}`);
-            break;
+          // Attendi completamento
+          let status = "IN_PROGRESS";
+          for (let i = 0; i < 30; i++) {
+            await sleep(8000);
+            const res = await axios.get(
+              `${BASE_URL}/reports/2021-06-30/reports/${reportId}`,
+              { headers: { Authorization: `Bearer ${access_token}` } }
+            );
+            status = res.data.processingStatus;
+            reportDocumentId = res.data.reportDocumentId;
+            if (status === "DONE") break;
+            if (["CANCELLED", "FATAL"].includes(status)) break;
           }
+          if (!reportDocumentId) throw new Error("Report non completato");
+        }
 
-          const stmt = await db.prepare(`
-            INSERT OR REPLACE INTO sales_traffic
-            (asin, sku, country, units_ordered, ordered_product_sales,
-             average_sales_per_unit, conversion_rate, sessions, page_views, date)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE('now'))
-          `);
+        // Scarica e decomprimi
+        console.log(`[SalesTraffic] Scarico documento ${reportDocumentId}...`);
+        const freshToken = (await getAccessToken()).access_token;
+        const metaRes = await axios.get(
+          `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
+          { headers: { Authorization: `Bearer ${freshToken}` } }
+        );
+        const { url, compressionAlgorithm } = metaRes.data;
+        const fileRes = await axios.get(url, { responseType: "arraybuffer" });
 
-          let inserted = 0;
-          for (const r of asinRows) {
+        let buffer = Buffer.from(fileRes.data);
+        if (compressionAlgorithm === "GZIP") buffer = zlib.gunzipSync(buffer);
+        const text = buffer.toString("utf-8");
+
+        // Parsing JSON
+        const json = JSON.parse(text);
+
+        // Il report puo avere i dati in due formati:
+        // 1. json.salesAndTrafficByAsin (array diretto)
+        // 2. json.salesAndTrafficByDate[].salesAndTrafficByAsin (per giorno)
+        let asinRows = [];
+        let reportDate = today;
+
+        if (Array.isArray(json?.salesAndTrafficByAsin)) {
+          asinRows = json.salesAndTrafficByAsin;
+        } else if (Array.isArray(json?.salesAndTrafficByDate)) {
+          // Estrai data dal primo giorno disponibile
+          for (const dayData of json.salesAndTrafficByDate) {
+            const dayDate = dayData.date || today;
+            const dayAsinRows = dayData.salesAndTrafficByAsin || [];
+            for (const r of dayAsinRows) {
+              r._reportDate = dayDate;
+            }
+            asinRows.push(...dayAsinRows);
+          }
+        }
+
+        if (!asinRows.length) {
+          console.warn(`[SalesTraffic] Nessun dato nel report per ${country}`);
+          break;
+        }
+
+        let inserted = 0;
+        const insertMany = db.transaction((rows) => {
+          for (const r of rows) {
             const asin = r.parentAsin || r.asin || "";
             const stats = r.salesByAsin || {};
             const traffic = r.trafficByAsin || {};
+            const rowDate = r._reportDate || today;
 
-            await stmt.run(
+            insertStmt.run(
               asin,
               r.sku || "",
               country,
@@ -206,57 +220,51 @@ async function aggiornaSalesTraffic() {
                 : 0,
               traffic.unitSessionPercentage || 0,
               traffic.sessions || 0,
-              traffic.pageViews || 0
+              traffic.pageViews || 0,
+              rowDate
             );
             inserted++;
           }
+        });
 
-          await stmt.finalize();
-          console.log(`✅ ${country}: ${inserted} righe salvate nel DB`);
-          totalInserted += inserted;
-          success = true;
-        } catch (err) {
-          lastError = err;
-          const code = err.response?.status;
-          const amzMsg = err.response?.data?.errors?.[0]?.message || err.response?.data;
-          if (code === 429 || code === 403) {
-            console.warn(`⏳ Limite/quota per ${country} (${code}): ${amzMsg || err.message}`);
-            if (attempt < 2) {
-              console.warn(`   Attendo 90s prima del retry ${attempt + 1}/2...`);
-              await sleep(90000);
-            }
-          } else {
-            console.warn(`⚠️ Errore su ${country} (${code || "?"}):`, amzMsg || err.message);
-            break;
+        insertMany(asinRows);
+        console.log(`[SalesTraffic] ${country}: ${inserted} righe salvate`);
+        totalInserted += inserted;
+        success = true;
+      } catch (err) {
+        lastError = err;
+        const code = err.response?.status;
+        const amzMsg = err.response?.data?.errors?.[0]?.message || err.response?.data;
+        if (code === 429 || code === 403) {
+          console.warn(`[SalesTraffic] Limite per ${country} (${code}): ${amzMsg || err.message}`);
+          if (attempt < 2) {
+            console.warn(`[SalesTraffic] Retry tra 90s...`);
+            await sleep(90000);
           }
+        } else {
+          console.warn(`[SalesTraffic] Errore ${country} (${code || "?"}):`, amzMsg || err.message);
+          break;
         }
       }
-
-      if (!success) {
-        console.error(`❌ Fallito ${country} dopo ${attempt} tentativi:`, lastError?.message);
-      }
-
-      console.log("🕒 Pausa 60s prima del prossimo marketplace...");
-      await sleep(60000);
     }
 
-    await db.close();
-    console.log(`🎯 Totale righe salvate: ${totalInserted}`);
-    return { ok: true, record: totalInserted };
-  } catch (err) {
-    console.error("❌ Errore aggiornaSalesTraffic:", err.message);
-    return { ok: false, error: err.message };
+    if (!success) {
+      console.error(`[SalesTraffic] Fallito ${country} dopo ${attempt} tentativi:`, lastError?.message);
+    }
+
+    console.log("[SalesTraffic] Pausa 60s prima del prossimo marketplace...");
+    await sleep(60000);
   }
+
+  console.log(`[SalesTraffic] Totale righe salvate: ${totalInserted}`);
+  return { ok: true, record: totalInserted };
 }
 
-// =====================================================
-// 📊 GET vendite dal DB
-// =====================================================
-async function getSalesTraffic() {
-  const db = await open({ filename: getDbPath(), driver: sqlite3.Database });
-  const data = await db.all("SELECT * FROM sales_traffic ORDER BY date DESC, asin, country");
-  await db.close();
-  return data;
+// GET vendite dal DB
+function getSalesTraffic() {
+  ensureTable();
+  const db = getDb();
+  return db.prepare("SELECT * FROM sales_traffic ORDER BY date DESC, asin, country").all();
 }
 
 module.exports = { aggiornaSalesTraffic, getSalesTraffic };
