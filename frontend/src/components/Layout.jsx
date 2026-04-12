@@ -9,12 +9,12 @@ const Layout = () => {
   const access = localStorage.getItem("auth") || "amazon";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-slate-950">
       {/* 🔹 Sidebar dinamica in base all'accesso */}
       {access === "magazzino" ? <SidebarMagazzino /> : <SidebarUffici />}
 
       <main
-        className="flex-1 p-6 bg-transparent overflow-auto transition-margin duration-300"
+        className="flex-1 bg-transparent overflow-auto transition-margin duration-300"
         style={{ marginLeft: "4rem" }} // per sidebar chiusa
       >
         <Outlet />

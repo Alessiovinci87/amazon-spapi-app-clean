@@ -13,6 +13,7 @@ import {
   Truck,
   History,
   Settings,
+  Edit3,
 } from "lucide-react";
 
 const containerVariants = {
@@ -26,10 +27,11 @@ const itemVariants = {
 };
 
 const SECTIONS = [
-  { to: "/europe/dashboard", icon: Package,  label: "Magazzino & Alert", desc: "Inventario FBA, listing e alert per marketplace EU", accent: "indigo", code: "01" },
-  { to: "/listing",          icon: FileText, label: "Listing",           desc: "Gestione annunci prodotti",                          accent: "blue",   code: "02" },
-  { to: "/marketplaces",     icon: Store,    label: "Marketplace",       desc: "Tutti i marketplace Europa",                         accent: "cyan",   code: "03" },
-  { to: "/recensioni",       icon: Star,     label: "Recensioni",        desc: "Gestione feedback clienti",                          accent: "teal",   code: "04" },
+  { to: "/europe/dashboard",       icon: Package,  label: "Magazzino & Alert", desc: "Inventario FBA, listing e alert per marketplace EU", accent: "indigo", code: "01" },
+  { to: "/listing",                icon: FileText, label: "Listing",           desc: "Gestione annunci prodotti",                          accent: "blue",   code: "02" },
+  { to: "/europe/listing-editor",  icon: Edit3,    label: "Editor Listing",    desc: "Modifica titoli, bullet e descrizioni su Amazon",    accent: "amber",  code: "03" },
+  { to: "/marketplaces",           icon: Store,    label: "Marketplace",       desc: "Tutti i marketplace Europa",                         accent: "cyan",   code: "04" },
+  { to: "/recensioni",             icon: Star,     label: "Recensioni",        desc: "Gestione feedback clienti",                          accent: "teal",   code: "05" },
 ];
 
 const QUICK_LINKS = [
@@ -49,12 +51,14 @@ const STATS = [
 const ACCENT_BG = {
   indigo: "group-hover:border-indigo-500/40 group-hover:bg-indigo-500/5",
   blue:   "group-hover:border-blue-500/40 group-hover:bg-blue-500/5",
+  amber:  "group-hover:border-amber-500/40 group-hover:bg-amber-500/5",
   cyan:   "group-hover:border-cyan-500/40 group-hover:bg-cyan-500/5",
   teal:   "group-hover:border-teal-500/40 group-hover:bg-teal-500/5",
 };
 const ACCENT_ICON = {
   indigo: "group-hover:text-indigo-400 group-hover:border-indigo-500/40",
   blue:   "group-hover:text-blue-400 group-hover:border-blue-500/40",
+  amber:  "group-hover:text-amber-400 group-hover:border-amber-500/40",
   cyan:   "group-hover:text-cyan-400 group-hover:border-cyan-500/40",
   teal:   "group-hover:text-teal-400 group-hover:border-teal-500/40",
 };

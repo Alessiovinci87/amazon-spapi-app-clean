@@ -37,6 +37,7 @@ const catalogAmazonRoutes = require("./modules/catalog/catalogAmazonRoutes");
 const inventoryAmazonRoutes = require("./modules/inventory/inventoryAmazon");
 const inventarioRouter = require("./modules/inventory/inventario");
 const listingsAmazonRoutes = require("./modules/listings/listingsAmazonRoutes");
+const listingsEditorRoutes = require("./modules/listings/listingsEditorRoutes");
 const reportsAmazonRoutes = require("./modules/reports/reportsAmazonRoutes");
 const inventoryAmazonController = require("./modules/inventory/inventoryAmazonController");
 
@@ -223,6 +224,7 @@ async function bootstrap() {
   app.use("/api/v2/catalog-amazon", catalogAmazonRoutes);
   app.use("/api/v2/inventory-amazon", inventoryAmazonRoutes);
   app.use("/api/v2/listings-amazon", listingsAmazonRoutes);
+  app.use("/api/v2/listings-editor", listingsEditorRoutes);
   app.use("/api/v2/reports-amazon", reportsAmazonRoutes);
   app.use("/api/v2/magazzino", inventarioRouter);
   app.use("/api/v2", inventoryAmazonController);

@@ -377,4 +377,77 @@ async function getListingText(asin, marketplaceId) {
   return { asin, marketplaceId, titolo, bullets, descrizione };
 }
 
-module.exports = { getCatalogDetails, getCatalogInfoPerMarketplace, getListingImages, getAplusContent, sincronizzaPrezziAsin, getListingText };
+/**
+ * Usato dal sync editor listing: una singola chiamata Catalog Items con
+ * includedData completo. Ritorna titolo, bullet, descrizione, parent ASIN, immagini.
+ */
+async function getCatalogForSync(asin, marketplaceId) {
+  const { access_token } = await getAccessToken();
+  const data = await spGet(
+    `/catalog/2022-04-01/items/${asin}`,
+    {
+      marketplaceIds: marketplaceId,
+      includedData: "summaries,attributes,relationships,images",
+    },
+    access_token
+  );
+
+  const summary =
+    data?.summaries?.find((s) => s.marketplaceId === marketplaceId) ??
+    data?.summaries?.[0] ??
+    {};
+  const attrs = data?.attributes ?? {};
+
+  const title =
+    summary.itemName ??
+    attrs.item_name?.find((v) => !v.marketplace_id || v.marketplace_id === marketplaceId)?.value ??
+    attrs.item_name?.[0]?.value ??
+    null;
+
+  const bullets = (attrs.bullet_point ?? [])
+    .filter((b) => !b.marketplace_id || b.marketplace_id === marketplaceId)
+    .map((b) => b.value)
+    .filter(Boolean);
+
+  const description =
+    attrs.product_description?.find(
+      (d) => !d.marketplace_id || d.marketplace_id === marketplaceId
+    )?.value ?? null;
+
+  // Parent ASIN da relationships
+  let parentAsin = null;
+  const rels = data?.relationships || [];
+  for (const rel of rels) {
+    if (rel.marketplaceId && rel.marketplaceId !== marketplaceId) continue;
+    const relArr = rel.relationships || [];
+    for (const r of relArr) {
+      if (r.parentAsins?.length) {
+        parentAsin = r.parentAsins[0];
+        break;
+      }
+    }
+    if (parentAsin) break;
+  }
+
+  // Immagini (solo per il marketplace richiesto)
+  let images = [];
+  const imagesArr = data?.images || [];
+  for (const imgEntry of imagesArr) {
+    if (imgEntry.marketplaceId && imgEntry.marketplaceId !== marketplaceId) continue;
+    images = (imgEntry.images || []).map((i) => i.link).filter(Boolean);
+    if (images.length) break;
+  }
+
+  return { asin, title, bullets, description, parentAsin, images };
+}
+
+module.exports = {
+  getCatalogDetails,
+  getCatalogInfoPerMarketplace,
+  getListingImages,
+  getAplusContent,
+  sincronizzaPrezziAsin,
+  getListingText,
+  getCatalogForSync,
+  spGet, // esportato per diagnostica cross-API
+};

@@ -48,6 +48,8 @@ import FbaGestioneProdotti from "./pages/FbaGestioneProdotti";
 import EuropeMenu from "./components/EuropeMenu";
 import EuropaDashboard from "./pages/EuropaDashboard";
 import EuropaAlertConfig from "./pages/EuropaAlertConfig";
+import EuropaListingEditor from "./pages/EuropaListingEditor";
+import EuropaListingItemEditor from "./pages/EuropaListingItemEditor";
 import ListaMarketplace from "./pages/ListaMarketplace";
 import Listing from "./pages/Listing";
 import DettaglioProdotto from "./pages/DettaglioProdotto";
@@ -133,6 +135,9 @@ function App() {
         <Route path="/europe" element={<EuropeMenu />} />
         <Route path="/europe/dashboard" element={<EuropaDashboard />} />
         <Route path="/europe/alert-config/:asin" element={<EuropaAlertConfig />} />
+        <Route path="/europe/listing-editor" element={<EuropaListingEditor />} />
+        <Route path="/europe/listing-editor/:country" element={<EuropaListingEditor />} />
+        <Route path="/europe/listing-editor/:country/:sku" element={<EuropaListingItemEditor />} />
         <Route path="/marketplaces" element={<ListaMarketplace />} />
         <Route path="/recensioni" element={<Recensioni />} />
         <Route path="/settings" element={<Settings />} />

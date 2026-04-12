@@ -82,11 +82,22 @@ async function aggiornaSalesTraffic() {
 
     for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
       console.log(`🌍 Marketplace: ${country}`);
+
+      // 🛡️ Skip se il DB ha già dati per oggi su questo country
+      const existingRow = await db.get(
+        `SELECT COUNT(*) AS n FROM sales_traffic WHERE country = ? AND date = DATE('now')`,
+        country
+      );
+      if (existingRow && existingRow.n > 0) {
+        console.log(`⏭️  ${country}: ${existingRow.n} righe già presenti per oggi, skip`);
+        continue;
+      }
+
       let success = false;
       let attempt = 0;
       let lastError = null;
 
-      while (!success && attempt < 3) {
+      while (!success && attempt < 2) {
         attempt++;
         try {
           const { access_token } = await getAccessToken();
@@ -207,23 +218,26 @@ async function aggiornaSalesTraffic() {
         } catch (err) {
           lastError = err;
           const code = err.response?.status;
+          const amzMsg = err.response?.data?.errors?.[0]?.message || err.response?.data;
           if (code === 429 || code === 403) {
-            const wait = 60000 * attempt * 2;
-            console.warn(`⏳ Limite o quota per ${country}. Attendo ${wait / 1000}s...`);
-            await sleep(wait);
+            console.warn(`⏳ Limite/quota per ${country} (${code}): ${amzMsg || err.message}`);
+            if (attempt < 2) {
+              console.warn(`   Attendo 90s prima del retry ${attempt + 1}/2...`);
+              await sleep(90000);
+            }
           } else {
-            console.warn(`⚠️ Errore su ${country}:`, err.message);
+            console.warn(`⚠️ Errore su ${country} (${code || "?"}):`, amzMsg || err.message);
             break;
           }
         }
       }
 
       if (!success) {
-        console.error(`❌ Fallito ${country} dopo 3 tentativi:`, lastError?.message);
+        console.error(`❌ Fallito ${country} dopo ${attempt} tentativi:`, lastError?.message);
       }
 
-      console.log("🕒 Pausa 30s prima del prossimo marketplace...");
-      await sleep(30000);
+      console.log("🕒 Pausa 60s prima del prossimo marketplace...");
+      await sleep(60000);
     }
 
     await db.close();

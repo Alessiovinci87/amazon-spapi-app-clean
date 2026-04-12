@@ -13,34 +13,47 @@ const {
 const SP_API_ENDPOINT = "https://sellingpartnerapi-eu.amazon.com";
 
 /**
- * 🔎 Helper per firmare e inviare richieste SP-API
+ * 🔎 Helper per firmare e inviare richieste SP-API.
+ * Pattern allineato a catalogAmazonService.spGet (testato e funzionante):
+ * - x-amz-access-token dentro i canonical headers (aggiunto PRIMA della firma)
+ * - content-type solo se c'è un body (mai su GET)
+ * - query costruita via URLSearchParams per encoding consistente
+ *
+ * `query` può essere stringa (già formattata senza "?") o oggetto {k: v}.
  */
 async function sendSignedRequest(method, urlPath, query = "", body = null) {
   const { access_token } = await getAccessToken();
-  const url = `${SP_API_ENDPOINT}${urlPath}${query}`;
 
-  // Opzioni da firmare
+  let qs = "";
+  if (typeof query === "string") {
+    qs = query.replace(/^\?/, "");
+  } else if (query && typeof query === "object") {
+    qs = new URLSearchParams(query).toString();
+  }
+  const fullPath = qs ? `${urlPath}?${qs}` : urlPath;
+
   const opts = {
     host: "sellingpartnerapi-eu.amazon.com",
-    path: `${urlPath}${query}`,
+    path: fullPath,
     service: "execute-api",
     region: AWS_REGION,
     method,
     headers: {
-      accept: "application/json",
-      "content-type": "application/json",
+      "x-amz-access-token": access_token,
     },
-    body: body ? JSON.stringify(body) : undefined,
   };
 
-  // Firma con AWS keys
+  if (body) {
+    opts.headers["content-type"] = "application/json";
+    opts.body = JSON.stringify(body);
+  }
+
   const signedRequest = sign(opts, {
     accessKeyId: AWS_ACCESS_KEY_ID,
     secretAccessKey: AWS_SECRET_ACCESS_KEY,
   });
 
-  // Aggiungiamo l’LWA token
-  signedRequest.headers["x-amz-access-token"] = access_token;
+  const url = `${SP_API_ENDPOINT}${fullPath}`;
 
   try {
     const response = await axios({
@@ -60,10 +73,9 @@ async function sendSignedRequest(method, urlPath, query = "", body = null) {
         status: err.response.status,
         data: err.response.data,
       };
-    } else {
-      console.error(err.message);
-      return { error: true, message: err.message };
     }
+    console.error(err.message);
+    return { error: true, message: err.message };
   }
 }
 
@@ -76,17 +88,33 @@ async function sendSignedRequest(method, urlPath, query = "", body = null) {
 async function getListingItem(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   const encodedSku = encodeURIComponent(sku);
   const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
-  const query = `?marketplaceIds=${marketplaceIds.join(",")}`;
+  return await sendSignedRequest("GET", urlPath, {
+    marketplaceIds: marketplaceIds.join(","),
+  });
+}
 
-  // 🟢 DEBUG LOG COMPLETO
-  console.log("👉 GET Listing DEBUG");
-  console.log("   SELLER_ID:", SELLER_ID);
-  console.log("   SKU originale:", sku);
-  console.log("   SKU encoded:", encodedSku);
-  console.log("   marketplaceIds:", marketplaceIds);
-  console.log("   URL finale:", `${SP_API_ENDPOINT}${urlPath}${query}`);
+/**
+ * 🔎 Recupera un listing con summaries + attributes (per popolare cache locale)
+ */
+async function getListingItemFull(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
+  const encodedSku = encodeURIComponent(sku);
+  const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
+  return await sendSignedRequest("GET", urlPath, {
+    marketplaceIds: marketplaceIds.join(","),
+    includedData: "summaries,attributes",
+  });
+}
 
-  return await sendSignedRequest("GET", urlPath, query);
+/**
+ * 📤 Recupera lo stato di una submission (per verificare approvazione dopo PATCH)
+ */
+async function getSubmissionStatus(sku, submissionId, marketplaceIds = ["APJ6JRA9NG5V4"]) {
+  const encodedSku = encodeURIComponent(sku);
+  const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
+  return await sendSignedRequest("GET", urlPath, {
+    marketplaceIds: marketplaceIds.join(","),
+    includedData: "issues",
+  });
 }
 
 
@@ -96,10 +124,13 @@ async function getListingItem(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
 async function patchListingItem(sku, payload, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   const encodedSku = encodeURIComponent(sku);
   const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
-  const query = `?marketplaceIds=${marketplaceIds.join(",")}`;
-
   console.log("👉 PATCH Listing:", { sku, marketplaceIds, payload });
-  return await sendSignedRequest("PATCH", urlPath, query, payload);
+  return await sendSignedRequest(
+    "PATCH",
+    urlPath,
+    { marketplaceIds: marketplaceIds.join(",") },
+    payload
+  );
 }
 
 /**
@@ -108,14 +139,16 @@ async function patchListingItem(sku, payload, marketplaceIds = ["APJ6JRA9NG5V4"]
 async function deleteListingItem(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   const encodedSku = encodeURIComponent(sku);
   const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
-  const query = `?marketplaceIds=${marketplaceIds.join(",")}`;
-
   console.log("👉 DELETE Listing:", { sku, marketplaceIds });
-  return await sendSignedRequest("DELETE", urlPath, query);
+  return await sendSignedRequest("DELETE", urlPath, {
+    marketplaceIds: marketplaceIds.join(","),
+  });
 }
 
 module.exports = {
   getListingItem,
+  getListingItemFull,
+  getSubmissionStatus,
   patchListingItem,
   deleteListingItem,
 };

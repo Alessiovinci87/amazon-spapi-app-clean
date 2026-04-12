@@ -60,7 +60,7 @@ router.get("/catalogo/dettagli", (req, res) => {
     const catalogo = db.prepare(`SELECT * FROM bilancio_catalogo`).all();
 
     const prodottiMap = Object.fromEntries(
-      db.prepare(`SELECT id, nome, pronto FROM prodotti`).all()
+      db.prepare(`SELECT id, nome, pronto, asin, sku FROM prodotti`).all()
         .map(p => [p.id, p])
     );
 
@@ -77,13 +77,19 @@ router.get("/catalogo/dettagli", (req, res) => {
     const risultati = catalogo.map(row => {
       let nome = "Sconosciuto";
       let quantita = 0;
+      let asin = null;
+      let sku = null;
 
       if (row.tipo === "prodotto" && prodottiMap[row.id_riferimento]) {
-        nome = prodottiMap[row.id_riferimento].nome;
-        quantita = prodottiMap[row.id_riferimento].pronto;
+        const p = prodottiMap[row.id_riferimento];
+        nome = p.nome;
+        quantita = p.pronto;
+        asin = p.asin || null;
+        sku = p.sku || null;
       } else if (row.tipo === "accessorio" && accessoriMap[row.id_riferimento]) {
         nome = accessoriMap[row.id_riferimento].nome;
         quantita = accessoriMap[row.id_riferimento].quantita;
+        asin = row.id_riferimento;
       } else if (row.tipo === "sfuso" && sfusoMap[row.id_riferimento]) {
         nome = sfusoMap[row.id_riferimento].nome;
         quantita = sfusoMap[row.id_riferimento].litri_disponibili;
@@ -95,6 +101,8 @@ router.get("/catalogo/dettagli", (req, res) => {
         tipo: row.tipo,
         id_riferimento: row.id_riferimento,
         nome,
+        asin,
+        sku,
         costo_unitario: row.costo,
         quantita_disponibile: quantita,
         valore_totale: valore,

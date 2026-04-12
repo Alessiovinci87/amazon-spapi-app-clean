@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Search, X } from "lucide-react";
 
 export default function CatalogoCostiTable() {
   const [righe, setRighe] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
+  const [search, setSearch] = useState("");
 
   async function loadData() {
     setLoading(true);
@@ -45,20 +47,57 @@ export default function CatalogoCostiTable() {
     } catch { toast.error("Errore popolamento"); }
   }
 
+  const righeFiltrate = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return righe;
+    return righe.filter(r =>
+      (r.nome || "").toLowerCase().includes(q) ||
+      (r.asin || "").toLowerCase().includes(q) ||
+      (r.sku || "").toLowerCase().includes(q)
+    );
+  }, [righe, search]);
+
   if (loading) return <p className="text-sm text-slate-500">Caricamento...</p>;
 
   const tipoColor = { prodotto: "text-emerald-400", accessorio: "text-amber-400", sfuso: "text-blue-400" };
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <button onClick={popola} type="button" className="px-3 py-1.5 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 text-violet-300 text-[11px] font-medium transition-all">
-          Popola catalogo
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Cerca per ASIN, SKU o nome..."
+            className="w-full bg-slate-900/60 border border-slate-800 rounded-md pl-9 pr-9 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500/50"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 rounded flex items-center justify-center text-slate-500 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              title="Cancella"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-slate-500 tabular-nums whitespace-nowrap">
+            {righeFiltrate.length}/{righe.length}
+          </span>
+          <button onClick={popola} type="button" className="px-3 py-1.5 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 text-violet-300 text-[11px] font-medium transition-all whitespace-nowrap">
+            Popola catalogo
+          </button>
+        </div>
       </div>
 
       {righe.length === 0 ? (
         <p className="text-sm text-slate-500 text-center py-6">Nessun elemento nel catalogo. Clicca "Popola catalogo" per iniziare.</p>
+      ) : righeFiltrate.length === 0 ? (
+        <p className="text-sm text-slate-500 text-center py-6">Nessun risultato per "{search}".</p>
       ) : (
         <div className="overflow-x-auto border border-slate-800 rounded-lg">
           <table className="w-full text-sm">
@@ -74,12 +113,18 @@ export default function CatalogoCostiTable() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
-              {righe.map(r => {
+              {righeFiltrate.map(r => {
                 const key = `${r.tipo}-${r.id_riferimento}`;
+                const meta = [r.asin, r.sku].filter(Boolean).join(" · ");
                 return (
                   <tr key={key} className="hover:bg-slate-800/20 transition-colors">
                     <td className={`px-3 py-2 text-xs font-medium capitalize ${tipoColor[r.tipo] || "text-slate-400"}`}>{r.tipo}</td>
-                    <td className="px-3 py-2 text-sm text-white">{r.nome}</td>
+                    <td className="px-3 py-2">
+                      <div className="text-sm text-white">{r.nome}</div>
+                      {meta && (
+                        <div className="text-[10px] font-mono text-slate-500 mt-0.5">{meta}</div>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-sm text-slate-300 tabular-nums text-right">{r.quantita_disponibile}</td>
                     <td className="px-3 py-2 text-right">
                       <input
