@@ -197,6 +197,8 @@ const Sfuso = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newSfuso, setNewSfuso] = useState({ nome: "", formato: "", asin_collegati: "", litri: 5 });
   const [ordiniPerSfuso, setOrdiniPerSfuso] = useState({});
+  const [ricezioneMod, setRicezioneMod] = useState(null); // { ordine, sfusoId }
+  const [ricezioneForm, setRicezioneForm] = useState({ quantita: "", numero_ddt: "", data_ricezione: "", lotto: "", data_scadenza: "" });
 
   const ENABLE_INVENTARIO_FETCH = false;
 
@@ -259,13 +261,41 @@ const Sfuso = () => {
     } catch (err) { console.error("Errore fetch sfusi:", err); }
   };
 
-  const handlePrendiInCarico = async (idSfuso) => {
-    if (!window.confirm("Confermi la ricezione degli ordini in arrivo?")) return;
+  const apriRicezione = (ordine, sfusoId) => {
+    setRicezioneMod({ ordine, sfusoId });
+    setRicezioneForm({
+      quantita: String(ordine.quantita_litri),
+      numero_ddt: "",
+      data_ricezione: new Date().toISOString().slice(0, 10),
+      lotto: "",
+      data_scadenza: "",
+    });
+  };
+
+  const confermaRicezione = async () => {
+    if (!ricezioneMod) return;
+    const { ordine } = ricezioneMod;
+    const qta = Number(ricezioneForm.quantita);
+    if (!qta || qta <= 0) { toast.error("Quantita non valida"); return; }
+    if (!ricezioneForm.numero_ddt.trim()) { toast.error("Inserisci il numero DDT"); return; }
     try {
-      const res = await fetch(`/api/v2/sfuso/ricevi/${idSfuso}`, { method: "PATCH" });
-      if (!res.ok) throw new Error("Errore ricezione sfuso");
+      const res = await fetch(`/api/v2/fornitori/ordini/${ordine.id}/ricevi`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantita_ricevuta: qta,
+          numero_ddt: ricezioneForm.numero_ddt.trim(),
+          data_ricezione: ricezioneForm.data_ricezione,
+          lotto: ricezioneForm.lotto || undefined,
+          data_scadenza: ricezioneForm.data_scadenza || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Errore ricezione");
+      toast.success(data.message || "Ricezione confermata");
+      setRicezioneMod(null);
       await fetchSfusi();
-    } catch (err) { console.error("Errore prendi in carico:", err); toast.error("Errore durante la presa in carico"); }
+    } catch (err) { toast.error(err.message); }
   };
 
   useEffect(() => { fetchSfusi(); fetchProdotti(); }, []);
@@ -591,11 +621,24 @@ const Sfuso = () => {
                               <p className="text-sm text-slate-500">Nessun ordine in arrivo</p>
                             ) : (
                               <>
-                                <p className="text-sm font-medium text-amber-300">Ordini in arrivo: {totaleInArrivo} L</p>
-                                {ordini.map((o) => <p key={o.id} className="text-xs text-slate-400">· {o.quantita_litri} L — {o.fornitore_nome || "Fornitore"}</p>)}
-                                <button onClick={() => handlePrendiInCarico(s.id)} type="button" className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-[12px] font-medium transition-all">
-                                  Prendi in carico ({totaleInArrivo} L)
-                                </button>
+                                <p className="text-sm font-medium text-amber-300">In arrivo: {totaleInArrivo} L</p>
+                                {ordini.map((o) => {
+                                  const dataPrev = o.data_consegna_prevista ? new Date(o.data_consegna_prevista).toLocaleDateString("it-IT") : null;
+                                  return (
+                                    <div key={o.id} className="flex items-center justify-between gap-2 py-1">
+                                      <p className="text-xs text-slate-400 flex-1">
+                                        {dataPrev ? `entro ${dataPrev} — ` : ""}{o.quantita_litri} L da {o.fornitore_nome || "Fornitore"}
+                                      </p>
+                                      <button
+                                        onClick={() => apriRicezione(o, s.id)}
+                                        type="button"
+                                        className="flex-shrink-0 px-2.5 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-[11px] font-medium transition-all"
+                                      >
+                                        Ricevi
+                                      </button>
+                                    </div>
+                                  );
+                                })}
                               </>
                             )}
                           </div>
@@ -622,6 +665,81 @@ const Sfuso = () => {
           <span className="font-mono">v2.0</span>
         </div>
       </footer>
+
+      {/* === Modal Ricezione Ordine === */}
+      {ricezioneMod && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-lg w-full max-w-md shadow-2xl">
+            <div className="p-5 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Package className="w-5 h-5 text-emerald-400" />
+                Ricezione Merce
+              </h3>
+              <button onClick={() => setRicezioneMod(null)} className="text-slate-500 hover:text-white"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2">
+                <p className="text-xs text-slate-500">Ordine #{ricezioneMod.ordine.id}</p>
+                <p className="text-sm text-white">{ricezioneMod.ordine.quantita_litri} L da {ricezioneMod.ordine.fornitore_nome || "Fornitore"}</p>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Numero DDT *</label>
+                <input
+                  type="text" value={ricezioneForm.numero_ddt}
+                  onChange={(e) => setRicezioneForm(p => ({ ...p, numero_ddt: e.target.value }))}
+                  className={inputCls} placeholder="es. DDT-2026/0042"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Data ricezione *</label>
+                <input
+                  type="date" value={ricezioneForm.data_ricezione}
+                  onChange={(e) => setRicezioneForm(p => ({ ...p, data_ricezione: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">Quantita ricevuta (L) — {ricezioneMod.ordine.quantita_litri} L ordinati</label>
+                <input
+                  type="number" step="0.1" min="0.1" max={ricezioneMod.ordine.quantita_litri}
+                  value={ricezioneForm.quantita}
+                  onChange={(e) => setRicezioneForm(p => ({ ...p, quantita: e.target.value }))}
+                  className={inputCls}
+                />
+                {Number(ricezioneForm.quantita) > 0 && Number(ricezioneForm.quantita) < ricezioneMod.ordine.quantita_litri && (
+                  <p className="text-xs text-amber-400 mt-1">Ricezione parziale: i {(ricezioneMod.ordine.quantita_litri - Number(ricezioneForm.quantita)).toFixed(1)} L rimanenti resteranno in attesa</p>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Lotto</label>
+                  <input
+                    type="text" value={ricezioneForm.lotto}
+                    onChange={(e) => setRicezioneForm(p => ({ ...p, lotto: e.target.value }))}
+                    className={inputCls} placeholder="opzionale"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Scadenza lotto</label>
+                  <input
+                    type="date" value={ricezioneForm.data_scadenza}
+                    onChange={(e) => setRicezioneForm(p => ({ ...p, data_scadenza: e.target.value }))}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-800 flex gap-3">
+              <button onClick={() => setRicezioneMod(null)} className="flex-1 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition-colors">
+                Annulla
+              </button>
+              <button onClick={confermaRicezione} className="flex-1 py-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all">
+                Conferma Ricezione
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === Modal Aggiungi Sfuso === */}
       {showAddModal && (

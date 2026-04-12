@@ -83,7 +83,7 @@ router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
   try {
     const db = getDb();
     const { idOrdine } = req.params;
-    const { quantita_ricevuta, lotto, data_scadenza, operatore } = req.body;
+    const { quantita_ricevuta, lotto, data_scadenza, operatore, numero_ddt, data_ricezione } = req.body;
 
     const ordine = db.prepare("SELECT * FROM ordini_fornitori WHERE id = ?").get(idOrdine);
     if (!ordine) return res.status(404).json({ ok: false, message: "Ordine non trovato" });
@@ -97,17 +97,38 @@ router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
       return res.status(400).json({ ok: false, message: "Quantità ricevuta non valida." });
     }
 
+    const qtaOriginale = Number(ordine.quantita_litri);
+    const isParziale = qtaRicevuta < qtaOriginale;
+    const dataRicezioneDb = data_ricezione || new Date().toISOString().slice(0, 10);
+
     const transaction = db.transaction(() => {
-      // 1. Segna ordine come consegnato
+      // 1. Segna ordine come consegnato (o parz. consegnato)
       db.prepare(`
         UPDATE ordini_fornitori
         SET stato = 'Consegnato',
             quantita_ricevuta = ?,
-            data_consegna_effettiva = datetime('now','localtime')
+            data_consegna_effettiva = ?
         WHERE id = ?
-      `).run(qtaRicevuta, idOrdine);
+      `).run(qtaRicevuta, dataRicezioneDb, idOrdine);
 
-      // 2. Aggiorna stock sfuso
+      // 2. Se parziale, crea nuovo ordine per il residuo
+      if (isParziale) {
+        const residuo = qtaOriginale - qtaRicevuta;
+        db.prepare(`
+          INSERT INTO ordini_fornitori
+          (id_fornitore, id_sfuso, asin, quantita_litri, stato, data_ordine, note, data_consegna_prevista)
+          VALUES (?, ?, ?, ?, 'In attesa', datetime('now','localtime'), ?, ?)
+        `).run(
+          ordine.id_fornitore,
+          ordine.id_sfuso,
+          ordine.asin,
+          residuo,
+          `Residuo ordine #${idOrdine} (${qtaRicevuta}/${qtaOriginale}L ricevuti)`,
+          ordine.data_consegna_prevista
+        );
+      }
+
+      // 3. Aggiorna stock sfuso
       if (ordine.id_sfuso) {
         db.prepare(`
           UPDATE sfuso
@@ -115,9 +136,9 @@ router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
               litri_in_arrivo = MAX(litri_in_arrivo - ?, 0),
               updated_at = datetime('now','localtime')
           WHERE id = ?
-        `).run(qtaRicevuta, Number(ordine.quantita_litri), ordine.id_sfuso);
+        `).run(qtaRicevuta, qtaRicevuta, ordine.id_sfuso);
 
-        // 3. Aggiorna lotto e data_scadenza se forniti
+        // 4. Aggiorna lotto e data_scadenza se forniti
         if (lotto) {
           db.prepare("UPDATE sfuso SET lotto = ? WHERE id = ?").run(lotto, ordine.id_sfuso);
         }
@@ -125,10 +146,11 @@ router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
           db.prepare("UPDATE sfuso SET data_scadenza = ? WHERE id = ?").run(data_scadenza, ordine.id_sfuso);
         }
 
-        // 4. Registra movimento storico
+        // 5. Registra movimento storico
         const fornitore = db.prepare("SELECT nome FROM fornitori WHERE id = ?").get(ordine.id_fornitore);
         const sfuso = db.prepare("SELECT formato, nome_prodotto FROM sfuso WHERE id = ?").get(ordine.id_sfuso);
 
+        const ddtNote = numero_ddt ? `DDT ${numero_ddt} — ` : "";
         db.prepare(`
           INSERT INTO sfuso_movimenti
           (id_sfuso, nome_prodotto, formato, lotto, fornitore, tipo, quantita, operatore, note, data_scadenza)
@@ -141,7 +163,7 @@ router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
           fornitore?.nome || null,
           qtaRicevuta,
           operatore || "system",
-          `Ricezione ordine #${idOrdine}${qtaRicevuta < ordine.quantita_litri ? ` (parziale: ${qtaRicevuta}/${ordine.quantita_litri}L)` : ""}`,
+          `${ddtNote}Ricezione ordine #${idOrdine}${isParziale ? ` (parziale: ${qtaRicevuta}/${qtaOriginale}L)` : ""}`,
           data_scadenza || null
         );
       }
@@ -157,9 +179,9 @@ router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
       WHERE o.id = ?
     `).get(idOrdine);
 
-    res.json({ ok: true, message: "Ricezione confermata", ordine: updated });
+    res.json({ ok: true, message: isParziale ? `Ricezione parziale: ${qtaRicevuta}L ricevuti, ${qtaOriginale - qtaRicevuta}L in attesa` : "Ricezione confermata", ordine: updated });
   } catch (err) {
-    console.error("❌ Errore ricezione ordine:", err);
+    console.error("Errore ricezione ordine:", err);
     res.status(500).json({ ok: false, message: "Errore durante la ricezione." });
   }
 });
@@ -187,15 +209,18 @@ router.get("/sfuso/:idSfuso/ordini", (req, res) => {
     const db = getDb();
     const { idSfuso } = req.params;
     const query = `
-      SELECT 
+      SELECT
         o.id,
         o.id_sfuso,
         s.nome_prodotto,
         s.formato,
         f.nome AS fornitore_nome,
         o.quantita_litri,
+        o.quantita_ricevuta,
         o.stato,
-        o.data_ordine
+        o.data_ordine,
+        o.data_consegna_prevista,
+        o.data_consegna_effettiva
       FROM ordini_fornitori o
       LEFT JOIN sfuso s ON s.id = o.id_sfuso
       LEFT JOIN fornitori f ON f.id = o.id_fornitore
