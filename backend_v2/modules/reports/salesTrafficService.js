@@ -89,16 +89,22 @@ async function aggiornaSalesTraffic() {
   for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
     console.log(`[SalesTraffic] Marketplace: ${country}`);
 
-    // Skip se abbiamo gia aggiornato questo country nelle ultime 12 ore
-    const lastUpdate = db.prepare(
-      "SELECT MAX(created_at) AS last_ts FROM sales_traffic WHERE country = ?"
+    // Skip se abbiamo gia molti giorni di dati per questo country (non solo oggi)
+    const dataCount = db.prepare(
+      "SELECT COUNT(DISTINCT date) AS days FROM sales_traffic WHERE country = ? AND date != ''"
     ).get(country);
 
-    if (lastUpdate?.last_ts) {
-      const hoursSince = (Date.now() - new Date(lastUpdate.last_ts).getTime()) / (1000 * 60 * 60);
-      if (hoursSince < 12) {
-        console.log(`[SalesTraffic] ${country}: aggiornato ${hoursSince.toFixed(1)}h fa, skip`);
-        continue;
+    if (dataCount && dataCount.days >= 30) {
+      // Gia abbastanza storico — controlla se aggiornato nelle ultime 12h
+      const lastUpdate = db.prepare(
+        "SELECT MAX(created_at) AS last_ts FROM sales_traffic WHERE country = ?"
+      ).get(country);
+      if (lastUpdate?.last_ts) {
+        const hoursSince = (Date.now() - new Date(lastUpdate.last_ts).getTime()) / (1000 * 60 * 60);
+        if (hoursSince < 12) {
+          console.log(`[SalesTraffic] ${country}: ${dataCount.days} giorni in DB, aggiornato ${hoursSince.toFixed(1)}h fa, skip`);
+          continue;
+        }
       }
     }
 
@@ -114,28 +120,8 @@ async function aggiornaSalesTraffic() {
         // Verifica se c'e gia un report pronto
         let reportId = null;
         let reportDocumentId = null;
-        const existingReport = await checkExistingReport(access_token, marketplaceId);
-
-        let useExisting = false;
-        if (existingReport && existingReport.reportDocumentId) {
-          // Provo a scaricare il report esistente; se 403, ne creo uno nuovo
-          try {
-            const testToken = (await getAccessToken()).access_token;
-            await axios.get(
-              `${BASE_URL}/reports/2021-06-30/documents/${existingReport.reportDocumentId}`,
-              { headers: { Authorization: `Bearer ${testToken}`, "x-amz-access-token": testToken } }
-            );
-            reportId = existingReport.reportId;
-            reportDocumentId = existingReport.reportDocumentId;
-            useExisting = true;
-            console.log(`[SalesTraffic] Riutilizzo report ${reportId} (${country})`);
-          } catch (docErr) {
-            console.log(`[SalesTraffic] Report esistente non accessibile (${docErr.response?.status}), ne creo uno nuovo`);
-          }
-        }
-
-        if (!useExisting) {
-          // Crea nuovo report (periodo: ultimi 365 giorni)
+        {
+          // Crea sempre un nuovo report (periodo: ultimi 365 giorni)
           const now = new Date();
           const startDate = new Date(now);
           startDate.setDate(now.getDate() - 365);
