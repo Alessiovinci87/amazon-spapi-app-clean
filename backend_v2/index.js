@@ -185,7 +185,7 @@ async function bootstrap() {
   // =========================================================
   app.use("/api/v2/sfuso", sfusoRoutes);
   app.use("/api/v2/sfuso-inventario", sfusoInventarioRoutes);
-  app.use("/api/v2/sfuso-reset", sfusoResetRoutes);
+  // sfusoResetRoutes rimosso: la rotta /storico-inventario/reset è già in sfusoRoutes
   app.use("/api/v2/produzioni-sfuso", produzioneSfusoRoutes);
   app.use("/api/v2/produzioni-sfuso/storico", storicoProduzioniSfusoRouter);
   app.use("/api/v2", storicoResetRoutes);
