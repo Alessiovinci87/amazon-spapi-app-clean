@@ -322,9 +322,9 @@ async function bootstrap() {
 
   require("./keepAlive");
 
-  // Cron alert Europa (ogni 2 ore)
-  const { startAlertCron } = require("./modules/europa/alertCron");
-  startAlertCron();
+  // Cron sync automatici Amazon SP-API (stock, prezzi, buybox, vendite, listing)
+  const { startSyncCrons } = require("./modules/sync/syncCron");
+  startSyncCrons();
 
   // Cron backup DB (ogni notte alle 02:00)
   const { startBackupCron } = require("./modules/backup/backupService");
