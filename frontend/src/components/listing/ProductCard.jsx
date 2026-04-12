@@ -23,19 +23,9 @@ const ProductCard = ({ asin, sku, image, prezzo, buyBox, stock, perPaese = {} })
   const [copiatoSku, setCopiatoSku] = useState(false);
   const [immagini, setImmagini] = useState([]); // 📷 tutte le immagini Amazon
 
-  // 🔄 Fetch immagini da backend
+  // Immagini: endpoint non ancora implementato, usa immagine principale
   useEffect(() => {
-    async function fetchImmagini() {
-      try {
-        const res = await fetch(`/api/v2/inventario/${asin}/images`);
-        if (!res.ok) throw new Error("Errore fetch immagini");
-        const data = await res.json();
-        setImmagini(data.images || []);
-      } catch (err) {
-        console.error("❌ Errore caricamento immagini:", err);
-      }
-    }
-    if (asin) fetchImmagini();
+    if (image) setImmagini([]);
   }, [asin]);
 
   const datiPaesi = Object.entries(perPaese).map(([paese, dati]) => ({

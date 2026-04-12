@@ -24,8 +24,6 @@ const buildUrl = (endpoint = "") => {
   return `${base}/${path}`;
 };
 
-console.log("🌍 API_BASE in uso:", API_BASE);
-
 /**
  * Ritorna gli headers con Authorization JWT se presente in localStorage.
  */
@@ -40,7 +38,6 @@ function getAuthHeaders(extra = {}) {
 
 export async function fetchJSON(endpoint, options = {}) {
   const url = buildUrl(endpoint);
-  console.log("📡 Fetch JSON →", url);
 
   // Inietta automaticamente il token JWT
   options.headers = getAuthHeaders(options.headers || {});
@@ -48,21 +45,9 @@ export async function fetchJSON(endpoint, options = {}) {
   const res = await fetch(url, options);
   if (!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
   const json = await res.json().catch(() => ({}));
-  
-  // 🔍 DEBUG: Log della risposta grezza dal server
-  console.log("🔍 [fetchJSON] Risposta grezza dal server:", json);
-  console.log("🔍 [fetchJSON] Tipo:", typeof json);
-  console.log("🔍 [fetchJSON] È array?", Array.isArray(json));
-  console.log("🔍 [fetchJSON] json.data:", json?.data);
-  console.log("🔍 [fetchJSON] json.ok:", json?.ok);
-  
+
   // Estrae data se presente, altrimenti restituisce l'intero oggetto
-  const result = json?.data ?? json;
-  console.log("🔍 [fetchJSON] Valore restituito:", result);
-  console.log("🔍 [fetchJSON] Tipo risultato:", typeof result);
-  console.log("🔍 [fetchJSON] Risultato è array?", Array.isArray(result));
-  
-  return result;
+  return json?.data ?? json;
 }
 
 export { API_BASE, buildUrl };

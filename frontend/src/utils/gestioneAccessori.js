@@ -16,7 +16,7 @@ export const confermaModificaAccessorio = async ({ asin, nome, quantitaPerProdot
     }
 
     // Storico (facoltativo ma utile)
-    await fetch("/api/storico/salva", {
+    await fetch("/api/v2/storico/salva", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

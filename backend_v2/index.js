@@ -227,6 +227,7 @@ async function bootstrap() {
   app.use("/api/v2/listings-editor", listingsEditorRoutes);
   app.use("/api/v2/reports-amazon", reportsAmazonRoutes);
   app.use("/api/v2/magazzino", inventarioRouter);
+  app.use("/api/v2/inventario", inventarioRouter);  // alias: frontend usa /inventario
   app.use("/api/v2", inventoryAmazonController);
 
   // =========================================================
