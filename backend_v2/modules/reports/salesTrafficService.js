@@ -113,11 +113,25 @@ async function aggiornaSalesTraffic() {
         let reportDocumentId = null;
         const existingReport = await checkExistingReport(access_token, marketplaceId);
 
+        let useExisting = false;
         if (existingReport && existingReport.reportDocumentId) {
-          reportId = existingReport.reportId;
-          reportDocumentId = existingReport.reportDocumentId;
-          console.log(`[SalesTraffic] Riutilizzo report ${reportId} (${country})`);
-        } else {
+          // Provo a scaricare il report esistente; se 403, ne creo uno nuovo
+          try {
+            const testToken = (await getAccessToken()).access_token;
+            await axios.get(
+              `${BASE_URL}/reports/2021-06-30/documents/${existingReport.reportDocumentId}`,
+              { headers: { Authorization: `Bearer ${testToken}`, "x-amz-access-token": testToken } }
+            );
+            reportId = existingReport.reportId;
+            reportDocumentId = existingReport.reportDocumentId;
+            useExisting = true;
+            console.log(`[SalesTraffic] Riutilizzo report ${reportId} (${country})`);
+          } catch (docErr) {
+            console.log(`[SalesTraffic] Report esistente non accessibile (${docErr.response?.status}), ne creo uno nuovo`);
+          }
+        }
+
+        if (!useExisting) {
           // Crea nuovo report (periodo: ieri)
           const now = new Date();
           const yesterday = new Date(now);
@@ -149,7 +163,7 @@ async function aggiornaSalesTraffic() {
             await sleep(8000);
             const res = await axios.get(
               `${BASE_URL}/reports/2021-06-30/reports/${reportId}`,
-              { headers: { Authorization: `Bearer ${access_token}` } }
+              { headers: { Authorization: `Bearer ${access_token}`, "x-amz-access-token": access_token } }
             );
             status = res.data.processingStatus;
             reportDocumentId = res.data.reportDocumentId;
@@ -164,7 +178,12 @@ async function aggiornaSalesTraffic() {
         const freshToken = (await getAccessToken()).access_token;
         const metaRes = await axios.get(
           `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
-          { headers: { Authorization: `Bearer ${freshToken}` } }
+          {
+            headers: {
+              Authorization: `Bearer ${freshToken}`,
+              "x-amz-access-token": freshToken,
+            },
+          }
         );
         const { url, compressionAlgorithm } = metaRes.data;
         const fileRes = await axios.get(url, { responseType: "arraybuffer" });
