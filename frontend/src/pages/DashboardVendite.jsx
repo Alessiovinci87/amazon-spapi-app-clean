@@ -13,6 +13,7 @@ import {
   Eye,
   Users,
   Calendar,
+  Search,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -80,6 +81,7 @@ const DashboardVendite = () => {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState("overview");
+  const [searchFilter, setSearchFilter] = useState("");
 
   // Date range
   const [dateFrom, setDateFrom] = useState(() => {
@@ -135,8 +137,18 @@ const DashboardVendite = () => {
 
   const totals = data?.totals || {};
   const perMarketplace = data?.perMarketplace || [];
-  const topAsin = data?.topAsin || [];
   const perData = data?.perData || [];
+
+  // Filtro ricerca su topAsin e margins
+  const filterFn = (p) => {
+    if (!searchFilter.trim()) return true;
+    const q = searchFilter.toLowerCase();
+    return (p.asin || "").toLowerCase().includes(q) ||
+           (p.sku || "").toLowerCase().includes(q) ||
+           (p.nome || "").toLowerCase().includes(q);
+  };
+  const topAsin = (data?.topAsin || []).filter(filterFn);
+  const filteredMargins = margins.filter(filterFn);
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -211,6 +223,18 @@ const DashboardVendite = () => {
               className="bg-slate-800/60 border border-slate-700 rounded-md px-2.5 py-1 text-[12px] text-slate-300 focus:outline-none focus:border-slate-500"
             />
           </div>
+        </div>
+
+        {/* Search filter */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Cerca per ASIN, SKU o nome prodotto..."
+            value={searchFilter}
+            onChange={(e) => setSearchFilter(e.target.value)}
+            className="w-full sm:w-80 bg-slate-800/60 border border-slate-700 rounded-md pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
+          />
         </div>
 
         {loading ? (
@@ -306,7 +330,7 @@ const DashboardVendite = () => {
                     <thead>
                       <tr className="border-b border-slate-800 text-[10px] uppercase tracking-[0.12em] text-slate-500">
                         <th className="px-4 py-3 text-left w-8">#</th>
-                        <th className="px-4 py-3 text-left">ASIN</th>
+                        <th className="px-4 py-3 text-left">Prodotto</th>
                         <th className="px-4 py-3 text-right">Fatturato</th>
                         <th className="px-4 py-3 text-right">Unita</th>
                         <th className="px-4 py-3 text-right">Sessioni</th>
@@ -318,8 +342,13 @@ const DashboardVendite = () => {
                         <tr key={p.asin} className="hover:bg-slate-800/30 transition-colors">
                           <td className="px-4 py-3 text-slate-600 tabular-nums">{i + 1}</td>
                           <td className="px-4 py-3">
-                            <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{p.asin}</span>
-                            {p.sku && <span className="ml-2 text-xs text-slate-600">{p.sku}</span>}
+                            <div className="flex flex-col gap-0.5">
+                              {p.nome && <span className="text-xs text-slate-200 truncate max-w-xs" title={p.nome}>{p.nome.length > 60 ? p.nome.slice(0, 60) + "..." : p.nome}</span>}
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[11px] text-emerald-400/70 bg-emerald-500/10 px-1.5 py-0.5 rounded">{p.asin}</span>
+                                {p.sku && <span className="text-[11px] text-slate-600">{p.sku}</span>}
+                              </div>
+                            </div>
                           </td>
                           <td className="px-4 py-3 text-right text-emerald-400 font-semibold tabular-nums">{fmtEuro(p.fatturato)}</td>
                           <td className="px-4 py-3 text-right text-blue-400 tabular-nums">{fmtNum(p.unita)}</td>
@@ -479,7 +508,7 @@ const DashboardVendite = () => {
             {/* Tab: Margini */}
             {tab === "margini" && (
               <div className="space-y-4">
-                {margins.length === 0 ? (
+                {filteredMargins.length === 0 ? (
                   <div className="text-center py-16">
                     <DollarSign className="w-10 h-10 text-slate-700 mx-auto mb-3" />
                     <p className="text-slate-500">Nessun dato margine disponibile.</p>
@@ -493,7 +522,7 @@ const DashboardVendite = () => {
                       <div className="px-5 py-4">
                         <h2 className="text-sm font-semibold text-white mb-4">Margine per prodotto (top 15)</h2>
                         <ResponsiveContainer width="100%" height={320}>
-                          <BarChart data={margins.slice(0, 15).map((m) => ({ asin: m.asin.slice(-5), Fatturato: m.fatturato, Fees: m.fee_totale, Costo: m.costo_totale, Margine: m.margine }))} layout="vertical">
+                          <BarChart data={filteredMargins.slice(0, 15).map((m) => ({ asin: m.nome ? (m.nome.length > 25 ? m.nome.slice(0, 25) + "..." : m.nome) : m.asin.slice(-5), Fatturato: m.fatturato, Fees: m.fee_totale, Costo: m.costo_totale, Margine: m.margine }))} layout="vertical">
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                             <XAxis type="number" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                             <YAxis dataKey="asin" type="category" tick={{ fill: "#94a3b8", fontSize: 10, fontFamily: "monospace" }} width={50} />
@@ -514,7 +543,7 @@ const DashboardVendite = () => {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-slate-800 text-[10px] uppercase tracking-[0.12em] text-slate-500">
-                              <th className="px-4 py-3 text-left">ASIN</th>
+                              <th className="px-4 py-3 text-left">Prodotto</th>
                               <th className="px-4 py-3 text-right">Unita</th>
                               <th className="px-4 py-3 text-right">Fatturato</th>
                               <th className="px-4 py-3 text-right">Fees Amazon</th>
@@ -524,11 +553,16 @@ const DashboardVendite = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800/50">
-                            {margins.map((m) => (
+                            {filteredMargins.map((m) => (
                               <tr key={m.asin} className="hover:bg-slate-800/30 transition-colors">
                                 <td className="px-4 py-3">
-                                  <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">{m.asin}</span>
-                                  {m.sku && <span className="ml-2 text-xs text-slate-600">{m.sku}</span>}
+                                  <div className="flex flex-col gap-0.5">
+                                    {m.nome && <span className="text-xs text-slate-200 truncate max-w-xs" title={m.nome}>{m.nome.length > 60 ? m.nome.slice(0, 60) + "..." : m.nome}</span>}
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-[11px] text-emerald-400/70 bg-emerald-500/10 px-1.5 py-0.5 rounded">{m.asin}</span>
+                                      {m.sku && <span className="text-[11px] text-slate-600">{m.sku}</span>}
+                                    </div>
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 text-right text-slate-300 tabular-nums">{fmtNum(m.unita)}</td>
                                 <td className="px-4 py-3 text-right text-emerald-400 font-semibold tabular-nums">{fmtEuro(m.fatturato)}</td>

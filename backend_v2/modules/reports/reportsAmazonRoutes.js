@@ -115,17 +115,21 @@ router.get("/sales-traffic/summary", async (req, res) => {
       ORDER BY fatturato DESC
     `).all(...dateParams);
 
-    // Top ASIN per fatturato
+    // Top ASIN per fatturato (con nome dal catalogo)
     const topAsin = db.prepare(`
-      SELECT asin, sku,
-        SUM(units_ordered) AS unita,
-        SUM(ordered_product_sales) AS fatturato,
-        ROUND(AVG(conversion_rate), 2) AS conv_rate_avg,
-        SUM(sessions) AS sessioni
-      FROM sales_traffic ${dateFilter}
-      GROUP BY asin
+      SELECT st.asin, st.sku,
+        SUM(st.units_ordered) AS unita,
+        SUM(st.ordered_product_sales) AS fatturato,
+        ROUND(AVG(st.conversion_rate), 2) AS conv_rate_avg,
+        SUM(st.sessions) AS sessioni,
+        COALESCE(pc.titolo, al.title, '') AS nome
+      FROM sales_traffic st
+      LEFT JOIN product_catalog pc ON pc.asin = st.asin
+      LEFT JOIN amazon_listings al ON al.asin = st.asin
+      ${dateFilter.replace("WHERE", "WHERE").replace("date", "st.date")}
+      GROUP BY st.asin
       ORDER BY fatturato DESC
-      LIMIT 20
+      LIMIT 50
     `).all(...dateParams);
 
     // Per data (trend) — tutte le date nel range, ordine cronologico
@@ -209,15 +213,18 @@ router.get("/sales-traffic/margins", (req, res) => {
         SUM(st.units_ordered) AS unita,
         SUM(st.ordered_product_sales) AS fatturato,
         COALESCE(AVG(ff.total_fee), 0) AS fee_media,
-        COALESCE(bc.costo, 0) AS costo_produzione
+        COALESCE(bc.costo, 0) AS costo_produzione,
+        COALESCE(pc.titolo, al.title, '') AS nome
       FROM sales_traffic st
       LEFT JOIN fba_fees ff ON ff.asin = st.asin AND ff.country = st.country
       LEFT JOIN prodotti p ON p.asin = st.asin
       LEFT JOIN bilancio_catalogo bc ON bc.tipo = 'prodotto' AND bc.id_riferimento = p.rowid
+      LEFT JOIN product_catalog pc ON pc.asin = st.asin
+      LEFT JOIN amazon_listings al ON al.asin = st.asin
       WHERE st.units_ordered > 0 ${dateFilter}
       GROUP BY st.asin
       ORDER BY fatturato DESC
-      LIMIT 30
+      LIMIT 50
     `).all(...dateParams);
 
     const result = rows.map((r) => {
@@ -228,6 +235,7 @@ router.get("/sales-traffic/margins", (req, res) => {
       return {
         asin: r.asin,
         sku: r.sku,
+        nome: r.nome || "",
         unita: r.unita,
         fatturato: Math.round(r.fatturato * 100) / 100,
         fee_totale: Math.round(feeTotale * 100) / 100,
