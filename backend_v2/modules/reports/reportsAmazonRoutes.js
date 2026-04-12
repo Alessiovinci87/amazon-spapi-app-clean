@@ -80,22 +80,29 @@ router.get("/sales-traffic", async (req, res) => {
   }
 });
 
-// 📊 GET → riepilogo vendite aggregato
+// 📊 GET → riepilogo vendite aggregato (con filtro date opzionale)
+// Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD
 router.get("/sales-traffic/summary", async (req, res) => {
   try {
     const { getDb } = require("../../db/database");
     const db = getDb();
+    const { from, to } = req.query;
 
-    // Totali globali
+    const dateFilter = (from && to) ? "WHERE date >= ? AND date <= ? AND date != ''" : "WHERE date != ''";
+    const dateParams = (from && to) ? [from, to] : [];
+
+    // Totali nel periodo
     const totals = db.prepare(`
       SELECT
         COALESCE(SUM(units_ordered), 0) AS unita_totali,
         COALESCE(SUM(ordered_product_sales), 0) AS fatturato_totale,
         COUNT(DISTINCT asin) AS asin_attivi,
         COUNT(DISTINCT country) AS marketplace_attivi,
-        COUNT(DISTINCT date) AS giorni_con_dati
-      FROM sales_traffic
-    `).get();
+        COUNT(DISTINCT date) AS giorni_con_dati,
+        MIN(date) AS data_inizio,
+        MAX(date) AS data_fine
+      FROM sales_traffic ${dateFilter}
+    `).get(...dateParams);
 
     // Per marketplace
     const perMarketplace = db.prepare(`
@@ -103,10 +110,10 @@ router.get("/sales-traffic/summary", async (req, res) => {
         SUM(units_ordered) AS unita,
         SUM(ordered_product_sales) AS fatturato,
         COUNT(DISTINCT asin) AS asin_count
-      FROM sales_traffic
+      FROM sales_traffic ${dateFilter}
       GROUP BY country
       ORDER BY fatturato DESC
-    `).all();
+    `).all(...dateParams);
 
     // Top ASIN per fatturato
     const topAsin = db.prepare(`
@@ -115,27 +122,26 @@ router.get("/sales-traffic/summary", async (req, res) => {
         SUM(ordered_product_sales) AS fatturato,
         ROUND(AVG(conversion_rate), 2) AS conv_rate_avg,
         SUM(sessions) AS sessioni
-      FROM sales_traffic
+      FROM sales_traffic ${dateFilter}
       GROUP BY asin
       ORDER BY fatturato DESC
       LIMIT 20
-    `).all();
+    `).all(...dateParams);
 
-    // Per data (trend)
+    // Per data (trend) — tutte le date nel range, ordine cronologico
     const perData = db.prepare(`
       SELECT date,
         SUM(units_ordered) AS unita,
         SUM(ordered_product_sales) AS fatturato,
         SUM(sessions) AS sessioni
-      FROM sales_traffic
+      FROM sales_traffic ${dateFilter}
       GROUP BY date
-      ORDER BY date DESC
-      LIMIT 30
-    `).all();
+      ORDER BY date ASC
+    `).all(...dateParams);
 
     res.json({ ok: true, totals, perMarketplace, topAsin, perData });
   } catch (err) {
-    console.error("❌ Errore sales-traffic/summary:", err.message);
+    console.error("Errore sales-traffic/summary:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -184,10 +190,17 @@ router.get("/sales-traffic/compare", (req, res) => {
 });
 
 // 📊 GET → margine per prodotto (fatturato - fees - costo produzione)
+// Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD
 router.get("/sales-traffic/margins", (req, res) => {
   try {
     const { getDb } = require("../../db/database");
     const db = getDb();
+    const { from, to } = req.query;
+
+    const dateFilter = (from && to)
+      ? "AND st.date >= ? AND st.date <= ? AND st.date != ''"
+      : "AND st.date != ''";
+    const dateParams = (from && to) ? [from, to] : [];
 
     const rows = db.prepare(`
       SELECT
@@ -201,11 +214,11 @@ router.get("/sales-traffic/margins", (req, res) => {
       LEFT JOIN fba_fees ff ON ff.asin = st.asin AND ff.country = st.country
       LEFT JOIN prodotti p ON p.asin = st.asin
       LEFT JOIN bilancio_catalogo bc ON bc.tipo = 'prodotto' AND bc.id_riferimento = p.rowid
-      WHERE st.units_ordered > 0
+      WHERE st.units_ordered > 0 ${dateFilter}
       GROUP BY st.asin
       ORDER BY fatturato DESC
       LIMIT 30
-    `).all();
+    `).all(...dateParams);
 
     const result = rows.map((r) => {
       const feeTotale = (r.fee_media || 0) * (r.unita || 0);

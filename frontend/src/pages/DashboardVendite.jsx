@@ -12,6 +12,7 @@ import {
   DollarSign,
   Eye,
   Users,
+  Calendar,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -59,6 +60,18 @@ function DeltaBadge({ current, previous, isCurrency = false }) {
   );
 }
 
+// Preset periodi rapidi
+const PRESETS = [
+  { label: "7gg", days: 7 },
+  { label: "30gg", days: 30 },
+  { label: "90gg", days: 90 },
+  { label: "6 mesi", days: 180 },
+  { label: "1 anno", days: 365 },
+  { label: "Tutto", days: 0 },
+];
+
+function toISO(d) { return d.toISOString().slice(0, 10); }
+
 const DashboardVendite = () => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
@@ -68,12 +81,31 @@ const DashboardVendite = () => {
   const [syncing, setSyncing] = useState(false);
   const [tab, setTab] = useState("overview");
 
+  // Date range
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return toISO(d);
+  });
+  const [dateTo, setDateTo] = useState(() => toISO(new Date()));
+  const [activePreset, setActivePreset] = useState("30gg");
+
+  const applyPreset = (preset) => {
+    setActivePreset(preset.label);
+    if (preset.days === 0) {
+      setDateFrom(""); setDateTo("");
+    } else {
+      const end = new Date();
+      const start = new Date(); start.setDate(end.getDate() - preset.days);
+      setDateFrom(toISO(start)); setDateTo(toISO(end));
+    }
+  };
+
   const fetchData = useCallback(async () => {
     try {
+      const qs = (dateFrom && dateTo) ? `?from=${dateFrom}&to=${dateTo}` : "";
       const [resSummary, resCompare, resMargins] = await Promise.all([
-        fetch("/api/v2/reports-amazon/sales-traffic/summary"),
+        fetch(`/api/v2/reports-amazon/sales-traffic/summary${qs}`),
         fetch("/api/v2/reports-amazon/sales-traffic/compare"),
-        fetch("/api/v2/reports-amazon/sales-traffic/margins"),
+        fetch(`/api/v2/reports-amazon/sales-traffic/margins${qs}`),
       ]);
       if (resSummary.ok) setData(await resSummary.json());
       if (resCompare.ok) setCompare(await resCompare.json());
@@ -83,9 +115,9 @@ const DashboardVendite = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateTo]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
 
   const syncSales = async () => {
     setSyncing(true);
@@ -143,6 +175,43 @@ const DashboardVendite = () => {
       </section>
 
       <main className="relative flex-1 px-6 sm:px-10 lg:px-16 pb-12 space-y-6">
+
+        {/* Date range selector */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Calendar className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          {/* Preset buttons */}
+          <div className="flex gap-1">
+            {PRESETS.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => applyPreset(p)}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  activePreset === p.label
+                    ? "bg-emerald-500/15 border border-emerald-500/40 text-emerald-300"
+                    : "bg-slate-800/60 border border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          {/* Custom date inputs */}
+          <div className="flex items-center gap-2 ml-auto">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => { setDateFrom(e.target.value); setActivePreset(""); }}
+              className="bg-slate-800/60 border border-slate-700 rounded-md px-2.5 py-1 text-[12px] text-slate-300 focus:outline-none focus:border-slate-500"
+            />
+            <span className="text-slate-600 text-xs">—</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => { setDateTo(e.target.value); setActivePreset(""); }}
+              className="bg-slate-800/60 border border-slate-700 rounded-md px-2.5 py-1 text-[12px] text-slate-300 focus:outline-none focus:border-slate-500"
+            />
+          </div>
+        </div>
 
         {loading ? (
           <div className="text-center py-16 text-slate-500">Caricamento...</div>

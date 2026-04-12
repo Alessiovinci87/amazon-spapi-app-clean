@@ -135,10 +135,10 @@ async function aggiornaSalesTraffic() {
         }
 
         if (!useExisting) {
-          // Crea nuovo report (periodo: ultimi 30 giorni)
+          // Crea nuovo report (periodo: ultimi 365 giorni)
           const now = new Date();
           const startDate = new Date(now);
-          startDate.setDate(now.getDate() - 30);
+          startDate.setDate(now.getDate() - 365);
 
           const createRes = await axios.post(
             `${BASE_URL}/reports/2021-06-30/reports`,
