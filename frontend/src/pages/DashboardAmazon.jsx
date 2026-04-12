@@ -29,40 +29,30 @@ const itemVariants = {
 };
 
 const MODULES = [
-  { to: "/europe",                 icon: Globe,      label: "Europa",       desc: "SP-API multi-marketplace",        accent: "indigo",  code: "01" },
-  { to: "/magazzino",              icon: Package,    label: "Magazzino",    desc: "Giacenze e movimentazioni",       accent: "emerald", code: "02" },
-  { to: "/uffici/spedizioni",      icon: Truck,      label: "Spedizioni",   desc: "Logistica e tracking",            accent: "violet",  code: "03" },
-  { to: "/uffici/alert-center",     icon: Bell,       label: "Centro Alert", desc: "Alert stock per categoria",       accent: "amber",   code: "04" },
-  { to: "/uffici/produzione",      icon: Wrench,     label: "Produzione",   desc: "Prenotazioni e ordini lavoro",    accent: "rose",    code: "05" },
-  { to: "/uffici/ddt",             icon: FileText,   label: "DDT",          desc: "Documenti di trasporto",          accent: "pink",    code: "06" },
-  { to: "/uffici/fornitori",       icon: Users,      label: "Fornitori",    desc: "Anagrafica e gestione",           accent: "orange",  code: "07" },
-  { to: "/fba-gestione-prodotti",  icon: Box,        label: "FBA Prodotti", desc: "Catalogo Amazon FBA",             accent: "cyan",    code: "08" },
-  { to: "/uffici/bilancio",        icon: DollarSign, label: "Bilancio",     desc: "Costi, valore magazzino, movimenti", accent: "emerald", code: "09" },
-  { to: "/uffici/vendite",         icon: TrendingUp, label: "Vendite",      desc: "Dashboard vendite e margini",     accent: "blue",    code: "10" },
+  { to: "/europe",                 icon: Globe,      label: "Europa",       desc: "SP-API multi-marketplace",           accent: "indigo",  code: "01" },
+  { to: "/magazzino",              icon: Package,    label: "Magazzino",    desc: "Giacenze e movimentazioni",          accent: "emerald", code: "02" },
+  { to: "/uffici/spedizioni",      icon: Truck,      label: "Spedizioni",   desc: "Logistica e tracking",               accent: "violet",  code: "03" },
+  { to: "/uffici/alert-center",    icon: Bell,       label: "Centro Alert", desc: "Alert stock per categoria",          accent: "amber",   code: "04" },
+  { to: "/uffici/produzione",      icon: Wrench,     label: "Produzione",   desc: "Prenotazioni e ordini lavoro",       accent: "rose",    code: "05" },
+  { to: "/uffici/ddt",             icon: FileText,   label: "DDT",          desc: "Documenti di trasporto",             accent: "pink",    code: "06" },
+  { to: "/uffici/fornitori",       icon: Users,      label: "Fornitori",    desc: "Anagrafica e gestione",              accent: "orange",  code: "07" },
+  { to: "/fba-gestione-prodotti",  icon: Box,        label: "FBA Prodotti", desc: "Catalogo Amazon FBA",                accent: "cyan",    code: "08" },
+  { to: "/uffici/bilancio",        icon: DollarSign, label: "Bilancio",     desc: "Costi, valore magazzino, movimenti", accent: "teal",    code: "09" },
+  { to: "/uffici/vendite",         icon: TrendingUp, label: "Vendite",      desc: "Dashboard vendite e margini",        accent: "blue",    code: "10" },
 ];
 
-const ACCENT_BG = {
-  indigo:  "group-hover:border-indigo-500/40 group-hover:bg-indigo-500/5",
-  emerald: "group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5",
-  violet:  "group-hover:border-violet-500/40 group-hover:bg-violet-500/5",
-  amber:   "group-hover:border-amber-500/40 group-hover:bg-amber-500/5",
-  rose:    "group-hover:border-rose-500/40 group-hover:bg-rose-500/5",
-  pink:    "group-hover:border-pink-500/40 group-hover:bg-pink-500/5",
-  orange:  "group-hover:border-orange-500/40 group-hover:bg-orange-500/5",
-  cyan:    "group-hover:border-cyan-500/40 group-hover:bg-cyan-500/5",
-  blue:    "group-hover:border-blue-500/40 group-hover:bg-blue-500/5",
-};
-
-const ACCENT_ICON = {
-  indigo:  "group-hover:text-indigo-400 group-hover:border-indigo-500/40",
-  emerald: "group-hover:text-emerald-400 group-hover:border-emerald-500/40",
-  violet:  "group-hover:text-violet-400 group-hover:border-violet-500/40",
-  amber:   "group-hover:text-amber-400 group-hover:border-amber-500/40",
-  rose:    "group-hover:text-rose-400 group-hover:border-rose-500/40",
-  pink:    "group-hover:text-pink-400 group-hover:border-pink-500/40",
-  orange:  "group-hover:text-orange-400 group-hover:border-orange-500/40",
-  cyan:    "group-hover:text-cyan-400 group-hover:border-cyan-500/40",
-  blue:    "group-hover:text-blue-400 group-hover:border-blue-500/40",
+// Colori sempre visibili (non solo hover)
+const ACCENT = {
+  indigo:  { border: "border-l-indigo-500",  iconBg: "bg-indigo-500/10",  iconBorder: "border-indigo-500/30",  iconText: "text-indigo-400",  hoverBg: "hover:bg-indigo-500/5",   hoverBorder: "hover:border-indigo-500/30",  labelColor: "text-indigo-400",  codeBg: "bg-indigo-500/10 text-indigo-400" },
+  emerald: { border: "border-l-emerald-500", iconBg: "bg-emerald-500/10", iconBorder: "border-emerald-500/30", iconText: "text-emerald-400", hoverBg: "hover:bg-emerald-500/5",  hoverBorder: "hover:border-emerald-500/30", labelColor: "text-emerald-400", codeBg: "bg-emerald-500/10 text-emerald-400" },
+  violet:  { border: "border-l-violet-500",  iconBg: "bg-violet-500/10",  iconBorder: "border-violet-500/30",  iconText: "text-violet-400",  hoverBg: "hover:bg-violet-500/5",   hoverBorder: "hover:border-violet-500/30",  labelColor: "text-violet-400",  codeBg: "bg-violet-500/10 text-violet-400" },
+  amber:   { border: "border-l-amber-500",   iconBg: "bg-amber-500/10",   iconBorder: "border-amber-500/30",   iconText: "text-amber-400",   hoverBg: "hover:bg-amber-500/5",    hoverBorder: "hover:border-amber-500/30",   labelColor: "text-amber-400",   codeBg: "bg-amber-500/10 text-amber-400" },
+  rose:    { border: "border-l-rose-500",    iconBg: "bg-rose-500/10",    iconBorder: "border-rose-500/30",    iconText: "text-rose-400",    hoverBg: "hover:bg-rose-500/5",     hoverBorder: "hover:border-rose-500/30",    labelColor: "text-rose-400",    codeBg: "bg-rose-500/10 text-rose-400" },
+  pink:    { border: "border-l-pink-500",    iconBg: "bg-pink-500/10",    iconBorder: "border-pink-500/30",    iconText: "text-pink-400",    hoverBg: "hover:bg-pink-500/5",     hoverBorder: "hover:border-pink-500/30",    labelColor: "text-pink-400",    codeBg: "bg-pink-500/10 text-pink-400" },
+  orange:  { border: "border-l-orange-500",  iconBg: "bg-orange-500/10",  iconBorder: "border-orange-500/30",  iconText: "text-orange-400",  hoverBg: "hover:bg-orange-500/5",   hoverBorder: "hover:border-orange-500/30",  labelColor: "text-orange-400",  codeBg: "bg-orange-500/10 text-orange-400" },
+  cyan:    { border: "border-l-cyan-500",    iconBg: "bg-cyan-500/10",    iconBorder: "border-cyan-500/30",    iconText: "text-cyan-400",    hoverBg: "hover:bg-cyan-500/5",     hoverBorder: "hover:border-cyan-500/30",    labelColor: "text-cyan-400",    codeBg: "bg-cyan-500/10 text-cyan-400" },
+  teal:    { border: "border-l-teal-500",    iconBg: "bg-teal-500/10",    iconBorder: "border-teal-500/30",    iconText: "text-teal-400",    hoverBg: "hover:bg-teal-500/5",     hoverBorder: "hover:border-teal-500/30",    labelColor: "text-teal-400",    codeBg: "bg-teal-500/10 text-teal-400" },
+  blue:    { border: "border-l-blue-500",    iconBg: "bg-blue-500/10",    iconBorder: "border-blue-500/30",    iconText: "text-blue-400",    hoverBg: "hover:bg-blue-500/5",     hoverBorder: "hover:border-blue-500/30",    labelColor: "text-blue-400",    codeBg: "bg-blue-500/10 text-blue-400" },
 };
 
 const DashboardAmazon = () => {
@@ -122,24 +112,30 @@ const DashboardAmazon = () => {
           >
             {MODULES.map((m) => {
               const Icon = m.icon;
+              const a = ACCENT[m.accent];
               return (
                 <motion.button
                   key={m.to}
                   variants={itemVariants}
                   onClick={() => navigate(m.to)}
-                  className={`group relative flex flex-col items-start text-left p-5 sm:p-6 bg-slate-900/60 border border-slate-800 rounded-lg transition-all hover:bg-slate-900 ${ACCENT_BG[m.accent]}`}
+                  className={`group relative flex flex-col items-start text-left p-5 sm:p-6 bg-slate-900/60 border border-slate-800 border-l-[3px] ${a.border} rounded-lg transition-all duration-200 ${a.hoverBg} ${a.hoverBorder}`}
                 >
-                  <div className="flex items-center justify-between w-full mb-6">
-                    <div className={`w-11 h-11 rounded-md bg-slate-800/60 border border-slate-700 flex items-center justify-center transition-colors ${ACCENT_ICON[m.accent]}`}>
-                      <Icon className="w-5 h-5 text-slate-400 transition-colors" />
+                  {/* Top row: icon + code */}
+                  <div className="flex items-center justify-between w-full mb-5">
+                    <div className={`w-11 h-11 rounded-lg ${a.iconBg} border ${a.iconBorder} flex items-center justify-center`}>
+                      <Icon className={`w-5 h-5 ${a.iconText}`} />
                     </div>
-                    <span className="text-[10px] font-mono text-slate-600 group-hover:text-slate-400 transition-colors">
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${a.codeBg}`}>
                       {m.code}
                     </span>
                   </div>
-                  <div className="text-base font-medium text-white mb-1">{m.label}</div>
+
+                  {/* Label + desc */}
+                  <div className={`text-base font-semibold mb-1 ${a.labelColor}`}>{m.label}</div>
                   <p className="text-xs text-slate-500 leading-relaxed">{m.desc}</p>
-                  <div className="mt-5 flex items-center gap-1 text-[11px] uppercase tracking-wider text-slate-600 group-hover:text-slate-300 transition-colors">
+
+                  {/* CTA */}
+                  <div className="mt-auto pt-5 flex items-center gap-1 text-[11px] uppercase tracking-wider text-slate-600 group-hover:text-slate-300 transition-colors">
                     Apri
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
