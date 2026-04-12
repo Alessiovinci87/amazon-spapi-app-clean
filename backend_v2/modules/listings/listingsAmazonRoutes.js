@@ -123,7 +123,69 @@ router.get("/test-listing", async (req, res) => {
     };
   }
 
-  // TEST 4: Catalog Items (confronto — questo funziona sicuramente)
+  // TEST 4: GET Listing SENZA includedData (parametri minimi)
+  try {
+    const encodedSku = encodeURIComponent(sku);
+    const path = `/listings/2021-08-01/items/${sellerId}/${encodedSku}`;
+    const qs = `marketplaceIds=${marketplaceId}`;
+    const fullPath = `${path}?${qs}`;
+
+    const opts = {
+      host: "sellingpartnerapi-eu.amazon.com",
+      path: fullPath,
+      service: "execute-api",
+      region: process.env.AWS_REGION,
+      method: "GET",
+      headers: { "x-amz-access-token": access_token },
+    };
+    const signed = sign(opts, {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    });
+    const resp = await axios.get(`https://sellingpartnerapi-eu.amazon.com${fullPath}`, {
+      headers: signed.headers,
+    });
+    results.test4_minimal_get = { ok: true, status: resp.status, data: resp.data };
+  } catch (err) {
+    results.test4_minimal_get = {
+      ok: false,
+      status: err.response?.status,
+      error: err.response?.data || err.message,
+    };
+  }
+
+  // TEST 5: searchListingsItems (sellerId in QUERY, non in path)
+  // Se 403 → ruolo mancante. Se 400 → problema parametri diverso.
+  try {
+    const path = `/listings/2021-08-01/items`;
+    const qs = `sellerId=${sellerId}&marketplaceIds=${marketplaceId}&identifiers=${encodeURIComponent(sku)}&identifiersType=SKU&includedData=summaries`;
+    const fullPath = `${path}?${qs}`;
+
+    const opts = {
+      host: "sellingpartnerapi-eu.amazon.com",
+      path: fullPath,
+      service: "execute-api",
+      region: process.env.AWS_REGION,
+      method: "GET",
+      headers: { "x-amz-access-token": access_token },
+    };
+    const signed = sign(opts, {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    });
+    const resp = await axios.get(`https://sellingpartnerapi-eu.amazon.com${fullPath}`, {
+      headers: signed.headers,
+    });
+    results.test5_search_listings = { ok: true, status: resp.status, data: resp.data };
+  } catch (err) {
+    results.test5_search_listings = {
+      ok: false,
+      status: err.response?.status,
+      error: err.response?.data || err.message,
+    };
+  }
+
+  // TEST 6: Catalog Items (confronto — questo funziona sicuramente)
   try {
     const { getDb } = require("../../db/database");
     const db = getDb();
@@ -134,12 +196,12 @@ router.get("/test-listing", async (req, res) => {
         { marketplaceIds: marketplaceId, includedData: "summaries" },
         access_token
       );
-      results.test4_catalog = { ok: true, asin: row.asin, title: catalogData?.summaries?.[0]?.itemName };
+      results.test6_catalog = { ok: true, asin: row.asin, title: catalogData?.summaries?.[0]?.itemName };
     } else {
-      results.test4_catalog = { ok: true, note: "SKU non in cache locale, skip test catalog" };
+      results.test6_catalog = { ok: true, note: "SKU non in cache locale, skip test catalog" };
     }
   } catch (err) {
-    results.test4_catalog = { ok: false, error: err.message };
+    results.test6_catalog = { ok: false, error: err.message };
   }
 
   res.json(results);
