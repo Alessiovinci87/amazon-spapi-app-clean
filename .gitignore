@@ -28,6 +28,10 @@ backend_v2/_archivio_old/
 frontend/src/pages/archivio_old/
 backend_v2/test-db.js
 
+# Claude Code settings
+.claude/
+backend_v2/.claude/
+
 # System files
 .DS_Store
 Thumbs.db
