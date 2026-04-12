@@ -116,6 +116,10 @@ router.get("/sales-traffic/summary", async (req, res) => {
     `).all(...dateParams);
 
     // Top ASIN per fatturato (con nome dal catalogo)
+    const stDateFilter = (from && to)
+      ? "WHERE st.date >= ? AND st.date <= ? AND st.date != ''"
+      : "WHERE st.date != ''";
+
     const topAsin = db.prepare(`
       SELECT st.asin, st.sku,
         SUM(st.units_ordered) AS unita,
@@ -126,7 +130,7 @@ router.get("/sales-traffic/summary", async (req, res) => {
       FROM sales_traffic st
       LEFT JOIN product_catalog pc ON pc.asin = st.asin
       LEFT JOIN amazon_listings al ON al.asin = st.asin
-      ${dateFilter.replace("WHERE", "WHERE").replace("date", "st.date")}
+      ${stDateFilter}
       GROUP BY st.asin
       ORDER BY fatturato DESC
       LIMIT 50

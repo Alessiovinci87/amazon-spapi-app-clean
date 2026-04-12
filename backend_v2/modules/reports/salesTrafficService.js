@@ -133,6 +133,7 @@ async function aggiornaSalesTraffic() {
               dataStartTime: startDate.toISOString(),
               dataEndTime: now.toISOString(),
               marketplaceIds: [marketplaceId],
+              reportOptions: { dateGranularity: "DAY", asinGranularity: "SKU" },
             },
             {
               headers: {
