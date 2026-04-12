@@ -46,7 +46,7 @@ const DropdownLinguePortal = ({ paese, setPaese }) => {
     <div ref={ref} className="relative inline-block text-left mb-6">
       <button
         onClick={() => setAperto((a) => !a)}
-        className="px-4 py-2 bg-zinc-800 border border-zinc-600 rounded-md hover:bg-zinc-700 transition font-semibold flex items-center gap-2"
+        className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition font-medium text-sm text-slate-200 flex items-center gap-2"
         aria-haspopup="listbox"
         aria-expanded={aperto}
         type="button"
@@ -62,7 +62,7 @@ const DropdownLinguePortal = ({ paese, setPaese }) => {
 
       {aperto && (
         <div
-          className="absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-zinc-800 border border-zinc-600 z-50 max-h-64 overflow-y-auto"
+          className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-slate-800 border border-slate-700 z-50 max-h-64 overflow-y-auto"
           role="listbox"
           tabIndex={-1}
         >
@@ -70,8 +70,8 @@ const DropdownLinguePortal = ({ paese, setPaese }) => {
             <button
               key={codice}
               onClick={() => seleziona(codice)}
-              className={`flex items-center gap-3 w-full px-4 py-2 hover:bg-zinc-700 transition text-left ${
-                codice === paese ? "text-purple-400 font-bold" : "text-white"
+              className={`flex items-center gap-3 w-full px-4 py-2 hover:bg-slate-700 transition text-left text-sm ${
+                codice === paese ? "text-indigo-400 font-semibold" : "text-slate-200"
               }`}
               role="option"
               aria-selected={codice === paese}

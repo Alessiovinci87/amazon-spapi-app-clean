@@ -9,12 +9,12 @@ import { toast } from "sonner";
 
 // ─── helpers ──────────────────────────────────────────────
 const STATO_ORDINE = {
-  bozza:             { label: "Bozza",            color: "bg-zinc-700 text-zinc-300" },
-  confermato:        { label: "Confermato",        color: "bg-blue-900 text-blue-200" },
-  in_attesa:         { label: "In attesa",         color: "bg-amber-900 text-amber-200" },
-  ricevuto_parziale: { label: "Parz. ricevuto",    color: "bg-orange-900 text-orange-200" },
-  ricevuto:          { label: "Ricevuto",          color: "bg-green-900 text-green-200" },
-  annullato:         { label: "Annullato",         color: "bg-red-900 text-red-200" },
+  bozza:             { label: "Bozza",            color: "bg-slate-500/10 text-slate-300 border border-slate-500/30" },
+  confermato:        { label: "Confermato",        color: "bg-blue-500/10 text-blue-300 border border-blue-500/30" },
+  in_attesa:         { label: "In attesa",         color: "bg-amber-500/10 text-amber-300 border border-amber-500/30" },
+  ricevuto_parziale: { label: "Parz. ricevuto",    color: "bg-orange-500/10 text-orange-300 border border-orange-500/30" },
+  ricevuto:          { label: "Ricevuto",          color: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" },
+  annullato:         { label: "Annullato",         color: "bg-red-500/10 text-red-300 border border-red-500/30" },
 };
 
 const TIPO_MOV = {
@@ -24,7 +24,7 @@ const TIPO_MOV = {
 };
 
 function StatoChip({ stato }) {
-  const s = STATO_ORDINE[stato] ?? { label: stato, color: "bg-zinc-700 text-zinc-300" };
+  const s = STATO_ORDINE[stato] ?? { label: stato, color: "bg-slate-700 text-slate-300" };
   return <span className={`px-2 py-0.5 rounded text-xs font-medium ${s.color}`}>{s.label}</span>;
 }
 
@@ -347,21 +347,21 @@ function TabInventario({ slug, stile }) {
       {/* Header barra */}
       <div className="flex gap-3 mb-5 flex-wrap items-center">
         <div className="relative flex-1 min-w-48">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={stile === "numerico" ? "Cerca per nome, n° colore, ASIN…" : "Cerca per nome, ASIN…"}
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           />
         </div>
-        <button onClick={carica} className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white" title="Ricarica">
+        <button onClick={carica} className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white" title="Ricarica">
           <RefreshCw className="w-4 h-4" />
         </button>
         <button
           onClick={syncImmagini}
           disabled={syncing || prodotti.length === 0}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-300 text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 text-sm font-medium transition-colors"
           title="Scarica le immagini corrette per ogni colore dalla SP-API Amazon"
         >
           <ImageOff className="w-4 h-4" />
@@ -377,26 +377,26 @@ function TabInventario({ slug, stile }) {
 
       {/* Statistiche rapide */}
       <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-3 text-center">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-white">{prodotti.length}</div>
-          <div className="text-xs text-zinc-400 mt-0.5">Colori in catalogo</div>
+          <div className="text-xs text-slate-400 mt-0.5">Colori in catalogo</div>
         </div>
         <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-amber-400">
             {prodotti.filter(p => p.quantita < p.soglia_minima).length}
           </div>
-          <div className="text-xs text-zinc-400 mt-0.5">Sotto soglia</div>
+          <div className="text-xs text-slate-400 mt-0.5">Sotto soglia</div>
         </div>
-        <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-3 text-center">
+        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-white">{prodotti.reduce((s, p) => s + p.quantita, 0)}</div>
-          <div className="text-xs text-zinc-400 mt-0.5">Unità totali</div>
+          <div className="text-xs text-slate-400 mt-0.5">Unità totali</div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-zinc-500">Caricamento…</div>
+        <div className="text-center py-16 text-slate-500">Caricamento…</div>
       ) : filtrati.length === 0 ? (
-        <div className="text-center py-16 text-zinc-500">
+        <div className="text-center py-16 text-slate-500">
           {prodotti.length === 0 ? "Nessun colore nel catalogo. Clicca \"Aggiungi colori\" per iniziare." : "Nessun risultato."}
         </div>
       ) : (
@@ -407,7 +407,7 @@ function TabInventario({ slug, stile }) {
             return (
               <div
                 key={p.asin}
-                className={`relative bg-zinc-800 border rounded-xl overflow-hidden flex flex-col transition-all ${sottoSoglia ? "border-amber-500/60" : "border-zinc-700"}`}
+                className={`relative bg-slate-800 border rounded-xl overflow-hidden flex flex-col transition-all ${sottoSoglia ? "border-amber-500/60" : "border-slate-700"}`}
               >
                 {sottoSoglia && (
                   <div className="absolute top-1.5 right-1.5 z-10">
@@ -416,17 +416,17 @@ function TabInventario({ slug, stile }) {
                 )}
 
                 {/* Immagine con numero sovrapposto + pulsante upload */}
-                <div className="aspect-square bg-zinc-900 relative flex items-center justify-center overflow-hidden group/img">
+                <div className="aspect-square bg-slate-900 relative flex items-center justify-center overflow-hidden group/img">
                   {p.image_url ? (
                     <img src={p.image_url} alt={p.nome ?? p.asin} className="w-full h-full object-cover" />
                   ) : (
-                    <Package className="w-10 h-10 text-zinc-600" />
+                    <Package className="w-10 h-10 text-slate-600" />
                   )}
                   {/* Numero colore centrato */}
                   <CodiceOverlay codice={p.codice_colore} stile={stile} size="lg" />
                   {/* Upload immagine — appare al hover */}
                   <label
-                    className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-black/60 text-zinc-300 hover:text-white cursor-pointer opacity-0 group-hover/img:opacity-100 transition-opacity z-10"
+                    className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-black/60 text-slate-300 hover:text-white cursor-pointer opacity-0 group-hover/img:opacity-100 transition-opacity z-10"
                     title="Carica immagine manualmente"
                   >
                     {uploadingAsin === p.asin
@@ -453,12 +453,12 @@ function TabInventario({ slug, stile }) {
                         onChange={e => setEditColoreVal(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") salvaColore(p.asin); if (e.key === "Escape") setEditingColore(null); }}
                         placeholder={stile === "numerico" ? "es. 001" : "es. Trasparente"}
-                        className={`flex-1 min-w-0 bg-zinc-700 border border-pink-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none ${stile === "numerico" ? "font-mono" : ""}`}
+                        className={`flex-1 min-w-0 bg-slate-700 border border-pink-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none ${stile === "numerico" ? "font-mono" : ""}`}
                       />
                       <button onClick={() => salvaColore(p.asin)} className="text-green-400 hover:text-green-300">
                         <Check className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => setEditingColore(null)} className="text-zinc-500 hover:text-zinc-300">
+                      <button onClick={() => setEditingColore(null)} className="text-slate-500 hover:text-slate-300">
                         <X className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -471,29 +471,29 @@ function TabInventario({ slug, stile }) {
                       {p.codice_colore ? (
                         <CodiceLabel codice={p.codice_colore} stile={stile} />
                       ) : (
-                        <span className="text-xs text-zinc-600 italic">{stile === "numerico" ? "+ n°" : "+ nome"}</span>
+                        <span className="text-xs text-slate-600 italic">{stile === "numerico" ? "+ n°" : "+ nome"}</span>
                       )}
-                      <Edit3 className="w-2.5 h-2.5 text-zinc-600 group-hover:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Edit3 className="w-2.5 h-2.5 text-slate-600 group-hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
                   )}
 
-                  <div className="text-xs text-zinc-200 leading-tight">
+                  <div className="text-xs text-slate-200 leading-tight">
                     {p.nome ?? p.asin}
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.asin); toast.success(`ASIN ${p.asin} copiato`); }}
-                    className="text-xs text-zinc-600 hover:text-pink-400 font-mono text-left transition-colors"
+                    className="text-xs text-slate-600 hover:text-pink-400 font-mono text-left transition-colors"
                     title="Clicca per copiare l'ASIN"
                   >
                     {p.asin}
                   </button>
 
                   {/* Stock */}
-                  <div className={`text-center py-1 rounded-md mt-1 ${sottoSoglia ? "bg-amber-900/40" : "bg-zinc-700/50"}`}>
+                  <div className={`text-center py-1 rounded-md mt-1 ${sottoSoglia ? "bg-amber-900/40" : "bg-slate-700/50"}`}>
                     <span className={`text-xl font-bold ${sottoSoglia ? "text-amber-400" : "text-white"}`}>
                       {p.quantita}
                     </span>
-                    <span className="text-xs text-zinc-500 ml-1">/ {p.soglia_minima}</span>
+                    <span className="text-xs text-slate-500 ml-1">/ {p.soglia_minima}</span>
                   </div>
 
                   {/* Nota "in arrivo" — visibile solo se ci sono ordini attivi */}
@@ -511,20 +511,20 @@ function TabInventario({ slug, stile }) {
                   <div className="flex gap-1 mt-1">
                     <button
                       onClick={() => { setRettificaProd(p); setNuovaQta(p.quantita); setNoteRett(""); }}
-                      className="flex-1 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-xs text-zinc-300 font-medium transition-colors"
+                      className="flex-1 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs text-slate-300 font-medium transition-colors"
                     >
                       Rettifica
                     </button>
                     <button
                       onClick={() => { setSogliaProd(p); setNuovaSoglia(p.soglia_minima); }}
-                      className="p-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-400 hover:text-amber-400 transition-colors"
+                      className="p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-amber-400 transition-colors"
                       title="Modifica soglia alert"
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => eliminaProdotto(p.asin)}
-                      className="p-1 rounded bg-zinc-700 hover:bg-red-900/50 text-zinc-400 hover:text-red-400 transition-colors"
+                      className="p-1 rounded bg-slate-700 hover:bg-red-900/50 text-slate-400 hover:text-red-400 transition-colors"
                       title="Rimuovi dal catalogo"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -538,14 +538,14 @@ function TabInventario({ slug, stile }) {
       )}
 
       {/* DANGER ZONE — reset dati di test */}
-      <div className="mt-12 pt-6 border-t border-zinc-800">
+      <div className="mt-12 pt-6 border-t border-slate-800">
         <div className="bg-red-950/20 border border-red-900/40 rounded-xl p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
             <div>
               <div className="text-sm font-bold text-red-300">Zona pericolosa</div>
-              <div className="text-xs text-zinc-400 mt-0.5">
-                Cancella ordini fornitori e storico movimenti, azzera lo stock. Il <span className="text-zinc-200 font-semibold">catalogo colori resta invariato</span>. Da usare per ripartire da zero in produzione.
+              <div className="text-xs text-slate-400 mt-0.5">
+                Cancella ordini fornitori e storico movimenti, azzera lo stock. Il <span className="text-slate-200 font-semibold">catalogo colori resta invariato</span>. Da usare per ripartire da zero in produzione.
               </div>
             </div>
           </div>
@@ -562,17 +562,17 @@ function TabInventario({ slug, stile }) {
       {/* MODALE RESET */}
       {showReset && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border-2 border-red-700/60 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-slate-900 border-2 border-red-700/60 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-xl bg-red-900/40">
                 <AlertTriangle className="w-6 h-6 text-red-400" />
               </div>
               <h3 className="text-lg font-bold text-white">Conferma reset</h3>
             </div>
-            <p className="text-sm text-zinc-300 mb-2">
+            <p className="text-sm text-slate-300 mb-2">
               Stai per eliminare:
             </p>
-            <ul className="text-sm text-zinc-400 mb-3 space-y-1 pl-4">
+            <ul className="text-sm text-slate-400 mb-3 space-y-1 pl-4">
               <li>• Tutti gli ordini fornitore (attivi, ricevuti, annullati)</li>
               <li>• Tutto lo storico movimenti di stock</li>
               <li>• Le quantità in stock dei {prodotti.length} colori (azzerate a 0)</li>
@@ -587,7 +587,7 @@ function TabInventario({ slug, stile }) {
                 ⚠️ Questa operazione è <span className="underline">irreversibile</span>. I dati non potranno essere recuperati.
               </p>
             </div>
-            <label className="text-xs text-zinc-400 block mb-1">
+            <label className="text-xs text-slate-400 block mb-1">
               Per confermare scrivi <span className="font-mono font-bold text-red-300">RESET</span> qui sotto:
             </label>
             <input
@@ -595,20 +595,20 @@ function TabInventario({ slug, stile }) {
               value={resetConferma}
               onChange={e => setResetConferma(e.target.value)}
               placeholder="RESET"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white font-mono mb-4 focus:outline-none focus:border-red-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono mb-4 focus:outline-none focus:border-red-500"
             />
             <div className="flex gap-2">
               <button
                 onClick={() => { setShowReset(false); setResetConferma(""); }}
                 disabled={resetting}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-sm font-medium"
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm font-medium"
               >
                 Annulla
               </button>
               <button
                 onClick={eseguiReset}
                 disabled={resetConferma !== "RESET" || resetting}
-                className="flex-1 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:cursor-not-allowed disabled:text-zinc-500 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:cursor-not-allowed disabled:text-slate-500 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
               >
                 {resetting ? (
                   <>
@@ -625,33 +625,33 @@ function TabInventario({ slug, stile }) {
       {/* MODALE AGGIUNGI — multi-select con codice colore */}
       {showAggiungi && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
               <div>
                 <h3 className="text-lg font-bold text-white">Aggiungi colori al catalogo</h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {disponibili.length} prodotti disponibili · {numSelezionati} selezionati
                 </p>
               </div>
-              <button onClick={() => setShowAggiungi(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setShowAggiungi(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Barra cerca + seleziona tutti */}
-            <div className="p-4 border-b border-zinc-800 flex gap-3 items-center">
+            <div className="p-4 border-b border-slate-800 flex gap-3 items-center">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   value={searchDisp}
                   onChange={e => setSearchDisp(e.target.value)}
                   placeholder="Cerca per nome o ASIN…"
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
                 />
               </div>
               <button
                 onClick={tuttiSelezionati ? deselezionaTutti : selezionaTutti}
-                className="whitespace-nowrap px-3 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-xs text-zinc-300 font-medium"
+                className="whitespace-nowrap px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-slate-300 font-medium"
               >
                 {tuttiSelezionati ? "Deseleziona tutti" : "Seleziona tutti"}
               </button>
@@ -660,9 +660,9 @@ function TabInventario({ slug, stile }) {
             {/* Lista prodotti */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {loadingDisp ? (
-                <div className="text-center py-8 text-zinc-500">Caricamento…</div>
+                <div className="text-center py-8 text-slate-500">Caricamento…</div>
               ) : dispFiltrati.length === 0 ? (
-                <div className="text-center py-8 text-zinc-500">
+                <div className="text-center py-8 text-slate-500">
                   {disponibili.length === 0 ? "Tutti i prodotti sono già nel catalogo." : "Nessun risultato."}
                 </div>
               ) : (
@@ -672,24 +672,24 @@ function TabInventario({ slug, stile }) {
                     <div
                       key={p.asin}
                       className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        sel ? "border-pink-500 bg-pink-900/15" : "border-zinc-700 bg-zinc-800"
+                        sel ? "border-pink-500 bg-pink-900/15" : "border-slate-700 bg-slate-800"
                       }`}
                     >
                       {/* Checkbox click area */}
                       <button onClick={() => toggleSelezione(p.asin)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${sel ? "border-pink-500 bg-pink-500" : "border-zinc-600"}`}>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${sel ? "border-pink-500 bg-pink-500" : "border-slate-600"}`}>
                           {sel && <Check className="w-3 h-3 text-white" />}
                         </div>
-                        <div className="w-10 h-10 rounded-lg bg-zinc-900 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-lg bg-slate-900 overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {p.image_url ? (
                             <img src={p.image_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <Package className="w-5 h-5 text-zinc-600" />
+                            <Package className="w-5 h-5 text-slate-600" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-zinc-100 font-medium truncate">{p.nome ?? p.asin}</div>
-                          <div className="text-xs text-zinc-500 font-mono">{p.asin}</div>
+                          <div className="text-sm text-slate-100 font-medium truncate">{p.nome ?? p.asin}</div>
+                          <div className="text-xs text-slate-500 font-mono">{p.asin}</div>
                         </div>
                       </button>
                       {/* Codice colore per questo prodotto */}
@@ -699,7 +699,7 @@ function TabInventario({ slug, stile }) {
                           onChange={e => setCodiceColore(p.asin, e.target.value)}
                           onClick={e => e.stopPropagation()}
                           placeholder={stile === "numerico" ? "n° colore" : "nome"}
-                          className={`${stile === "numerico" ? "w-24 font-mono text-center" : "w-32"} bg-zinc-700 border border-zinc-600 rounded-lg px-2 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-pink-500 flex-shrink-0`}
+                          className={`${stile === "numerico" ? "w-24 font-mono text-center" : "w-32"} bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 flex-shrink-0`}
                         />
                       )}
                     </div>
@@ -709,15 +709,15 @@ function TabInventario({ slug, stile }) {
             </div>
 
             {/* Footer: soglia globale + pulsante import */}
-            <div className="p-4 border-t border-zinc-800 flex items-center gap-4">
+            <div className="p-4 border-t border-slate-800 flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-zinc-400 whitespace-nowrap">Soglia minima</label>
+                <label className="text-xs text-slate-400 whitespace-nowrap">Soglia minima</label>
                 <input
                   type="number"
                   min={0}
                   value={sogliaGlobale}
                   onChange={e => setSogliaGlobale(e.target.value)}
-                  className="w-20 bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-center text-white focus:outline-none focus:border-zinc-500"
+                  className="w-20 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-sm text-center text-white focus:outline-none focus:border-slate-500"
                 />
               </div>
               <button
@@ -735,39 +735,39 @@ function TabInventario({ slug, stile }) {
       {/* MODALE RETTIFICA */}
       {rettificaProd && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-sm p-6">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Rettifica stock</h3>
-              <button onClick={() => setRettificaProd(null)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setRettificaProd(null)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="flex items-center gap-3 mb-4 p-3 bg-zinc-800 rounded-xl">
+            <div className="flex items-center gap-3 mb-4 p-3 bg-slate-800 rounded-xl">
               {rettificaProd.image_url && (
                 <img src={rettificaProd.image_url} alt="" className="w-12 h-12 rounded-lg object-cover" />
               )}
               <div>
-                <div className="text-sm text-zinc-200 font-medium">{rettificaProd.nome ?? rettificaProd.asin}</div>
-                <div className="text-xs text-zinc-500">Stock attuale: {rettificaProd.quantita}</div>
+                <div className="text-sm text-slate-200 font-medium">{rettificaProd.nome ?? rettificaProd.asin}</div>
+                <div className="text-xs text-slate-500">Stock attuale: {rettificaProd.quantita}</div>
               </div>
             </div>
-            <label className="text-xs text-zinc-400 block mb-1">Nuova quantità</label>
+            <label className="text-xs text-slate-400 block mb-1">Nuova quantità</label>
             <input
               type="number"
               min={0}
               value={nuovaQta}
               onChange={e => setNuovaQta(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white mb-3 focus:outline-none focus:border-zinc-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white mb-3 focus:outline-none focus:border-slate-500"
             />
-            <label className="text-xs text-zinc-400 block mb-1">Note (opzionale)</label>
+            <label className="text-xs text-slate-400 block mb-1">Note (opzionale)</label>
             <input
               value={noteRett}
               onChange={e => setNoteRett(e.target.value)}
               placeholder="Es: conteggio fisico"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 mb-4 focus:outline-none focus:border-zinc-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 mb-4 focus:outline-none focus:border-slate-500"
             />
             <div className="flex gap-2">
-              <button onClick={() => setRettificaProd(null)} className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">
+              <button onClick={() => setRettificaProd(null)} className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">
                 Annulla
               </button>
               <button onClick={confermaRettifica} className="flex-1 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white text-sm font-medium">
@@ -781,14 +781,14 @@ function TabInventario({ slug, stile }) {
       {/* MODALE SOGLIA */}
       {sogliaProd && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-sm p-6">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Soglia minima</h3>
-              <button onClick={() => setSogliaProd(null)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setSogliaProd(null)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm text-zinc-400 mb-4">
+            <p className="text-sm text-slate-400 mb-4">
               Sotto questa quantità il prodotto viene evidenziato in arancione come "sotto soglia".
             </p>
             <input
@@ -796,10 +796,10 @@ function TabInventario({ slug, stile }) {
               min={0}
               value={nuovaSoglia}
               onChange={e => setNuovaSoglia(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white mb-4 focus:outline-none focus:border-zinc-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white mb-4 focus:outline-none focus:border-slate-500"
             />
             <div className="flex gap-2">
-              <button onClick={() => setSogliaProd(null)} className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">
+              <button onClick={() => setSogliaProd(null)} className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">
                 Annulla
               </button>
               <button onClick={aggiornaSoglia} className="flex-1 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-sm font-medium">
@@ -1013,14 +1013,14 @@ function TabOrdini({ slug, stile }) {
     <div>
       <div className="flex justify-between items-center mb-4">
         <div className="flex gap-2 items-center">
-          <button onClick={carica} className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white">
+          <button onClick={carica} className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <span className="text-sm text-zinc-500">{ordiniFiltrati.length} di {ordini.length} ordini</span>
+          <span className="text-sm text-slate-500">{ordiniFiltrati.length} di {ordini.length} ordini</span>
         </div>
         <button
           onClick={apriNuovoOrdine}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-white text-sm font-medium transition-colors"
         >
           <Plus className="w-4 h-4" /> Nuovo ordine
         </button>
@@ -1029,20 +1029,20 @@ function TabOrdini({ slug, stile }) {
       {/* Segmented control + dropdown filtro fine */}
       <div className="flex gap-3 mb-5 items-center flex-wrap">
         {/* Segmented control: 3 viste principali */}
-        <div className="inline-flex bg-zinc-900 border border-zinc-700 rounded-xl p-1">
+        <div className="inline-flex bg-slate-900 border border-slate-700 rounded-xl p-1">
           {VISTE.map(v => (
             <button
               key={v.key}
               onClick={() => cambiaVista(v.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 vista === v.key
-                  ? "bg-blue-600 text-white shadow"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-blue-500/20 text-blue-200 shadow border border-blue-500/40"
+                  : "text-slate-400 hover:text-slate-200"
               }`}
             >
               {v.label}
               <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                vista === v.key ? "bg-blue-800 text-blue-100" : "bg-zinc-800 text-zinc-500"
+                vista === v.key ? "bg-blue-800 text-blue-100" : "bg-slate-800 text-slate-500"
               }`}>{v.count}</span>
             </button>
           ))}
@@ -1053,7 +1053,7 @@ function TabOrdini({ slug, stile }) {
           <select
             value={statoFine}
             onChange={e => setStatoFine(e.target.value)}
-            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 cursor-pointer"
+            className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-slate-500 cursor-pointer"
           >
             <option value="">Filtra per stato…</option>
             {STATI_PER_VISTA[vista].map(s => (
@@ -1065,7 +1065,7 @@ function TabOrdini({ slug, stile }) {
           {statoFine && (
             <button
               onClick={() => setStatoFine("")}
-              className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
               title="Rimuovi filtro"
             >
               <X className="w-3.5 h-3.5" />
@@ -1075,9 +1075,9 @@ function TabOrdini({ slug, stile }) {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-zinc-500">Caricamento…</div>
+        <div className="text-center py-16 text-slate-500">Caricamento…</div>
       ) : ordiniFiltrati.length === 0 ? (
-        <div className="text-center py-16 text-zinc-500">
+        <div className="text-center py-16 text-slate-500">
           {ordini.length === 0 ? "Nessun ordine registrato." : "Nessun ordine corrisponde al filtro selezionato."}
         </div>
       ) : (
@@ -1086,9 +1086,9 @@ function TabOrdini({ slug, stile }) {
             const aperto = espanso === o.id;
             const puoRicevere = ["confermato", "in_attesa", "ricevuto_parziale"].includes(o.stato);
             return (
-              <div key={o.id} className="bg-zinc-800 border border-zinc-700 rounded-xl overflow-hidden">
+              <div key={o.id} className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
                 <button
-                  className="w-full flex items-center gap-3 p-4 text-left hover:bg-zinc-750 transition-colors"
+                  className="w-full flex items-center gap-3 p-4 text-left hover:bg-slate-750 transition-colors"
                   onClick={() => setEspanso(aperto ? null : o.id)}
                 >
                   <div className="flex-1 min-w-0">
@@ -1099,17 +1099,17 @@ function TabOrdini({ slug, stile }) {
                       <span className="font-semibold text-white">{o.fornitore}</span>
                       <StatoChip stato={o.stato} />
                     </div>
-                    <div className="text-xs text-zinc-500 mt-0.5">
+                    <div className="text-xs text-slate-500 mt-0.5">
                       Creato: {fmt(o.created_at)}
                       {o.data_consegna_prevista && ` · Consegna prevista: ${fmt(o.data_consegna_prevista)}`}
                       {o.num_righe > 0 && ` · ${o.num_righe} prodotti, ${o.tot_ordinato} pz`}
                     </div>
                   </div>
-                  {aperto ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
+                  {aperto ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                 </button>
 
                 {aperto && (
-                  <div className="px-4 pb-4 border-t border-zinc-700">
+                  <div className="px-4 pb-4 border-t border-slate-700">
                     {/* Righe */}
                     <div className="mt-3 space-y-2">
                       {(o.righe ?? [])
@@ -1123,22 +1123,22 @@ function TabOrdini({ slug, stile }) {
                           return (a.codice_colore ?? "").localeCompare(b.codice_colore ?? "");
                         })
                         .map(r => (
-                        <div key={r.id} className="flex items-center gap-3 bg-zinc-900 rounded-lg p-2">
+                        <div key={r.id} className="flex items-center gap-3 bg-slate-900 rounded-lg p-2">
                           {/* Immagine quadrata con numero colore sovrapposto */}
-                          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0 flex items-center justify-center">
+                          <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center">
                             {r.image_url ? (
                               <img src={r.image_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <Package className="w-5 h-5 text-zinc-600" />
+                              <Package className="w-5 h-5 text-slate-600" />
                             )}
                             <CodiceOverlay codice={r.codice_colore} stile={stile} size="sm" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <CodiceLabel codice={r.codice_colore} stile={stile} />
-                              <span className="text-sm text-zinc-200 truncate">{r.nome ?? r.asin}</span>
+                              <span className="text-sm text-slate-200 truncate">{r.nome ?? r.asin}</span>
                             </div>
-                            <div className="text-xs text-zinc-500">Ord: {r.quantita_ordinata} · Ric: {r.quantita_ricevuta ?? 0}</div>
+                            <div className="text-xs text-slate-500">Ord: {r.quantita_ordinata} · Ric: {r.quantita_ricevuta ?? 0}</div>
                           </div>
                           <StatoChip stato={r.stato ?? "in_attesa"} />
                         </div>
@@ -1183,10 +1183,10 @@ function TabOrdini({ slug, stile }) {
       {/* MODALE NUOVO ORDINE */}
       {showNuovo && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
               <h3 className="text-lg font-bold text-white">Nuovo ordine fornitore</h3>
-              <button onClick={() => setShowNuovo(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setShowNuovo(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1195,30 +1195,30 @@ function TabOrdini({ slug, stile }) {
               {/* Dati ordine */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Fornitore *</label>
+                  <label className="text-xs text-slate-400 block mb-1">Fornitore *</label>
                   <input
                     value={fornitore}
                     onChange={e => setFornitore(e.target.value)}
                     placeholder="Nome fornitore"
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Data consegna prevista</label>
+                  <label className="text-xs text-slate-400 block mb-1">Data consegna prevista</label>
                   <input
                     type="date"
                     value={dataConsegna}
                     onChange={e => setDataConsegna(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-slate-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Note</label>
+                  <label className="text-xs text-slate-400 block mb-1">Note</label>
                   <input
                     value={noteOrdine}
                     onChange={e => setNoteOrdine(e.target.value)}
                     placeholder="Note ordine…"
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
                   />
                 </div>
               </div>
@@ -1228,33 +1228,33 @@ function TabOrdini({ slug, stile }) {
 
                 {/* COLONNA SX: griglia prodotti disponibili */}
                 <div className="flex flex-col gap-2">
-                  <div className="text-xs text-zinc-400 font-medium">
+                  <div className="text-xs text-slate-400 font-medium">
                     Prodotti disponibili ({prodottiInRiga.length})
                   </div>
                   {prodottiInRiga.length === 0 ? (
-                    <p className="text-sm text-zinc-500 py-4">Tutti i prodotti sono già nell'ordine.</p>
+                    <p className="text-sm text-slate-500 py-4">Tutti i prodotti sono già nell'ordine.</p>
                   ) : (
                     <div className="space-y-2 overflow-y-auto max-h-[60vh] pr-1">
                       {prodottiInRiga.map(p => (
                         <button
                           key={p.asin}
                           onClick={() => aggiungiRiga(p)}
-                          className="w-full flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-xl hover:border-blue-500 text-left transition-colors overflow-hidden group p-2"
+                          className="w-full flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl hover:border-blue-500 text-left transition-colors overflow-hidden group p-2"
                         >
                           {/* Immagine quadrata grande con numero */}
-                          <div className="w-24 h-24 relative bg-zinc-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                          <div className="w-24 h-24 relative bg-slate-900 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
                             {p.image_url ? (
                               <img src={p.image_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <Package className="w-10 h-10 text-zinc-600" />
+                              <Package className="w-10 h-10 text-slate-600" />
                             )}
                             <CodiceOverlay codice={p.codice_colore} stile={stile} size="md" />
                           </div>
                           {/* Info estese */}
                           <div className="flex-1 min-w-0 py-1">
-                            <div className="text-sm text-zinc-100 leading-snug font-medium">{p.nome ?? p.asin}</div>
-                            <div className="text-xs text-zinc-500 font-mono mt-1">{p.asin}</div>
-                            <div className="text-xs text-zinc-400 mt-1">Stock attuale: <span className="text-zinc-200 font-semibold">{p.quantita}</span></div>
+                            <div className="text-sm text-slate-100 leading-snug font-medium">{p.nome ?? p.asin}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-1">{p.asin}</div>
+                            <div className="text-xs text-slate-400 mt-1">Stock attuale: <span className="text-slate-200 font-semibold">{p.quantita}</span></div>
                           </div>
                           <div className="p-2 rounded-full bg-blue-600/20 group-hover:bg-blue-600 transition-colors flex-shrink-0">
                             <Plus className="w-4 h-4 text-blue-400 group-hover:text-white" />
@@ -1267,38 +1267,38 @@ function TabOrdini({ slug, stile }) {
 
                 {/* COLONNA DX: carrello ordine */}
                 <div className="flex flex-col gap-2">
-                  <div className="text-xs text-zinc-400 font-medium">
+                  <div className="text-xs text-slate-400 font-medium">
                     Nell'ordine ({righeNuove.length} prodotti · {righeNuove.reduce((s, r) => s + r.quantita_ordinata, 0)} pz)
                   </div>
                   {righeNuove.length === 0 ? (
-                    <div className="flex-1 flex items-center justify-center text-zinc-600 text-sm border border-dashed border-zinc-700 rounded-xl">
+                    <div className="flex-1 flex items-center justify-center text-slate-600 text-sm border border-dashed border-slate-700 rounded-xl">
                       Clicca i prodotti a sinistra per aggiungerli
                     </div>
                   ) : (
                     <div className="space-y-2 overflow-y-auto max-h-[60vh] pr-1">
                       {righeNuove.map(r => (
-                        <div key={r.asin} className="flex items-center gap-3 bg-zinc-800 border border-zinc-700 rounded-xl p-2">
+                        <div key={r.asin} className="flex items-center gap-3 bg-slate-800 border border-slate-700 rounded-xl p-2">
                           {/* Immagine quadrata grande con numero */}
-                          <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-zinc-900 flex-shrink-0 flex items-center justify-center">
+                          <div className="relative w-24 h-24 rounded-lg overflow-hidden bg-slate-900 flex-shrink-0 flex items-center justify-center">
                             {r.image_url ? (
                               <img src={r.image_url} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <Package className="w-10 h-10 text-zinc-600" />
+                              <Package className="w-10 h-10 text-slate-600" />
                             )}
                             <CodiceOverlay codice={r.codice_colore} stile={stile} size="md" />
                           </div>
                           <div className="flex-1 min-w-0 py-1">
-                            <div className="text-sm text-zinc-100 leading-snug font-medium">{r.nome ?? r.asin}</div>
-                            <div className="text-xs text-zinc-500 font-mono mt-1">{r.asin}</div>
+                            <div className="text-sm text-slate-100 leading-snug font-medium">{r.nome ?? r.asin}</div>
+                            <div className="text-xs text-slate-500 font-mono mt-1">{r.asin}</div>
                           </div>
                           <input
                             type="number"
                             min={1}
                             value={r.quantita_ordinata}
                             onChange={e => aggiornaQtaRiga(r.asin, e.target.value)}
-                            className="w-20 bg-zinc-700 border border-zinc-600 rounded-lg px-2 py-2 text-base text-center text-white focus:outline-none focus:border-zinc-500"
+                            className="w-20 bg-slate-700 border border-slate-600 rounded-lg px-2 py-2 text-base text-center text-white focus:outline-none focus:border-slate-500"
                           />
-                          <button onClick={() => rimuoviRiga(r.asin)} className="text-zinc-500 hover:text-red-400 transition-colors flex-shrink-0">
+                          <button onClick={() => rimuoviRiga(r.asin)} className="text-slate-500 hover:text-red-400 transition-colors flex-shrink-0">
                             <X className="w-5 h-5" />
                           </button>
                         </div>
@@ -1309,11 +1309,11 @@ function TabOrdini({ slug, stile }) {
               </div>
             </div>
 
-            <div className="p-5 border-t border-zinc-800 flex gap-3">
-              <button onClick={() => setShowNuovo(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">
+            <div className="p-5 border-t border-slate-800 flex gap-3">
+              <button onClick={() => setShowNuovo(false)} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">
                 Annulla
               </button>
-              <button onClick={creaOrdine} className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium">
+              <button onClick={creaOrdine} className="flex-1 py-2.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-white text-sm font-medium">
                 Crea ordine ({righeNuove.length} prodotti)
               </button>
             </div>
@@ -1324,42 +1324,42 @@ function TabOrdini({ slug, stile }) {
       {/* MODALE RICEZIONE */}
       {ricezioneOrdine && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
-            <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
               <h3 className="text-lg font-bold text-white">Registra ricezione</h3>
-              <button onClick={() => setRicezioneOrdine(null)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setRicezioneOrdine(null)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {(ricezioneOrdine.righe ?? []).filter(r => r.stato !== "ricevuto").map(r => (
-                <div key={r.id} className="flex items-center gap-3 bg-zinc-800 rounded-xl p-3">
+                <div key={r.id} className="flex items-center gap-3 bg-slate-800 rounded-xl p-3">
                   {r.image_url ? (
                     <img src={r.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-10 h-10 rounded-lg bg-zinc-700 flex items-center justify-center flex-shrink-0">
-                      <Package className="w-5 h-5 text-zinc-500" />
+                    <div className="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-5 h-5 text-slate-500" />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm text-zinc-200 truncate">{r.nome ?? r.asin}</div>
-                    <div className="text-xs text-zinc-500">Ordinato: {r.quantita_ordinata} · Ricevuto finora: {r.quantita_ricevuta ?? 0}</div>
+                    <div className="text-sm text-slate-200 truncate">{r.nome ?? r.asin}</div>
+                    <div className="text-xs text-slate-500">Ordinato: {r.quantita_ordinata} · Ricevuto finora: {r.quantita_ricevuta ?? 0}</div>
                   </div>
                   <input
                     type="number"
                     min={0}
                     value={righeRicezione[r.id] ?? ""}
                     onChange={e => setRigheRicezione(prev => ({ ...prev, [r.id]: e.target.value }))}
-                    className="w-20 bg-zinc-700 border border-zinc-600 rounded-lg px-2 py-1.5 text-sm text-center text-white focus:outline-none"
+                    className="w-20 bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-sm text-center text-white focus:outline-none"
                   />
                 </div>
               ))}
             </div>
-            <div className="p-5 border-t border-zinc-800 flex gap-3">
+            <div className="p-5 border-t border-slate-800 flex gap-3">
               <button
                 onClick={() => setRicezioneOrdine(null)}
                 disabled={confermandoRicezione}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-300 text-sm"
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 text-sm"
               >
                 Annulla
               </button>
@@ -1460,7 +1460,7 @@ function TabStorico({ slug, stile }) {
         <select
           value={filtroTipo}
           onChange={e => setFiltroTipo(e.target.value)}
-          className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-slate-500"
         >
           <option value="">Tutti i tipi</option>
           <option value="CARICO_ORDINE">Carico ordine</option>
@@ -1471,22 +1471,22 @@ function TabStorico({ slug, stile }) {
           value={filtroAsin}
           onChange={e => setFiltroAsin(e.target.value)}
           placeholder="Filtra per ASIN…"
-          className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
         />
-        <button onClick={carica} className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white">
+        <button onClick={carica} className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white">
           <RefreshCw className="w-4 h-4" />
         </button>
-        <span className="text-xs text-zinc-500 self-center">{gruppi.length} eventi · {movimenti.length} movimenti totali</span>
+        <span className="text-xs text-slate-500 self-center">{gruppi.length} eventi · {movimenti.length} movimenti totali</span>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-zinc-500">Caricamento…</div>
+        <div className="text-center py-16 text-slate-500">Caricamento…</div>
       ) : gruppi.length === 0 ? (
-        <div className="text-center py-16 text-zinc-500">Nessun movimento trovato.</div>
+        <div className="text-center py-16 text-slate-500">Nessun movimento trovato.</div>
       ) : (
         <div className="space-y-2">
           {gruppi.map(g => {
-            const tipo = TIPO_MOV[g.tipo] ?? { label: g.tipo, color: "text-zinc-400" };
+            const tipo = TIPO_MOV[g.tipo] ?? { label: g.tipo, color: "text-slate-400" };
             const aperto = gruppiAperti.has(g.key);
             const standalone = g.righe.length === 1 && !g.riferimento_id;
             const segno = g.totale > 0 ? "+" : "";
@@ -1498,12 +1498,12 @@ function TabStorico({ slug, stile }) {
             else etichetta = tipo.label;
 
             return (
-              <div key={g.key} className="bg-zinc-800 border border-zinc-700/50 rounded-xl overflow-hidden">
+              <div key={g.key} className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
                 <button
                   onClick={() => !standalone && toggleGruppo(g.key)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-left ${standalone ? "" : "hover:bg-zinc-750 cursor-pointer"}`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left ${standalone ? "" : "hover:bg-slate-750 cursor-pointer"}`}
                 >
-                  <div className="w-9 h-9 rounded-lg bg-zinc-900 flex items-center justify-center flex-shrink-0">
+                  <div className="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center flex-shrink-0">
                     {g.tipo === "CARICO_ORDINE" && <Truck className="w-4 h-4 text-green-400" />}
                     {g.tipo === "SCARICO_DDT"   && <Package className="w-4 h-4 text-red-400" />}
                     {g.tipo === "RETTIFICA"     && <Edit3 className="w-4 h-4 text-amber-400" />}
@@ -1511,52 +1511,52 @@ function TabStorico({ slug, stile }) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className={`text-sm font-bold ${tipo.color}`}>{etichetta}</span>
-                      <span className="text-xs text-zinc-500">· {tipo.label}</span>
+                      <span className="text-xs text-slate-500">· {tipo.label}</span>
                       {!standalone && (
-                        <span className="text-xs text-zinc-500">· {g.righe.length} prodotti</span>
+                        <span className="text-xs text-slate-500">· {g.righe.length} prodotti</span>
                       )}
                     </div>
-                    <div className="text-xs text-zinc-600 mt-0.5">
-                      {standalone && g.righe[0]?.nome && <span className="mr-2 text-zinc-400">{g.righe[0].nome}</span>}
+                    <div className="text-xs text-slate-600 mt-0.5">
+                      {standalone && g.righe[0]?.nome && <span className="mr-2 text-slate-400">{g.righe[0].nome}</span>}
                       {standalone && g.righe[0]?.note && <span className="mr-2">{g.righe[0].note}</span>}
                       {fmt(g.data_max)}
                       {g.righe[0]?.operatore && <span className="ml-1">· {g.righe[0].operatore}</span>}
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className={`text-lg font-bold ${g.totale > 0 ? "text-green-400" : g.totale < 0 ? "text-red-400" : "text-zinc-400"}`}>
+                    <div className={`text-lg font-bold ${g.totale > 0 ? "text-green-400" : g.totale < 0 ? "text-red-400" : "text-slate-400"}`}>
                       {segno}{g.totale}
                     </div>
-                    <div className="text-xs text-zinc-600">{standalone ? "" : "totale"}</div>
+                    <div className="text-xs text-slate-600">{standalone ? "" : "totale"}</div>
                   </div>
                   {!standalone && (
-                    aperto ? <ChevronUp className="w-4 h-4 text-zinc-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-zinc-400 flex-shrink-0" />
+                    aperto ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
                   )}
                 </button>
 
                 {/* Dettaglio righe (se gruppo aperto) */}
                 {aperto && !standalone && (
-                  <div className="px-4 pb-3 border-t border-zinc-700/50 space-y-1.5 pt-3">
+                  <div className="px-4 pb-3 border-t border-slate-700/50 space-y-1.5 pt-3">
                     {g.righe
                       .slice()
                       .sort((a, b) => (a.codice_colore ?? "").localeCompare(b.codice_colore ?? ""))
                       .map(m => (
-                      <div key={m.id} className="flex items-center gap-3 bg-zinc-900 rounded-lg px-3 py-2">
+                      <div key={m.id} className="flex items-center gap-3 bg-slate-900 rounded-lg px-3 py-2">
                         {/* Immagine con numero colore */}
-                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0 flex items-center justify-center">
+                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center">
                           {m.image_url ? (
                             <img src={m.image_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            <Package className="w-4 h-4 text-zinc-600" />
+                            <Package className="w-4 h-4 text-slate-600" />
                           )}
                           <CodiceOverlay codice={m.codice_colore} stile={stile} size="xs" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <CodiceLabel codice={m.codice_colore} stile={stile} />
-                            <span className="text-xs text-zinc-300 truncate">{m.nome ?? m.asin}</span>
+                            <span className="text-xs text-slate-300 truncate">{m.nome ?? m.asin}</span>
                           </div>
-                          <div className="text-[10px] text-zinc-600">{m.asin}</div>
+                          <div className="text-[10px] text-slate-600">{m.asin}</div>
                         </div>
                         <div className={`text-sm font-bold flex-shrink-0 ${m.quantita > 0 ? "text-green-400" : "text-red-400"}`}>
                           {m.quantita > 0 ? "+" : ""}{m.quantita}
@@ -1677,46 +1677,46 @@ export default function GestioneModuloCustom() {
 
   if (loadingModulo) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-500 flex items-center justify-center">Caricamento modulo…</div>
+      <div className="min-h-screen bg-slate-950 text-slate-500 flex items-center justify-center">Caricamento modulo…</div>
     );
   }
   if (!modulo) {
     return (
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col items-center justify-center gap-4">
-        <p className="text-zinc-400">Modulo "{slug}" non trovato.</p>
-        <button onClick={() => navigate("/uffici/inventario")} className="px-4 py-2 bg-zinc-800 rounded-lg hover:bg-zinc-700">Torna all'inventario</button>
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-4">
+        <p className="text-slate-400">Modulo "{slug}" non trovato.</p>
+        <button onClick={() => navigate("/uffici/inventario")} className="px-4 py-2 bg-slate-800 rounded-lg hover:bg-slate-700">Torna all'inventario</button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header */}
-      <div className="bg-zinc-900 border-b border-zinc-800 px-6 py-4">
+      <div className="bg-slate-900 border-b border-slate-800 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center gap-4">
           <button
             onClick={() => navigate("/uffici/inventario")}
-            className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           {/* Emoji cliccabile per cambiarla rapidamente */}
           <button
             onClick={apriEmojiPicker}
-            className="text-3xl p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 border-2 border-transparent hover:border-purple-500 transition-all"
+            className="text-3xl p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border-2 border-transparent hover:border-purple-500 transition-all"
             title="Clicca per cambiare emoji"
           >
             {modulo.icona ?? "📦"}
           </button>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-white">{modulo.label}</h1>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Modulo personalizzato · stile {modulo.stile_codice === "numerico" ? "numerico" : "testuale"}
             </p>
           </div>
           <button
             onClick={apriSettings}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-sm transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-sm transition-colors"
             title="Impostazioni modulo"
           >
             <Settings className="w-4 h-4" />
@@ -1736,15 +1736,15 @@ export default function GestioneModuloCustom() {
       {/* MODALE ELIMINAZIONE DIRETTA */}
       {showDelete && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border-2 border-red-700/60 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-slate-900 border-2 border-red-700/60 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-xl bg-red-900/40">
                 <AlertTriangle className="w-6 h-6 text-red-400" />
               </div>
               <h3 className="text-lg font-bold text-white">Elimina modulo "{modulo.label}"</h3>
             </div>
-            <p className="text-sm text-zinc-300 mb-2">Stai per eliminare definitivamente il modulo e tutti i suoi dati:</p>
-            <ul className="text-sm text-zinc-400 mb-4 space-y-1 pl-4">
+            <p className="text-sm text-slate-300 mb-2">Stai per eliminare definitivamente il modulo e tutti i suoi dati:</p>
+            <ul className="text-sm text-slate-400 mb-4 space-y-1 pl-4">
               <li>• Catalogo prodotti del modulo</li>
               <li>• Tutti gli ordini fornitore (qualsiasi stato)</li>
               <li>• Tutto lo storico movimenti</li>
@@ -1755,7 +1755,7 @@ export default function GestioneModuloCustom() {
                 ⚠️ Operazione <span className="underline">irreversibile</span>. I dati non potranno essere recuperati.
               </p>
             </div>
-            <label className="text-xs text-zinc-400 block mb-1">
+            <label className="text-xs text-slate-400 block mb-1">
               Per confermare scrivi <span className="font-mono font-bold text-red-300">DELETE</span> qui sotto:
             </label>
             <input
@@ -1763,20 +1763,20 @@ export default function GestioneModuloCustom() {
               value={confermaDelete}
               onChange={(e) => setConfermaDelete(e.target.value)}
               placeholder="DELETE"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white font-mono mb-4 focus:outline-none focus:border-red-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono mb-4 focus:outline-none focus:border-red-500"
             />
             <div className="flex gap-2">
               <button
                 onClick={() => { setShowDelete(false); setConfermaDelete(""); }}
                 disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-sm font-medium"
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm font-medium"
               >
                 Annulla
               </button>
               <button
                 onClick={eliminaModulo}
                 disabled={confermaDelete !== "DELETE" || deleting}
-                className="flex-1 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:cursor-not-allowed disabled:text-zinc-500 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:cursor-not-allowed disabled:text-slate-500 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
               >
                 {deleting ? (
                   <>
@@ -1793,23 +1793,23 @@ export default function GestioneModuloCustom() {
       {/* PICKER EMOJI rapido */}
       {showEmojiPicker && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-white">Scegli un'emoji</h3>
-              <button onClick={() => setShowEmojiPicker(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setShowEmojiPicker(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Grid emoji beauty / cosmetica */}
-            <p className="text-xs text-zinc-500 mb-2">Selezione rapida</p>
-            <div className="grid grid-cols-8 gap-1 mb-4 bg-zinc-800/40 p-2 rounded-lg">
+            <p className="text-xs text-slate-500 mb-2">Selezione rapida</p>
+            <div className="grid grid-cols-8 gap-1 mb-4 bg-slate-800/40 p-2 rounded-lg">
               {["💅","✨","💎","💖","🌟","🪄","🧴","💄","👑","🎀","🌸","🦋","🌺","💋","🎨","🌈"].map(emoji => (
                 <button
                   key={emoji}
                   onClick={() => salvaIcona(emoji)}
                   disabled={savingIcona}
-                  className={`text-2xl p-2 rounded-lg hover:bg-zinc-700 transition-colors ${modulo.icona === emoji ? "bg-purple-900/40 ring-2 ring-purple-500" : ""}`}
+                  className={`text-2xl p-2 rounded-lg hover:bg-slate-700 transition-colors ${modulo.icona === emoji ? "bg-purple-900/40 ring-2 ring-purple-500" : ""}`}
                 >
                   {emoji}
                 </button>
@@ -1817,14 +1817,14 @@ export default function GestioneModuloCustom() {
             </div>
 
             {/* Inserimento manuale */}
-            <div className="bg-zinc-800/40 border border-dashed border-zinc-700 rounded-lg p-3">
-              <label className="text-xs text-zinc-400 block mb-1.5">Oppure incolla qui un'emoji personalizzata:</label>
+            <div className="bg-slate-800/40 border border-dashed border-slate-700 rounded-lg p-3">
+              <label className="text-xs text-slate-400 block mb-1.5">Oppure incolla qui un'emoji personalizzata:</label>
               <div className="flex gap-2">
                 <input
                   value={editIcona}
                   onChange={(e) => setEditIcona(e.target.value)}
                   placeholder="Incolla qui…"
-                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-2xl text-center text-white focus:outline-none focus:border-purple-500"
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-2xl text-center text-white focus:outline-none focus:border-purple-500"
                 />
                 <button
                   onClick={() => salvaIcona(editIcona)}
@@ -1834,10 +1834,10 @@ export default function GestioneModuloCustom() {
                   Usa
                 </button>
               </div>
-              <div className="mt-2 text-[11px] text-zinc-500 leading-relaxed">
-                <div className="font-semibold text-zinc-400 mb-1">Come digitare un'emoji:</div>
-                • <span className="text-zinc-300">Windows</span>: premi <kbd className="px-1 py-0.5 bg-zinc-800 rounded text-zinc-300 font-mono text-[10px]">Win</kbd> + <kbd className="px-1 py-0.5 bg-zinc-800 rounded text-zinc-300 font-mono text-[10px]">.</kbd> (punto)<br />
-                • <span className="text-zinc-300">Mac</span>: premi <kbd className="px-1 py-0.5 bg-zinc-800 rounded text-zinc-300 font-mono text-[10px]">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-zinc-800 rounded text-zinc-300 font-mono text-[10px]">Cmd</kbd> + <kbd className="px-1 py-0.5 bg-zinc-800 rounded text-zinc-300 font-mono text-[10px]">Spazio</kbd><br />
+              <div className="mt-2 text-[11px] text-slate-500 leading-relaxed">
+                <div className="font-semibold text-slate-400 mb-1">Come digitare un'emoji:</div>
+                • <span className="text-slate-300">Windows</span>: premi <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Win</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">.</kbd> (punto)<br />
+                • <span className="text-slate-300">Mac</span>: premi <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Cmd</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Spazio</kbd><br />
                 • Si aprirà il selettore emoji del sistema, scegli quella che vuoi e verrà inserita nel campo qui sopra
               </div>
             </div>
@@ -1848,28 +1848,28 @@ export default function GestioneModuloCustom() {
       {/* MODALE IMPOSTAZIONI */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-lg font-bold text-white">Impostazioni modulo</h3>
-              <button onClick={() => setShowSettings(false)} className="text-zinc-500 hover:text-white">
+              <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-zinc-400 block mb-1">Nome del modulo</label>
+                <label className="text-xs text-slate-400 block mb-1">Nome del modulo</label>
                 <input
                   value={editLabel}
                   onChange={(e) => setEditLabel(e.target.value)}
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
-              <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-500">
-                <span className="text-zinc-400">Emoji:</span> {modulo.icona ?? "📦"} · <span className="italic">cliccala nell'header per cambiarla</span>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-2 text-xs text-slate-500">
+                <span className="text-slate-400">Emoji:</span> {modulo.icona ?? "📦"} · <span className="italic">cliccala nell'header per cambiarla</span>
               </div>
-              <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-2 text-xs text-zinc-500">
-                <span className="text-zinc-400">Stile:</span> {modulo.stile_codice === "numerico" ? "Numerico (come One Step)" : "Testuale (come Top Coat)"} · <span className="italic">non modificabile dopo la creazione</span>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-2 text-xs text-slate-500">
+                <span className="text-slate-400">Stile:</span> {modulo.stile_codice === "numerico" ? "Numerico (come One Step)" : "Testuale (come Top Coat)"} · <span className="italic">non modificabile dopo la creazione</span>
               </div>
             </div>
 
@@ -1877,7 +1877,7 @@ export default function GestioneModuloCustom() {
               <button
                 onClick={() => setShowSettings(false)}
                 disabled={savingSettings}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-sm"
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm"
               >
                 Annulla
               </button>
@@ -1891,13 +1891,13 @@ export default function GestioneModuloCustom() {
             </div>
 
             {/* Sezione elimina */}
-            <div className="mt-6 pt-5 border-t border-zinc-800">
+            <div className="mt-6 pt-5 border-t border-slate-800">
               <div className="bg-red-950/20 border border-red-900/40 rounded-xl p-3">
                 <div className="flex items-start gap-2 mb-3">
                   <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <div>
                     <div className="text-sm font-bold text-red-300">Elimina modulo</div>
-                    <div className="text-xs text-zinc-400 mt-0.5">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       Cancella il modulo e <span className="font-semibold">tutti i suoi dati</span> (catalogo, ordini, movimenti). Operazione irreversibile.
                     </div>
                   </div>
@@ -1906,12 +1906,12 @@ export default function GestioneModuloCustom() {
                   value={confermaDelete}
                   onChange={(e) => setConfermaDelete(e.target.value)}
                   placeholder='Scrivi "DELETE" per confermare'
-                  className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white font-mono mb-2 focus:outline-none focus:border-red-500"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono mb-2 focus:outline-none focus:border-red-500"
                 />
                 <button
                   onClick={eliminaModulo}
                   disabled={confermaDelete !== "DELETE" || deleting}
-                  className="w-full py-2 rounded-lg bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:cursor-not-allowed disabled:text-zinc-500 text-white text-sm font-bold transition-colors"
+                  className="w-full py-2 rounded-lg bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:cursor-not-allowed disabled:text-slate-500 text-white text-sm font-bold transition-colors"
                 >
                   {deleting ? "Eliminazione…" : "Elimina modulo definitivamente"}
                 </button>
@@ -1922,7 +1922,7 @@ export default function GestioneModuloCustom() {
       )}
 
       {/* Tabs */}
-      <div className="bg-zinc-900/50 border-b border-zinc-800">
+      <div className="bg-slate-900/50 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex gap-1">
             {TABS.map(t => {
@@ -1934,7 +1934,7 @@ export default function GestioneModuloCustom() {
                   className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors ${
                     tab === t.id
                       ? "border-pink-500 text-pink-400"
-                      : "border-transparent text-zinc-400 hover:text-zinc-200"
+                      : "border-transparent text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   <Icon className="w-4 h-4" />

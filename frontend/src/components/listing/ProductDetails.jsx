@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Image, Plus, ArrowLeft } from "lucide-react";
 
 const ProductDetails = ({ prodotto, onChange }) => {
   const navigate = useNavigate();
@@ -22,12 +23,11 @@ const ProductDetails = ({ prodotto, onChange }) => {
   paese = mappaPaesi[paese] || paese;
 
   return (
-    <div className="bg-white mt-10 p-6 rounded-lg shadow-md max-w-3xl mx-auto">
-      <h3 className="text-xl font-bold mb-6 text-center">Modifica Prodotto</h3>
+    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-6 max-w-3xl mx-auto">
+      <h3 className="text-xl font-semibold mb-6 text-center text-slate-100">Modifica Prodotto</h3>
 
-      {/* Titolo */}
-      <div className="mb-6">
-        <label htmlFor="titolo" className="block text-sm font-medium text-gray-700">
+      <div className="mb-5">
+        <label htmlFor="titolo" className="block text-xs font-medium text-slate-400 mb-1.5">
           Titolo
         </label>
         <input
@@ -35,15 +35,14 @@ const ProductDetails = ({ prodotto, onChange }) => {
           type="text"
           value={prodotto.titolo || ""}
           onChange={(e) => onChange({ ...prodotto, titolo: e.target.value })}
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           placeholder="Inserisci titolo prodotto"
           autoComplete="off"
         />
       </div>
 
-      {/* Bullet Point */}
-      <div className="mb-6">
-        <label htmlFor="bullet" className="block text-sm font-medium text-gray-700">
+      <div className="mb-5">
+        <label htmlFor="bullet" className="block text-xs font-medium text-slate-400 mb-1.5">
           Bullet Point
         </label>
         <textarea
@@ -51,14 +50,13 @@ const ProductDetails = ({ prodotto, onChange }) => {
           rows={4}
           value={prodotto.bullet || ""}
           onChange={(e) => onChange({ ...prodotto, bullet: e.target.value })}
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 resize-y focus:outline-none focus:border-slate-500"
           placeholder="Inserisci bullet points separati da a capo"
         />
       </div>
 
-      {/* Descrizione */}
-      <div className="mb-6">
-        <label htmlFor="descrizione" className="block text-sm font-medium text-gray-700">
+      <div className="mb-5">
+        <label htmlFor="descrizione" className="block text-xs font-medium text-slate-400 mb-1.5">
           Descrizione
         </label>
         <textarea
@@ -66,41 +64,42 @@ const ProductDetails = ({ prodotto, onChange }) => {
           rows={6}
           value={prodotto.descrizione || ""}
           onChange={(e) => onChange({ ...prodotto, descrizione: e.target.value })}
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 resize-y focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 resize-y focus:outline-none focus:border-slate-500"
           placeholder="Inserisci descrizione prodotto"
         />
       </div>
 
-      {/* Pulsanti */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+      <div className="flex flex-col sm:flex-row gap-3 justify-center mt-6">
         <button
           type="button"
           onClick={() => navigate(`/immagini/${prodotto.asin}/${paese}`)}
-          className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded transition"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/40 hover:border-cyan-400/60 text-cyan-300 hover:text-cyan-200 text-sm font-medium transition-colors"
         >
-          📸 Immagini
+          <Image size={16} />
+          Immagini
         </button>
 
         <button
           type="button"
           onClick={() => navigate(`/aplus/${prodotto.asin}/${paese}`)}
-          className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded transition"
+          className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-colors"
         >
-          ➕ Contenuto A+
+          <Plus size={16} />
+          Contenuto A+
         </button>
       </div>
 
-      {/* Torna alla lista */}
-      <div className="text-center mt-10">
+      <div className="text-center mt-8">
         <button
           type="button"
           onClick={() => {
             onChange(null);
             navigate("/listing");
           }}
-          className="text-sm text-gray-600 hover:underline focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors"
         >
-          ⬅ Torna alla lista
+          <ArrowLeft size={14} />
+          Torna alla lista
         </button>
       </div>
     </div>

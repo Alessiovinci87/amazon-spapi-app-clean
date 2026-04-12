@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Plus } from "lucide-react";
 
 const InserimentoFornitore = ({ onFornitoreAggiunto }) => {
   const [fornitore, setFornitore] = useState({
@@ -26,36 +27,39 @@ const InserimentoFornitore = ({ onFornitoreAggiunto }) => {
   };
 
   return (
-    <div className="bg-white/10 p-6 rounded-lg mt-8 shadow-md">
-      <h2 className="text-xl font-semibold mb-4">➕ Inserisci Nuovo Fornitore</h2>
+    <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-6 mt-8">
+      <h2 className="text-lg font-semibold mb-4 text-slate-100 flex items-center gap-2">
+        <Plus size={18} className="text-emerald-400" />
+        Inserisci Nuovo Fornitore
+      </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <input
-          className="p-2 rounded bg-zinc-800 text-white border border-zinc-600"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           placeholder="Nome"
           value={fornitore.nome}
           onChange={(e) => setFornitore({ ...fornitore, nome: e.target.value })}
         />
         <input
-          className="p-2 rounded bg-zinc-800 text-white border border-zinc-600"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           placeholder="Partita IVA"
           value={fornitore.partitaIva}
           onChange={(e) => setFornitore({ ...fornitore, partitaIva: e.target.value })}
         />
         <input
-          className="p-2 rounded bg-zinc-800 text-white border border-zinc-600"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           placeholder="Indirizzo"
           value={fornitore.indirizzo}
           onChange={(e) => setFornitore({ ...fornitore, indirizzo: e.target.value })}
         />
         <input
-          className="p-2 rounded bg-zinc-800 text-white border border-zinc-600"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           placeholder="Email"
           value={fornitore.email}
           onChange={(e) => setFornitore({ ...fornitore, email: e.target.value })}
         />
         <input
-          className="p-2 rounded bg-zinc-800 text-white border border-zinc-600"
+          className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           placeholder="Telefono"
           value={fornitore.telefono}
           onChange={(e) => setFornitore({ ...fornitore, telefono: e.target.value })}
@@ -64,9 +68,9 @@ const InserimentoFornitore = ({ onFornitoreAggiunto }) => {
 
       <button
         onClick={salvaFornitore}
-        className="mt-4 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded"
+        className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-colors"
       >
-        ✅ Salva Fornitore
+        Salva Fornitore
       </button>
     </div>
   );
