@@ -227,6 +227,26 @@ function checkScadenzeTuttiLotti(db) {
   }
 }
 
+function checkSottoSogliaScatolette(db, id) {
+  try {
+    const prod = db.prepare(
+      "SELECT id, nome_prodotto AS nome, quantita, soglia_minima FROM scatolette WHERE id = ?"
+    ).get(id);
+    if (!prod || !prod.soglia_minima) return;
+    _processCheck(db, { asin: `scatoletta:${prod.id}`, prod, source: "scatolette", modulo_label: "Scatolette" });
+  } catch (e) { console.warn("⚠️ checkSottoSogliaScatolette:", e.message); }
+}
+
+function checkSottoSogliaEtichette(db, id) {
+  try {
+    const prod = db.prepare(
+      "SELECT id, nome, quantita, soglia_minima FROM etichette WHERE id = ?"
+    ).get(id);
+    if (!prod || !prod.soglia_minima) return;
+    _processCheck(db, { asin: `etichetta:${prod.id}`, prod, source: "etichette", modulo_label: "Etichette" });
+  } catch (e) { console.warn("⚠️ checkSottoSogliaEtichette:", e.message); }
+}
+
 function checkSottoSogliaModulo(db, modulo_id, asin) {
   try {
     const m = db.prepare("SELECT slug, label FROM moduli_custom WHERE id = ?").get(modulo_id);
@@ -253,6 +273,8 @@ function rigeneraAlertSottoSoglia(db) {
     moduli:     { scansionati: 0, sottoSoglia: 0 },
     accessori:  { scansionati: 0, sottoSoglia: 0 },
     sfuso:      { scansionati: 0, sottoSoglia: 0 },
+    scatolette: { scansionati: 0, sottoSoglia: 0 },
+    etichette:  { scansionati: 0, sottoSoglia: 0 },
     sfusoCopertura: { scansionati: 0, insufficienti: 0 },
     lottiScadenza:  { scansionati: 0, inScadenza: 0, scaduti: 0 },
   };
@@ -350,13 +372,37 @@ function rigeneraAlertSottoSoglia(db) {
       }
     } catch (e) { console.warn("⚠️ rigenera sfuso copertura:", e.message); }
 
+    // ── Scatolette ──────────────────────────────────────────────
+    try {
+      const scatolette = db.prepare(
+        "SELECT id, nome_prodotto AS nome, quantita, soglia_minima FROM scatolette WHERE soglia_minima > 0"
+      ).all();
+      for (const row of scatolette) {
+        _processCheck(db, { asin: `scatoletta:${row.id}`, prod: row, source: "scatolette", modulo_label: "Scatolette" });
+        stats.scatolette.scansionati++;
+        if (row.quantita < row.soglia_minima) stats.scatolette.sottoSoglia++;
+      }
+    } catch (e) { console.warn("⚠️ rigenera scatolette:", e.message); }
+
+    // ── Etichette ──────────────────────────────────────────────
+    try {
+      const etichette = db.prepare(
+        "SELECT id, nome, quantita, soglia_minima FROM etichette WHERE soglia_minima > 0"
+      ).all();
+      for (const row of etichette) {
+        _processCheck(db, { asin: `etichetta:${row.id}`, prod: row, source: "etichette", modulo_label: "Etichette" });
+        stats.etichette.scansionati++;
+        if (row.quantita < row.soglia_minima) stats.etichette.sottoSoglia++;
+      }
+    } catch (e) { console.warn("⚠️ rigenera etichette:", e.message); }
+
     // ── Scadenze lotti ────────────────────────────────────────
     try {
       stats.lottiScadenza = checkScadenzeTuttiLotti(db);
     } catch (e) { console.warn("⚠️ rigenera scadenze lotti:", e.message); }
   })();
 
-  stats.totaleScansionati = stats.prodotti.scansionati + stats.onestep.scansionati + stats.topcoat.scansionati + stats.moduli.scansionati + stats.accessori.scansionati + stats.sfuso.scansionati + stats.sfusoCopertura.scansionati + stats.lottiScadenza.scansionati;
+  stats.totaleScansionati = stats.prodotti.scansionati + stats.onestep.scansionati + stats.topcoat.scansionati + stats.moduli.scansionati + stats.accessori.scansionati + stats.sfuso.scansionati + stats.scatolette.scansionati + stats.etichette.scansionati + stats.sfusoCopertura.scansionati + stats.lottiScadenza.scansionati;
   const apertiDopo = countOpen();
   stats.alertAperti = { prima: apertiPrima, dopo: apertiDopo, delta: apertiDopo - apertiPrima };
 
@@ -370,6 +416,8 @@ module.exports = {
   checkSottoSogliaModulo,
   checkSottoSogliaAccessori,
   checkSottoSogliaSfuso,
+  checkSottoSogliaScatolette,
+  checkSottoSogliaEtichette,
   checkSfusoCopertura,
   checkScadenzaLotto,
   checkScadenzeTuttiLotti,

@@ -527,6 +527,27 @@ function runMigrations(db) {
     db.prepare("ALTER TABLE prodotti ADD COLUMN soglia_minima INTEGER NOT NULL DEFAULT 10").run();
     console.log("🔧 Migrazione: aggiunta colonna soglia_minima a prodotti");
   }
+
+  // ===== SCATOLETTE: aggiungi soglia_minima se mancante =====
+  const colsScatolette = db.pragma("table_info(scatolette)");
+  if (colsScatolette.length > 0 && !colsScatolette.some(c => c.name === "soglia_minima")) {
+    db.prepare("ALTER TABLE scatolette ADD COLUMN soglia_minima INTEGER NOT NULL DEFAULT 0").run();
+    console.log("🔧 Migrazione: aggiunta colonna soglia_minima a scatolette");
+  }
+
+  // ===== ETICHETTE =====
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS etichette (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      quantita INTEGER NOT NULL DEFAULT 0,
+      soglia_minima INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      updated_at TEXT DEFAULT (datetime('now','localtime'))
+    )
+  `).run();
+
+  console.log("✅ Migrazione Scatolette/Etichette completata");
 }
 
 async function ensureDatabaseReady() {

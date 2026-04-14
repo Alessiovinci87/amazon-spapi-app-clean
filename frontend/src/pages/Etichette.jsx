@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -14,38 +14,8 @@ import {
   Truck,
   Search,
   X,
+  Bell,
 } from "lucide-react";
-
-/* ── Dati iniziali ───────────────────────────────────────── */
-
-const initialData = [
-  { id: 1, nome: "Primer no acido", quantita: 25000 },
-  { id: 2, nome: "Primer Acido", quantita: 1170 },
-  { id: 3, nome: "Nail Prep", quantita: 4500 },
-  { id: 4, nome: "Olio Vaniglia", quantita: 2300 },
-  { id: 5, nome: "olio fragola", quantita: 3000 },
-  { id: 6, nome: "olio cocco", quantita: 3600 },
-  { id: 7, nome: "olio generico", quantita: 5300 },
-  { id: 8, nome: "acrygel", quantita: 1300 },
-  { id: 9, nome: "cilindri", quantita: "2000+" },
-  { id: 10, nome: "antifungo", quantita: 0 },
-  { id: 11, nome: "cutiway", quantita: 3400 },
-  { id: 12, nome: "olio 3 fasico", quantita: 3400 },
-  { id: 13, nome: "Rinforzante", quantita: 4800 },
-  { id: 14, nome: "Smalto Amaro", quantita: 7000 },
-  { id: 15, nome: "Rimuovi Cuticole", quantita: 9300 },
-  { id: 16, nome: "top coat manicure", quantita: 2000 },
-  { id: 17, nome: "top coat Ultra shine", quantita: 1300 },
-  { id: 18, nome: "top coat no wipe", quantita: 2340 },
-  { id: 19, nome: "top coat matt", quantita: 2000 },
-  { id: 20, nome: "base + top", quantita: 4700 },
-  { id: 21, nome: "base coat", quantita: 2000 },
-  { id: 22, nome: "olio cbd 5%", quantita: 2500 },
-  { id: 23, nome: "olio cbd 15%", quantita: 2500 },
-  { id: 24, nome: "olio cbd 25%", quantita: 2500 },
-  { id: 25, nome: "Rubber base", quantita: 4700 },
-  { id: 26, nome: "generica", quantita: 4700 },
-];
 
 /* ── Shared UI ──────────────────────────────────────────── */
 
@@ -87,12 +57,16 @@ const getQuantitaIcon = (quantita) => {
 /* ── Componente principale ───────────────────────────────── */
 
 const Etichette = () => {
-  const [rows, setRows] = useState(initialData);
+  const [rows, setRows] = useState([]);
   const [expandedCards, setExpandedCards] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const isMagazzino = location.pathname.startsWith("/magazzino");
+
+  useEffect(() => {
+    fetch("/api/v2/etichette").then((r) => r.json()).then((d) => setRows(d.data || [])).catch(() => toast.error("Errore caricamento etichette"));
+  }, []);
 
   const toggleCardExpansion = (id) => {
     setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -102,12 +76,31 @@ const Etichette = () => {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, [field]: value } : row)));
   };
 
-  const handleRettifica = (row) => {
+  const handleRettifica = async (row) => {
     const nuovaQuantita = prompt(`Rettifica quantita per "${row.nome}".\nQuantita attuale: ${row.quantita}`, row.quantita);
-    if (nuovaQuantita !== null) {
-      handleChange(row.id, "quantita", nuovaQuantita);
-      toast.info(`Quantita aggiornata per "${row.nome}": ${nuovaQuantita}`);
-    }
+    if (nuovaQuantita === null) return;
+    try {
+      const res = await fetch(`/api/v2/etichette/${row.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantita: Number(nuovaQuantita) }),
+      });
+      if (!res.ok) throw new Error();
+      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, quantita: Number(nuovaQuantita) } : r)));
+      toast.success("Quantita aggiornata");
+    } catch { toast.error("Errore aggiornamento quantita"); }
+  };
+
+  const handleSoglia = async (row, val) => {
+    const soglia = parseInt(val, 10);
+    if (isNaN(soglia) || soglia < 0) return;
+    try {
+      await fetch(`/api/v2/etichette/${row.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soglia_minima: soglia }),
+      });
+      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, soglia_minima: soglia } : r)));
+      toast.success(`Soglia alert impostata a ${soglia}`);
+    } catch { toast.error("Errore salvataggio soglia"); }
   };
 
   const filteredRows = rows.filter((row) => row.nome.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -124,7 +117,7 @@ const Etichette = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate(-1)} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center flex-shrink-0">
@@ -262,44 +255,31 @@ const Etichette = () => {
                         </div>
                       </div>
 
-                      {/* Campi aggiuntivi */}
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { label: "Colonna 1", field: "colonna1" },
-                          { label: "6 Mesi", field: "mesi8" },
-                          { label: "Ordine Packly", field: "ordinePackly" },
-                        ].map((item) => (
-                          <div key={item.field} className="bg-slate-800/40 border border-slate-700/60 rounded-md px-3 py-2">
-                            <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1">{item.label}</label>
-                            <input
-                              type="text"
-                              value={row[item.field] || ""}
-                              onChange={(e) => handleChange(row.id, item.field, e.target.value)}
-                              className="w-full bg-transparent border-0 text-sm text-white placeholder-slate-600 focus:outline-none p-0"
-                              placeholder="..."
-                            />
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Info ordine */}
-                      <div className="bg-blue-500/5 border border-blue-500/20 rounded-md px-4 py-3">
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-blue-400 mb-2 flex items-center gap-1">
-                          <Calendar className="w-3 h-3" /> Info ordine
+                      {/* Soglia alert */}
+                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-md px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-amber-400 mb-2 flex items-center gap-1">
+                          <Bell className="w-3 h-3" /> Soglia alert
                         </p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1">Data ordine</label>
-                            <input type="date" value={row.dataOrdine || ""} onChange={(e) => handleChange(row.id, "dataOrdine", e.target.value)} className={inputCls} />
-                          </div>
-                          <div>
-                            <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1">6 Mesi (New)</label>
-                            <input type="text" value={row.mesi8new || ""} onChange={(e) => handleChange(row.id, "mesi8new", e.target.value)} className={inputCls} placeholder="..." />
-                          </div>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.soglia_minima || 0}
+                            onChange={(e) => handleChange(row.id, "soglia_minima", e.target.value)}
+                            onBlur={(e) => handleSoglia(row, e.target.value)}
+                            className="w-32 bg-slate-700/60 border border-slate-600 rounded-md px-3 py-2 text-white text-sm font-semibold tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500/60"
+                          />
+                          <span className="text-xs text-slate-500">
+                            {row.soglia_minima > 0
+                              ? row.quantita < row.soglia_minima
+                                ? `⚠ Sotto soglia (${row.quantita}/${row.soglia_minima})`
+                                : `✓ Sopra soglia`
+                              : "Imposta un valore > 0 per attivare l'alert"}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Alert */}
+                      {/* Alert stock */}
                       {row.quantita === 0 && (
                         <div className="bg-rose-500/5 border border-rose-500/30 rounded-md p-3 flex items-center gap-2">
                           <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />

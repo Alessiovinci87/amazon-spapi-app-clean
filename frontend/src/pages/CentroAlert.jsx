@@ -16,6 +16,8 @@ import {
   Search,
   Clock,
   CalendarX2,
+  Box,
+  Tag,
 } from "lucide-react";
 
 /* ── Configurazione categorie ──────────────────────────────── */
@@ -26,8 +28,10 @@ const CATEGORIES = [
   { key: "onestep",    label: "One Step",             icon: Sparkles,     color: "pink" },
   { key: "topcoat",    label: "Top Coat",             icon: Sparkles,     color: "cyan" },
   { key: "modulo",     label: "Moduli Custom",        icon: Puzzle,       color: "purple" },
-  { key: "lotti",      label: "Scadenze Lotti",       icon: CalendarX2,   color: "red" },
-  { key: "europa",     label: "Europa SP-API",        icon: TrendingDown, color: "rose" },
+  { key: "scatolette", label: "Scatolette",            icon: Box,          color: "teal" },
+  { key: "etichette",  label: "Etichette",             icon: Tag,          color: "indigo" },
+  { key: "lotti",      label: "Scadenze Lotti",        icon: CalendarX2,   color: "red" },
+  { key: "europa",     label: "Europa SP-API",         icon: TrendingDown, color: "rose" },
 ];
 
 const COLOR_MAP = {
@@ -37,6 +41,8 @@ const COLOR_MAP = {
   pink:   { badge: "bg-pink-500/10 border-pink-500/30 text-pink-400",   accent: "bg-pink-400/60",   stat: "text-pink-400" },
   cyan:   { badge: "bg-cyan-500/10 border-cyan-500/30 text-cyan-400",   accent: "bg-cyan-400/60",   stat: "text-cyan-400" },
   purple: { badge: "bg-purple-500/10 border-purple-500/30 text-purple-400", accent: "bg-purple-400/60", stat: "text-purple-400" },
+  teal:   { badge: "bg-teal-500/10 border-teal-500/30 text-teal-400",   accent: "bg-teal-400/60",   stat: "text-teal-400" },
+  indigo: { badge: "bg-indigo-500/10 border-indigo-500/30 text-indigo-400", accent: "bg-indigo-400/60", stat: "text-indigo-400" },
   red:    { badge: "bg-red-500/10 border-red-500/30 text-red-400",     accent: "bg-red-400/60",     stat: "text-red-400" },
   rose:   { badge: "bg-rose-500/10 border-rose-500/30 text-rose-400",   accent: "bg-rose-400/60",   stat: "text-rose-400" },
 };
@@ -53,6 +59,8 @@ function classifySource(source, tipo) {
   if (source === "lotto_scadenza") return "lotti";
   if (source === "onestep") return "onestep";
   if (source === "topcoat") return "topcoat";
+  if (source === "scatolette") return "scatolette";
+  if (source === "etichette") return "etichette";
   if (source.startsWith("modulo:")) return "modulo";
   return "europa";
 }

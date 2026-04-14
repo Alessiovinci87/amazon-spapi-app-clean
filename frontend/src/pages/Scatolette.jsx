@@ -15,6 +15,7 @@ import {
   History,
   Search,
   X,
+  Bell,
 } from "lucide-react";
 
 /* ── Shared UI ──────────────────────────────────────────── */
@@ -132,6 +133,22 @@ const Scatolette = () => {
     }
   };
 
+  const handleSoglia = async (row, nuovaSoglia) => {
+    const val = parseInt(nuovaSoglia, 10);
+    if (isNaN(val) || val < 0) return;
+    try {
+      await fetch(`/api/v2/scatolette/${row.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantita: row.quantita, soglia_minima: val }),
+      });
+      setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, soglia_minima: val } : r)));
+      toast.success(`Soglia alert impostata a ${val}`);
+    } catch {
+      toast.error("Errore salvataggio soglia");
+    }
+  };
+
   const filteredRows = rows.filter((row) =>
     row.nome_prodotto?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -149,7 +166,7 @@ const Scatolette = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate(-1)} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center flex-shrink-0">
@@ -278,6 +295,30 @@ const Scatolette = () => {
                           <button onClick={() => handleRettifica(row)} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-[12px] font-medium transition-all">
                             <Edit3 className="w-3.5 h-3.5" /> Rettifica
                           </button>
+                        </div>
+                      </div>
+
+                      {/* Soglia alert */}
+                      <div className="bg-amber-500/5 border border-amber-500/20 rounded-md px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-amber-400 mb-2 flex items-center gap-1">
+                          <Bell className="w-3 h-3" /> Soglia alert
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min="0"
+                            value={row.soglia_minima || 0}
+                            onChange={(e) => handleChange(row.id, "soglia_minima", e.target.value)}
+                            onBlur={(e) => handleSoglia(row, e.target.value)}
+                            className="w-32 bg-slate-700/60 border border-slate-600 rounded-md px-3 py-2 text-white text-sm font-semibold tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500/60"
+                          />
+                          <span className="text-xs text-slate-500">
+                            {row.soglia_minima > 0
+                              ? row.quantita < row.soglia_minima
+                                ? `⚠ Sotto soglia (${row.quantita}/${row.soglia_minima})`
+                                : `✓ Sopra soglia`
+                              : "Imposta un valore > 0 per attivare l'alert"}
+                          </span>
                         </div>
                       </div>
 
