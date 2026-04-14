@@ -7,7 +7,69 @@ const multer = require("multer");
 const { getDb } = require("../db/database");
 const axios = require("axios");
 const { sign } = require("aws4");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
 const { checkSottoSogliaTopcoat } = require("../services/stockAlerts.service");
+
+// ─── Zod schemas ───────────────────────────────────────
+const asinParam = z.object({ asin: z.string().min(1).max(20) });
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const idRigaParam = z.object({ id: z.coerce.number().int().positive(), rigaId: z.coerce.number().int().positive() });
+
+const prodottoCreateSchema = z.object({
+  asin: z.string().min(1).max(20),
+  sku: z.string().max(80).nullish(),
+  codice_colore: z.string().max(40).nullish(),
+  nome: z.string().max(255).nullish(),
+  image_url: z.string().max(1000).nullish(),
+  soglia_minima: z.coerce.number().int().min(0).default(10),
+});
+const prodottoPatchSchema = z.object({
+  codice_colore: z.string().max(40).nullish(),
+  soglia_minima: z.coerce.number().int().min(0).nullish(),
+});
+const rettificaSchema = z.object({
+  asin: z.string().min(1).max(20),
+  nuova_quantita: z.coerce.number().int().min(0),
+  note: z.string().max(500).nullish(),
+  operatore: z.string().max(80).nullish(),
+});
+const ordineCreateSchema = z.object({
+  fornitore: z.string().min(1).max(120),
+  data_consegna_prevista: z.string().max(40).nullish(),
+  note: z.string().max(500).nullish(),
+  operatore: z.string().max(80).nullish(),
+  righe: z.array(z.object({
+    asin: z.string().min(1).max(20),
+    quantita_ordinata: z.coerce.number().int().positive(),
+  })).default([]),
+});
+const ordinePatchSchema = z.object({
+  stato: z.enum(["bozza", "confermato", "in_attesa", "ricevuto_parziale", "ricevuto", "annullato"]).nullish(),
+  fornitore: z.string().max(120).nullish(),
+  data_consegna_prevista: z.string().max(40).nullish(),
+  note: z.string().max(500).nullish(),
+});
+const rigaCreateSchema = z.object({
+  asin: z.string().min(1).max(20),
+  quantita_ordinata: z.coerce.number().int().positive(),
+});
+const riceviSchema = z.object({
+  operatore: z.string().max(80).default("magazzino"),
+  righe: z.array(z.object({
+    id_riga: z.coerce.number().int().positive(),
+    quantita_ricevuta: z.coerce.number().int().min(0),
+  })).default([]),
+});
+const scaricoDdtSchema = z.object({
+  id_ddt: z.coerce.number().int().positive(),
+  righe: z.array(z.object({
+    asin: z.string().min(1).max(20),
+    quantita: z.coerce.number().int().positive(),
+  })).default([]),
+  operatore: z.string().max(80).default("ddt"),
+});
+const resetSchema = z.object({ conferma: z.literal("RESET") });
 
 // Cartella dove salvare le immagini Top Coat
 const UPLOAD_DIR = path.join(__dirname, "../../frontend/public/topcoat-images");
@@ -103,11 +165,10 @@ router.get("/prodotti/disponibili", (req, res) => {
 });
 
 // POST /api/v2/topcoat/prodotti  — aggiungi ASIN al catalogo
-router.post("/prodotti", (req, res) => {
+router.post("/prodotti", validate({ body: prodottoCreateSchema }), (req, res) => {
   try {
     const db = getDb();
     const { asin, sku, codice_colore, nome, image_url, soglia_minima = 10 } = req.body;
-    if (!asin) return res.status(400).json({ error: "asin obbligatorio" });
 
     db.prepare(`
       INSERT INTO topcoat_prodotti (asin, sku, codice_colore, nome, image_url, soglia_minima)
@@ -126,7 +187,7 @@ router.post("/prodotti", (req, res) => {
 });
 
 // PATCH /api/v2/topcoat/prodotti/:asin  — aggiorna soglia/codice colore
-router.patch("/prodotti/:asin", (req, res) => {
+router.patch("/prodotti/:asin", validate({ params: asinParam, body: prodottoPatchSchema }), (req, res) => {
   try {
     const db = getDb();
     const { codice_colore, soglia_minima } = req.body;
@@ -144,7 +205,7 @@ router.patch("/prodotti/:asin", (req, res) => {
 });
 
 // DELETE /api/v2/topcoat/prodotti/:asin
-router.delete("/prodotti/:asin", (req, res) => {
+router.delete("/prodotti/:asin", validate({ params: asinParam }), (req, res) => {
   try {
     const db = getDb();
     db.prepare("DELETE FROM topcoat_prodotti WHERE asin = ?").run(req.params.asin);
@@ -155,11 +216,10 @@ router.delete("/prodotti/:asin", (req, res) => {
 });
 
 // POST /api/v2/topcoat/rettifica  — rettifica manuale stock
-router.post("/rettifica", (req, res) => {
+router.post("/rettifica", validate({ body: rettificaSchema }), (req, res) => {
   try {
     const db = getDb();
     const { asin, nuova_quantita, note, operatore } = req.body;
-    if (!asin || nuova_quantita == null) return res.status(400).json({ error: "asin e nuova_quantita obbligatori" });
 
     const prod = db.prepare("SELECT quantita FROM topcoat_prodotti WHERE asin = ?").get(asin);
     if (!prod) return res.status(404).json({ error: "ASIN non trovato" });
@@ -226,11 +286,10 @@ router.get("/ordini/in-arrivo", (req, res) => {
 });
 
 // POST /api/v2/topcoat/ordini  — crea ordine
-router.post("/ordini", (req, res) => {
+router.post("/ordini", validate({ body: ordineCreateSchema }), (req, res) => {
   try {
     const db = getDb();
     const { fornitore, data_consegna_prevista, note, operatore, righe = [] } = req.body;
-    if (!fornitore) return res.status(400).json({ error: "fornitore obbligatorio" });
 
     const result = db.transaction(() => {
       const info = db.prepare(`
@@ -255,7 +314,7 @@ router.post("/ordini", (req, res) => {
 });
 
 // PATCH /api/v2/topcoat/ordini/:id  — aggiorna stato/dati ordine
-router.patch("/ordini/:id", (req, res) => {
+router.patch("/ordini/:id", validate({ params: idParam, body: ordinePatchSchema }), (req, res) => {
   try {
     const db = getDb();
     const { stato, fornitore, data_consegna_prevista, note } = req.body;
@@ -275,7 +334,7 @@ router.patch("/ordini/:id", (req, res) => {
 });
 
 // POST /api/v2/topcoat/ordini/:id/righe  — aggiungi riga
-router.post("/ordini/:id/righe", (req, res) => {
+router.post("/ordini/:id/righe", validate({ params: idParam, body: rigaCreateSchema }), (req, res) => {
   try {
     const db = getDb();
     const { asin, quantita_ordinata } = req.body;
@@ -291,7 +350,7 @@ router.post("/ordini/:id/righe", (req, res) => {
 });
 
 // DELETE /api/v2/topcoat/ordini/:id/righe/:rigaId
-router.delete("/ordini/:id/righe/:rigaId", (req, res) => {
+router.delete("/ordini/:id/righe/:rigaId", validate({ params: idRigaParam }), (req, res) => {
   try {
     const db = getDb();
     db.prepare("DELETE FROM topcoat_ordini_righe WHERE id = ? AND id_ordine = ?").run(req.params.rigaId, req.params.id);
@@ -307,7 +366,7 @@ router.delete("/ordini/:id/righe/:rigaId", (req, res) => {
 // Il valore quantita_ricevuta inviato è ASSOLUTO (totale ricevuto fino ad ora).
 // Il movimento di stock viene applicato solo sul DELTA rispetto al valore già
 // salvato sulla riga, così doppi-click o re-invii non duplicano lo stock.
-router.post("/ordini/:id/ricevi", (req, res) => {
+router.post("/ordini/:id/ricevi", validate({ params: idParam, body: riceviSchema }), (req, res) => {
   try {
     const db = getDb();
     const { operatore = "magazzino", righe = [] } = req.body;
@@ -439,7 +498,7 @@ router.get("/movimenti", (req, res) => {
 // POST /api/v2/topcoat/scarico-ddt
 // Body: { id_ddt, righe: [{ asin, quantita }], operatore }
 // ══════════════════════════════════════════════
-router.post("/scarico-ddt", (req, res) => {
+router.post("/scarico-ddt", validate({ body: scaricoDdtSchema }), (req, res) => {
   try {
     const db = getDb();
     const { id_ddt, righe = [], operatore = "ddt" } = req.body;
@@ -473,11 +532,8 @@ router.post("/scarico-ddt", (req, res) => {
 // POST /api/v2/topcoat/reset
 // Body: { conferma: "RESET" }  (richiesto per evitare chiamate accidentali)
 // ══════════════════════════════════════════════
-router.post("/reset", (req, res) => {
+router.post("/reset", validate({ body: resetSchema }), (req, res) => {
   try {
-    if (req.body?.conferma !== "RESET") {
-      return res.status(400).json({ error: "Conferma mancante. Invia { conferma: 'RESET' } per procedere." });
-    }
     const db = getDb();
     const stats = {};
     db.transaction(() => {
@@ -505,7 +561,7 @@ router.post("/reset", (req, res) => {
 // UPLOAD IMMAGINE MANUALE
 // POST /api/v2/topcoat/prodotti/:asin/immagine  (multipart/form-data, campo "immagine")
 // ══════════════════════════════════════════════
-router.post("/prodotti/:asin/immagine", upload.single("immagine"), (req, res) => {
+router.post("/prodotti/:asin/immagine", validate({ params: asinParam }), upload.single("immagine"), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Nessun file ricevuto" });
     const db = getDb();
