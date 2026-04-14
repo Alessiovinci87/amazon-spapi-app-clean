@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 
 export default function EuropaListingItemEditor() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { country, sku } = useParams();
   const decodedSku = decodeURIComponent(sku || "");
@@ -40,14 +42,14 @@ export default function EuropaListingItemEditor() {
           description: json.data.description || "",
         });
       } else {
-        toast.error(json.error || "Listing non trovato");
+        toast.error(json.error || t("europaListingItemEditor.toast_err_not_found"));
       }
     } catch {
-      toast.error("Errore di rete");
+      toast.error(t("europaListingItemEditor.toast_err_network"));
     } finally {
       setLoading(false);
     }
-  }, [decodedSku, country]);
+  }, [decodedSku, country, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -73,7 +75,7 @@ export default function EuropaListingItemEditor() {
 
   const handleBulletAdd = () => {
     if (form.bullets.length >= 5) {
-      toast.error("Amazon permette max 5 bullet point");
+      toast.error(t("europaListingItemEditor.toast_max_bullets"));
       return;
     }
     setForm((f) => ({ ...f, bullets: [...f.bullets, ""] }));
@@ -101,27 +103,28 @@ export default function EuropaListingItemEditor() {
       const json = await res.json();
 
       if (!res.ok || !json.ok) {
-        const err = json.error || json.result?.data || "Errore sconosciuto";
+        const err = json.error || json.result?.data || t("europaListingItemEditor.err_unknown");
         const errStr = typeof err === "string" ? err : JSON.stringify(err);
 
         // Rilevo il blocco Product Listing role
         if (errStr.includes("InvalidInput") || errStr.includes("Invalid parameters")) {
           setSaveError({
             type: "role_missing",
-            message:
-              "Amazon ha rifiutato la modifica con errore generico 'InvalidInput'. Quasi sicuramente manca il ruolo \"Product Listing\" sull'app SP-API. Vai in Seller Central → Apps & Services → Develop Apps, trova la tua app e richiedi l'approvazione del ruolo 'Product Listing'. L'approvazione Amazon richiede qualche giorno.",
+            message: t("europaListingItemEditor.err_role_missing"),
           });
         } else {
           setSaveError({ type: "generic", message: errStr });
         }
-        toast.error("Salvataggio fallito");
+        toast.error(t("europaListingItemEditor.toast_save_failed"));
       } else {
-        toast.success(`Modifiche inviate ad Amazon${json.submissionId ? ` (submissionId: ${json.submissionId.slice(0, 8)}…)` : ""}`);
+        toast.success(json.submissionId
+          ? t("europaListingItemEditor.toast_save_ok_id", { id: json.submissionId.slice(0, 8) })
+          : t("europaListingItemEditor.toast_save_ok"));
         await load();
       }
     } catch (e) {
       setSaveError({ type: "generic", message: e.message });
-      toast.error("Errore di rete");
+      toast.error(t("europaListingItemEditor.toast_err_network"));
     } finally {
       setSaving(false);
     }
@@ -132,7 +135,7 @@ export default function EuropaListingItemEditor() {
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
         <div className="flex flex-col items-center gap-3">
           <Loader className="w-6 h-6 text-blue-400 animate-spin" />
-          <p className="text-slate-500 text-sm">Caricamento listing…</p>
+          <p className="text-slate-500 text-sm">{t("europaListingItemEditor.loading")}</p>
         </div>
       </div>
     );
@@ -143,8 +146,8 @@ export default function EuropaListingItemEditor() {
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
         <div className="flex flex-col items-center gap-3">
           <AlertTriangle className="w-8 h-8 text-amber-400" />
-          <p className="text-slate-400">Listing non trovato</p>
-          <button onClick={() => navigate(`/europe/listing-editor/${country}`)} className="text-blue-400 text-sm underline">Torna alla lista</button>
+          <p className="text-slate-400">{t("europaListingItemEditor.not_found")}</p>
+          <button onClick={() => navigate(`/europe/listing-editor/${country}`)} className="text-blue-400 text-sm underline">{t("europaListingItemEditor.back_to_list")}</button>
         </div>
       </div>
     );
@@ -158,14 +161,14 @@ export default function EuropaListingItemEditor() {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(`/europe/listing-editor/${country}`)} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate(`/europe/listing-editor/${country}`)} type="button" title={t("common.back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
               <FileText className="w-[18px] h-[18px] text-blue-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Modifica listing</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("europaListingItemEditor.topbar_title")}</span>
               <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1 font-mono truncate">{country} · {data.asin || "—"} · {decodedSku}</span>
             </div>
           </div>
@@ -173,7 +176,7 @@ export default function EuropaListingItemEditor() {
             {dirty && (
               <button onClick={handleReset} type="button" className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] uppercase tracking-wider transition-colors">
                 <RotateCcw className="w-3.5 h-3.5" />
-                Annulla
+                {t("common.cancel")}
               </button>
             )}
             <button
@@ -183,7 +186,7 @@ export default function EuropaListingItemEditor() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/50 text-blue-200 text-[11px] uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {saving ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Salva su Amazon
+              {t("europaListingItemEditor.btn_save_amazon")}
             </button>
           </div>
         </div>
@@ -196,7 +199,7 @@ export default function EuropaListingItemEditor() {
             <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-rose-200 mb-1">
-                {saveError.type === "role_missing" ? "Ruolo Product Listing mancante" : "Errore salvataggio"}
+                {saveError.type === "role_missing" ? t("europaListingItemEditor.err_role_title") : t("europaListingItemEditor.err_save_title")}
               </div>
               <p className="text-[13px] text-rose-300/80 leading-relaxed">{saveError.message}</p>
             </div>
@@ -212,8 +215,8 @@ export default function EuropaListingItemEditor() {
         <div className="relative border-b border-emerald-500/20 bg-emerald-500/5">
           <div className="px-6 sm:px-10 lg:px-16 py-3 flex items-center gap-3 text-[12px] text-emerald-300">
             <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Ultimo invio: <span className="font-mono">{data.last_submission_id.slice(0, 16)}…</span></span>
-            {data.last_status && <span className="text-emerald-400">· stato: {data.last_status}</span>}
+            <span>{t("europaListingItemEditor.last_submission")}: <span className="font-mono">{data.last_submission_id.slice(0, 16)}…</span></span>
+            {data.last_status && <span className="text-emerald-400">· {t("europaListingItemEditor.stato")}: {data.last_status}</span>}
             {data.last_status_at && <span className="text-emerald-500">· {new Date(data.last_status_at).toLocaleString()}</span>}
           </div>
         </div>
@@ -225,7 +228,7 @@ export default function EuropaListingItemEditor() {
 
           {/* Immagini (read-only) */}
           {data.images?.length > 0 && (
-            <Section icon={ImageIcon} accent="cyan" title="Immagini" eyebrow={`${data.images.length} immagini`}>
+            <Section icon={ImageIcon} accent="cyan" title={t("europaListingItemEditor.sec_immagini")} eyebrow={t("europaListingItemEditor.n_immagini", { n: data.images.length })}>
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
                 {data.images.slice(0, 16).map((url, i) => (
                   <div key={i} className="aspect-square rounded-md bg-slate-800 border border-slate-700 overflow-hidden">
@@ -233,21 +236,21 @@ export default function EuropaListingItemEditor() {
                   </div>
                 ))}
               </div>
-              <p className="mt-3 text-[11px] text-slate-600">La modifica immagini arriverà in una fase successiva.</p>
+              <p className="mt-3 text-[11px] text-slate-600">{t("europaListingItemEditor.images_future")}</p>
             </Section>
           )}
 
           {/* Titolo */}
-          <Section icon={FileText} accent="blue" title="Titolo prodotto">
+          <Section icon={FileText} accent="blue" title={t("europaListingItemEditor.sec_titolo")}>
             <textarea
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               rows={3}
               className="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-[15px] text-white resize-y focus:outline-none focus:border-blue-500/50"
-              placeholder="Titolo del prodotto"
+              placeholder={t("europaListingItemEditor.ph_titolo")}
             />
             <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Consigliato: max 200 caratteri</span>
+              <span>{t("europaListingItemEditor.consigliato_titolo")}</span>
               <span className={form.title.length > 200 ? "text-rose-400" : "tabular-nums"}>{form.title.length}</span>
             </div>
           </Section>
@@ -256,13 +259,13 @@ export default function EuropaListingItemEditor() {
           <Section
             icon={List}
             accent="emerald"
-            title="Bullet points"
+            title={t("europaListingItemEditor.sec_bullet")}
             eyebrow={`${form.bullets.length}/5`}
             action={
               form.bullets.length < 5 && (
                 <button onClick={handleBulletAdd} type="button" className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300">
                   <Plus className="w-3 h-3" />
-                  Aggiungi
+                  {t("europaListingItemEditor.btn_add")}
                 </button>
               )
             }
@@ -278,12 +281,12 @@ export default function EuropaListingItemEditor() {
                     onChange={(e) => handleBulletChange(i, e.target.value)}
                     rows={2}
                     className="flex-1 bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm text-slate-200 resize-y focus:outline-none focus:border-emerald-500/50"
-                    placeholder={`Bullet point ${i + 1}`}
+                    placeholder={t("europaListingItemEditor.ph_bullet", { n: i + 1 })}
                   />
                   <button
                     onClick={() => handleBulletRemove(i)}
                     type="button"
-                    title="Rimuovi"
+                    title={t("europaListingItemEditor.title_remove")}
                     className="flex-shrink-0 w-8 h-8 rounded-md border border-slate-800 bg-slate-900 hover:bg-rose-500/10 hover:border-rose-500/30 text-slate-500 hover:text-rose-400 transition-colors flex items-center justify-center mt-1"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -294,16 +297,16 @@ export default function EuropaListingItemEditor() {
           </Section>
 
           {/* Descrizione */}
-          <Section icon={AlignLeft} accent="violet" title="Descrizione">
+          <Section icon={AlignLeft} accent="violet" title={t("europaListingItemEditor.sec_descrizione")}>
             <textarea
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={10}
               className="w-full bg-slate-950 border border-slate-800 rounded-md px-3 py-2 text-sm text-slate-200 resize-y focus:outline-none focus:border-violet-500/50"
-              placeholder="Descrizione del prodotto"
+              placeholder={t("europaListingItemEditor.ph_descrizione")}
             />
             <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-              <span>Consigliato: max 2000 caratteri</span>
+              <span>{t("europaListingItemEditor.consigliato_desc")}</span>
               <span className={form.description.length > 2000 ? "text-rose-400" : "tabular-nums"}>{form.description.length}</span>
             </div>
           </Section>
@@ -312,7 +315,7 @@ export default function EuropaListingItemEditor() {
 
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>© {new Date().getFullYear()} Nexus · Editor Listing</span>
+          <span>© {new Date().getFullYear()} {t("europaListingItemEditor.footer_section")}</span>
           <span className="font-mono">{data.updated_at}</span>
         </div>
       </footer>
@@ -342,7 +345,7 @@ function Section({ icon: Icon, accent = "blue", title, eyebrow, action, children
               <Icon className={`w-4 h-4 ${a.iconColor}`} />
             </div>
             <div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Modifica</div>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">&nbsp;</div>
               <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">
                 {title}
                 {eyebrow && <span className="ml-2 text-[11px] font-mono text-slate-500">{eyebrow}</span>}
