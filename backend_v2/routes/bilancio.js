@@ -1,6 +1,25 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
+
+const tipoCatalogoEnum = z.enum(["prodotto", "accessorio", "sfuso"]);
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const catalogoSchema = z.object({
+  tipo: tipoCatalogoEnum,
+  id_riferimento: z.union([z.string().min(1).max(40), z.coerce.number().int().positive()]),
+  costo: z.coerce.number().min(0),
+  note: z.string().max(500).nullish(),
+});
+const movimentoSchema = z.object({
+  categoria: z.string().min(1).max(80),
+  importo: z.coerce.number(),
+  tipo_riferimento: z.string().max(80).nullish(),
+  id_riferimento: z.union([z.string().max(40), z.coerce.number().int().positive()]).nullish(),
+  descrizione: z.string().max(500).nullish(),
+  operatore: z.string().max(80).default("admin"),
+});
 
 router.get("/movimenti", (req, res) => {
   try {
@@ -122,14 +141,10 @@ router.get("/catalogo/dettagli", (req, res) => {
 // ========================================
 // POST /catalogo — salva/aggiorna costo unitario
 // ========================================
-router.post("/catalogo", (req, res) => {
+router.post("/catalogo", validate({ body: catalogoSchema }), (req, res) => {
   try {
     const db = getDb();
     const { tipo, id_riferimento, costo, note } = req.body;
-
-    if (!tipo || id_riferimento == null || costo == null) {
-      return res.status(400).json({ ok: false, error: "tipo, id_riferimento e costo sono obbligatori" });
-    }
 
     db.prepare(`
       INSERT INTO bilancio_catalogo (tipo, id_riferimento, costo, note)
@@ -148,14 +163,10 @@ router.post("/catalogo", (req, res) => {
 // ========================================
 // POST /movimenti — registra movimento economico
 // ========================================
-router.post("/movimenti", (req, res) => {
+router.post("/movimenti", validate({ body: movimentoSchema }), (req, res) => {
   try {
     const db = getDb();
     const { categoria, importo, tipo_riferimento, id_riferimento, descrizione, operatore } = req.body;
-
-    if (!categoria || importo == null) {
-      return res.status(400).json({ ok: false, error: "categoria e importo sono obbligatori" });
-    }
 
     const result = db.prepare(`
       INSERT INTO bilancio_movimenti (categoria, importo, tipo_riferimento, id_riferimento, descrizione, operatore)
@@ -179,7 +190,7 @@ router.post("/movimenti", (req, res) => {
 // ========================================
 // DELETE /movimenti/:id — elimina movimento
 // ========================================
-router.delete("/movimenti/:id", (req, res) => {
+router.delete("/movimenti/:id", validate({ params: idParam }), (req, res) => {
   try {
     const db = getDb();
     const result = db.prepare("DELETE FROM bilancio_movimenti WHERE id = ?").run(req.params.id);
