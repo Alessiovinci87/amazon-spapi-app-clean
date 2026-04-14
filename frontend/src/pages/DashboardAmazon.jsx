@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import {
   ShoppingCart,
@@ -28,17 +29,17 @@ const itemVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
 };
 
-const MODULES = [
-  { to: "/europe",                 icon: Globe,      label: "Europa",       desc: "SP-API multi-marketplace",           accent: "indigo",  code: "01" },
-  { to: "/magazzino",              icon: Package,    label: "Magazzino",    desc: "Giacenze e movimentazioni",          accent: "emerald", code: "02" },
-  { to: "/uffici/spedizioni",      icon: Truck,      label: "Spedizioni",   desc: "Logistica e tracking",               accent: "violet",  code: "03" },
-  { to: "/uffici/alert-center",    icon: Bell,       label: "Centro Alert", desc: "Alert stock per categoria",          accent: "amber",   code: "04" },
-  { to: "/uffici/produzione",      icon: Wrench,     label: "Produzione",   desc: "Prenotazioni e ordini lavoro",       accent: "rose",    code: "05" },
-  { to: "/uffici/ddt",             icon: FileText,   label: "DDT",          desc: "Documenti di trasporto",             accent: "pink",    code: "06" },
-  { to: "/uffici/fornitori",       icon: Users,      label: "Fornitori",    desc: "Anagrafica e gestione",              accent: "orange",  code: "07" },
-  { to: "/fba-gestione-prodotti",  icon: Box,        label: "FBA Prodotti", desc: "Catalogo Amazon FBA",                accent: "cyan",    code: "08" },
-  { to: "/uffici/bilancio",        icon: DollarSign, label: "Bilancio",     desc: "Costi, valore magazzino, movimenti", accent: "teal",    code: "09" },
-  { to: "/uffici/vendite",         icon: TrendingUp, label: "Vendite",      desc: "Dashboard vendite e margini",        accent: "blue",    code: "10" },
+const MODULES_META = [
+  { to: "/europe",                 icon: Globe,      key: "europa",     accent: "indigo",  code: "01" },
+  { to: "/magazzino",              icon: Package,    key: "magazzino",  accent: "emerald", code: "02" },
+  { to: "/uffici/spedizioni",      icon: Truck,      key: "spedizioni", accent: "violet",  code: "03" },
+  { to: "/uffici/alert-center",    icon: Bell,       key: "alert",      accent: "amber",   code: "04" },
+  { to: "/uffici/produzione",      icon: Wrench,     key: "produzione", accent: "rose",    code: "05" },
+  { to: "/uffici/ddt",             icon: FileText,   key: "ddt",        accent: "pink",    code: "06" },
+  { to: "/uffici/fornitori",       icon: Users,      key: "fornitori",  accent: "orange",  code: "07" },
+  { to: "/fba-gestione-prodotti",  icon: Box,        key: "fba",        accent: "cyan",    code: "08" },
+  { to: "/uffici/bilancio",        icon: DollarSign, key: "bilancio",   accent: "teal",    code: "09" },
+  { to: "/uffici/vendite",         icon: TrendingUp, key: "vendite",    accent: "blue",    code: "10" },
 ];
 
 const ACCENT = {
@@ -56,6 +57,13 @@ const ACCENT = {
 
 const DashboardAmazon = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  const MODULES = MODULES_META.map((m) => ({
+    ...m,
+    label: t(`dashboardAmazon.mod_${m.key}_label`),
+    desc: t(`dashboardAmazon.mod_${m.key}_desc`),
+  }));
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -78,14 +86,13 @@ const DashboardAmazon = () => {
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
             <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-3">
-              Dashboard
+              {t("dashboardAmazon.hero_eyebrow")}
             </div>
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-white tracking-tight leading-[1.1]">
-              Pannello <span className="text-slate-500">amministrativo.</span>
+              {t("dashboardAmazon.hero_title_main")} <span className="text-slate-500">{t("dashboardAmazon.hero_title_suffix")}</span>
             </h1>
             <p className="mt-4 text-[15px] sm:text-base text-slate-400 leading-relaxed max-w-2xl">
-              Accesso completo a tutti i moduli operativi e strumenti SP-API.
-              Seleziona una sezione per iniziare.
+              {t("dashboardAmazon.hero_desc")}
             </p>
           </motion.div>
         </div>
@@ -96,7 +103,7 @@ const DashboardAmazon = () => {
         <div className="px-6 sm:px-10 lg:px-16 pb-16">
           <div className="flex items-center justify-between mb-5">
             <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500">
-              Moduli disponibili
+              {t("dashboardAmazon.modules_eyebrow")}
             </div>
             <div className="text-[11px] font-mono text-slate-600">
               {String(MODULES.length).padStart(2, "0")} / {String(MODULES.length).padStart(2, "0")}
@@ -135,7 +142,7 @@ const DashboardAmazon = () => {
 
                   {/* CTA */}
                   <div className="mt-auto pt-4 flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-600 group-hover:text-slate-300 transition-colors">
-                    Apri
+                    {t("dashboardAmazon.cta_apri")}
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </motion.button>
@@ -148,7 +155,7 @@ const DashboardAmazon = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>© {new Date().getFullYear()} Nexus · Ufficio</span>
+          <span>© {new Date().getFullYear()} {t("dashboardAmazon.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

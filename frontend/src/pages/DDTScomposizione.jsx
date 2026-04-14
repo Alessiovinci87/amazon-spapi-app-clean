@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -46,6 +47,7 @@ const inputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4
 const DDTScomposizione = () => {
   const { idSpedizione } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [spedizione, setSpedizione] = useState(null);
   const [assegnazioni, setAssegnazioni] = useState([]);
@@ -66,7 +68,7 @@ const DDTScomposizione = () => {
         const resSped = await fetch("/api/v2/ddt/prebolle");
         const prebolle = await resSped.json();
         const found = prebolle.find((s) => s.id === parseInt(idSpedizione));
-        if (!found) { setError("Spedizione non trovata"); setLoading(false); return; }
+        if (!found) { setError(t("ddtScomposizione.error_not_found")); setLoading(false); return; }
         setSpedizione(found);
 
         const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
@@ -77,7 +79,7 @@ const DDTScomposizione = () => {
         } else {
           await creaAssegnazioniIniziali();
         }
-      } catch { setError("Errore durante il caricamento"); } finally { setLoading(false); }
+      } catch { setError(t("ddtScomposizione.error_generic")); } finally { setLoading(false); }
     };
     fetchData();
   }, [idSpedizione]);
@@ -128,7 +130,7 @@ const DDTScomposizione = () => {
 
   const confermaDivisione = async () => {
     if (!dividiTarget) return;
-    if (dividiQty1 + dividiQty2 !== dividiTarget.quantita) { toast.info(`La somma deve essere ${dividiTarget.quantita}`); return; }
+    if (dividiQty1 + dividiQty2 !== dividiTarget.quantita) { toast.info(t("ddtScomposizione.toast_sum_required", { n: dividiTarget.quantita })); return; }
     setSaving(true);
     try {
       const res = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/dividi`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assegnazioneId: dividiTarget.id, quantitaDdt1: dividiQty1, quantitaDdt2: dividiQty2, nuovoDdtNumero: dividiDdtDestinazione }) });
@@ -143,7 +145,7 @@ const DDTScomposizione = () => {
   };
 
   const resetAssegnazioni = async () => {
-    if (!window.confirm("Vuoi eliminare tutte le assegnazioni e ricominciare?")) return;
+    if (!window.confirm(t("ddtScomposizione.confirm_reset"))) return;
     setSaving(true);
     try {
       await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/reset`, { method: "DELETE" });
@@ -162,7 +164,7 @@ const DDTScomposizione = () => {
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-amber-400 animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Caricamento...</p>
+          <p className="text-sm text-slate-500">{t("ddtScomposizione.loading")}</p>
         </div>
       </div>
     );
@@ -177,7 +179,7 @@ const DDTScomposizione = () => {
             <p className="text-sm text-rose-300">{error}</p>
           </div>
           <button onClick={() => navigate("/uffici/ddt/prebolle")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 text-xs font-medium transition-colors">
-            <ArrowLeft className="w-3.5 h-3.5" /> Torna alla lista
+            <ArrowLeft className="w-3.5 h-3.5" /> {t("ddtScomposizione.btn_torna_lista")}
           </button>
         </div>
       </div>
@@ -193,24 +195,24 @@ const DDTScomposizione = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/uffici/ddt/prebolle")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/uffici/ddt/prebolle")} type="button" title={t("ddtScomposizione.topbar_back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/40 flex items-center justify-center flex-shrink-0">
               <Split className="w-[18px] h-[18px] text-amber-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Scomponi Spedizione</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · DDT</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("ddtScomposizione.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("ddtScomposizione.topbar_eyebrow")}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0">
             <button onClick={resetAssegnazioni} disabled={saving} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-400 hover:text-slate-200 text-xs font-medium transition-all disabled:opacity-50">
-              <RefreshCw className={`w-3.5 h-3.5 ${saving ? "animate-spin" : ""}`} /> Reset
+              <RefreshCw className={`w-3.5 h-3.5 ${saving ? "animate-spin" : ""}`} /> {t("ddtScomposizione.btn_reset")}
             </button>
             <button onClick={() => navigate("/uffici/ddt/prebolle")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
-              <LogOut className="w-3.5 h-3.5" /> Prebolle
+              <LogOut className="w-3.5 h-3.5" /> {t("ddtScomposizione.topbar_prebolle")}
             </button>
           </div>
         </div>
@@ -219,12 +221,12 @@ const DDTScomposizione = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Scomposizione</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("ddtScomposizione.hero_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
             Spedizione <span className="text-amber-400">{spedizione?.progressivo}</span> <span className="text-slate-500">— {spedizione?.paese}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Sposta i prodotti tra DDT diversi o dividi le quantità. Quando sei soddisfatto, clicca "Compila DDT" per procedere.
+            {t("ddtScomposizione.hero_desc")}
           </p>
         </div>
       </section>
@@ -249,13 +251,13 @@ const DDTScomposizione = () => {
                         {ddtNum}
                       </div>
                       <div>
-                        <h3 className="text-base font-semibold text-white">DDT {ddtNum}</h3>
-                        <p className="text-[11px] text-slate-500">{prodotti.length} prodotti · {totaleQty} pz</p>
+                        <h3 className="text-base font-semibold text-white">{t("ddtScomposizione.ddt_num_title", { num: ddtNum })}</h3>
+                        <p className="text-[11px] text-slate-500">{t("ddtScomposizione.ddt_num_subtitle", { prodotti: prodotti.length, qty: totaleQty })}</p>
                       </div>
                     </div>
                     {hasProducts && (
                       <button onClick={() => vaiADettaglio(ddtNum)} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all">
-                        Compila DDT <ChevronRight className="w-3.5 h-3.5" />
+                        {t("ddtScomposizione.btn_compila_ddt")} <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
@@ -264,8 +266,8 @@ const DDTScomposizione = () => {
                   {!hasProducts ? (
                     <div className="text-center py-8">
                       <Package className="w-7 h-7 text-slate-700 mx-auto mb-2" />
-                      <p className="text-sm text-slate-600">Nessun prodotto assegnato</p>
-                      <p className="text-[11px] text-slate-700 mt-0.5">Sposta qui i prodotti dagli altri DDT</p>
+                      <p className="text-sm text-slate-600">{t("ddtScomposizione.empty_no_products")}</p>
+                      <p className="text-[11px] text-slate-700 mt-0.5">{t("ddtScomposizione.empty_no_products_hint")}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -279,16 +281,16 @@ const DDTScomposizione = () => {
                           </div>
                           <span className="text-base font-semibold text-emerald-400 tabular-nums flex-shrink-0">{p.quantita}</span>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            <button onClick={() => apriDividiModal(p)} type="button" className="w-7 h-7 flex items-center justify-center rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 transition-colors" title="Dividi">
+                            <button onClick={() => apriDividiModal(p)} type="button" className="w-7 h-7 flex items-center justify-center rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-400 transition-colors" title={t("ddtScomposizione.title_dividi")}>
                               <Split className="w-3.5 h-3.5" />
                             </button>
                             {ddtCount > 1 && (
-                              <select onChange={(e) => spostaProdotto(p.id, parseInt(e.target.value))} value="" className="w-7 h-7 bg-blue-500/10 border border-blue-500/40 rounded-md text-blue-400 text-[10px] cursor-pointer appearance-none text-center" title="Sposta">
+                              <select onChange={(e) => spostaProdotto(p.id, parseInt(e.target.value))} value="" className="w-7 h-7 bg-blue-500/10 border border-blue-500/40 rounded-md text-blue-400 text-[10px] cursor-pointer appearance-none text-center" title={t("ddtScomposizione.title_sposta")}>
                                 <option value="" disabled>&#8594;</option>
                                 {[...Array(ddtCount)].map((_, i) => {
                                   const num = i + 1;
                                   if (num === ddtNum) return null;
-                                  return <option key={num} value={num}>DDT {num}</option>;
+                                  return <option key={num} value={num}>{t("ddtScomposizione.ddt_num_title", { num })}</option>;
                                 })}
                               </select>
                             )}
@@ -308,7 +310,7 @@ const DDTScomposizione = () => {
               <Plus className="w-5 h-5 text-slate-500 group-hover:text-violet-400 transition-colors" />
             </div>
             <span className="text-sm text-slate-500 group-hover:text-violet-300 font-medium transition-colors">
-              Aggiungi DDT {ddtCount + 1}
+              {t("ddtScomposizione.btn_add_ddt", { num: ddtCount + 1 })}
             </span>
           </button>
         </div>
@@ -323,7 +325,7 @@ const DDTScomposizione = () => {
                 <div className="w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/40 flex items-center justify-center">
                   <Split className="w-[18px] h-[18px] text-amber-400" />
                 </div>
-                <h3 className="text-base font-semibold text-white">Dividi Quantità</h3>
+                <h3 className="text-base font-semibold text-white">{t("ddtScomposizione.modal_title")}</h3>
               </div>
               <button onClick={() => setShowDividiModal(false)} type="button" className="text-slate-500 hover:text-slate-200 transition-colors">
                 <X className="w-5 h-5" />
@@ -331,22 +333,22 @@ const DDTScomposizione = () => {
             </div>
 
             <p className="text-sm text-white font-medium mb-1">{dividiTarget.prodotto_nome}</p>
-            <p className="text-[11px] text-slate-500 mb-4">Quantità totale: {dividiTarget.quantita} pz</p>
+            <p className="text-[11px] text-slate-500 mb-4">{t("ddtScomposizione.modal_qty_totale", { qty: dividiTarget.quantita })}</p>
 
             <div className="space-y-4">
               {/* Info box */}
               <div className="bg-blue-500/10 border border-blue-500/30 rounded-md px-4 py-3 space-y-1 text-[13px]">
-                <p className="text-blue-300">Capacità box: <span className="font-semibold">{dividiTarget.capacitaBox}</span> pz/box</p>
-                <p className="text-blue-300">Box completi: <span className="font-semibold">{dividiTarget.boxCompleti}</span> ({dividiTarget.boxCompleti * dividiTarget.capacitaBox} pz)</p>
+                <p className="text-blue-300">{t("ddtScomposizione.modal_capacita_box")} <span className="font-semibold">{dividiTarget.capacitaBox}</span> {t("ddtScomposizione.modal_capacita_unit")}</p>
+                <p className="text-blue-300">{t("ddtScomposizione.modal_box_completi")} <span className="font-semibold">{dividiTarget.boxCompleti}</span> ({dividiTarget.boxCompleti * dividiTarget.capacitaBox} {t("ddtScomposizione.modal_eccedenza_pz")})</p>
                 {dividiTarget.eccedenza > 0 && (
-                  <p className="text-amber-300">Eccedenza: <span className="font-semibold">{dividiTarget.eccedenza}</span> pz</p>
+                  <p className="text-amber-300">{t("ddtScomposizione.modal_eccedenza")} <span className="font-semibold">{dividiTarget.eccedenza}</span> {t("ddtScomposizione.modal_eccedenza_pz")}</p>
                 )}
               </div>
 
               {/* Quick split buttons */}
               {dividiTarget.boxCompleti > 1 && (
                 <div className="bg-slate-800/60 border border-slate-700 rounded-md px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-2">Divisione rapida per box</p>
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("ddtScomposizione.modal_quick_split")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {[...Array(dividiTarget.boxCompleti + 1)].map((_, i) => {
                       const boxDdt1 = i;
@@ -361,42 +363,42 @@ const DDTScomposizione = () => {
                     })}
                   </div>
                   {dividiTarget.eccedenza > 0 && (
-                    <p className="text-[11px] text-amber-400 mt-2">+ {dividiTarget.eccedenza} pz eccedenza</p>
+                    <p className="text-[11px] text-amber-400 mt-2">{t("ddtScomposizione.modal_eccedenza_note", { n: dividiTarget.eccedenza })}</p>
                   )}
                 </div>
               )}
 
               {/* Qty inputs */}
               <div>
-                <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 block">Quantità in DDT {dividiTarget.ddt_numero}</label>
+                <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 block">{t("ddtScomposizione.modal_lbl_qty_origine", { num: dividiTarget.ddt_numero })}</label>
                 <input type="number" min="0" max={dividiTarget.quantita} value={dividiQty1} onChange={(e) => { const v = parseInt(e.target.value) || 0; setDividiQty1(v); setDividiQty2(dividiTarget.quantita - v); }} className={inputCls} />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  = {Math.floor(dividiQty1 / dividiTarget.capacitaBox)} box
-                  {dividiQty1 % dividiTarget.capacitaBox > 0 && <span className="text-amber-400"> + {dividiQty1 % dividiTarget.capacitaBox} pz</span>}
+                  {t("ddtScomposizione.modal_box_calc", { n: Math.floor(dividiQty1 / dividiTarget.capacitaBox) })}
+                  {dividiQty1 % dividiTarget.capacitaBox > 0 && <span className="text-amber-400">{t("ddtScomposizione.modal_box_calc_extra", { n: dividiQty1 % dividiTarget.capacitaBox })}</span>}
                 </p>
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 block">Quantità in DDT destinazione</label>
+                <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 block">{t("ddtScomposizione.modal_lbl_qty_dest")}</label>
                 <input type="number" min="0" max={dividiTarget.quantita} value={dividiQty2} onChange={(e) => { const v = parseInt(e.target.value) || 0; setDividiQty2(v); setDividiQty1(dividiTarget.quantita - v); }} className={inputCls} />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  = {Math.floor(dividiQty2 / dividiTarget.capacitaBox)} box
-                  {dividiQty2 % dividiTarget.capacitaBox > 0 && <span className="text-amber-400"> + {dividiQty2 % dividiTarget.capacitaBox} pz</span>}
+                  {t("ddtScomposizione.modal_box_calc", { n: Math.floor(dividiQty2 / dividiTarget.capacitaBox) })}
+                  {dividiQty2 % dividiTarget.capacitaBox > 0 && <span className="text-amber-400">{t("ddtScomposizione.modal_box_calc_extra", { n: dividiQty2 % dividiTarget.capacitaBox })}</span>}
                 </p>
               </div>
 
               {/* Verifica */}
               <div className={`text-sm px-4 py-2.5 rounded-md border ${dividiQty1 + dividiQty2 === dividiTarget.quantita ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
-                Somma: {dividiQty1} + {dividiQty2} = {dividiQty1 + dividiQty2} / {dividiTarget.quantita} pz
-                {dividiQty1 + dividiQty2 === dividiTarget.quantita && " OK"}
+                {t("ddtScomposizione.modal_somma", { a: dividiQty1, b: dividiQty2, tot: dividiQty1 + dividiQty2, target: dividiTarget.quantita })}
+                {dividiQty1 + dividiQty2 === dividiTarget.quantita && t("ddtScomposizione.modal_somma_ok")}
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => setShowDividiModal(false)} type="button" className="flex-1 px-4 py-2.5 rounded-md bg-slate-800 border border-slate-700 hover:border-slate-600 text-slate-300 text-sm font-medium transition-colors">
-                Annulla
+                {t("ddtScomposizione.modal_btn_annulla")}
               </button>
               <button onClick={confermaDivisione} disabled={dividiQty1 + dividiQty2 !== dividiTarget.quantita || saving} type="button" className="flex-1 px-4 py-2.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                {saving ? "Salvataggio..." : "Conferma"}
+                {saving ? t("ddtScomposizione.modal_btn_saving") : t("ddtScomposizione.modal_btn_conferma")}
               </button>
             </div>
           </div>
@@ -406,7 +408,7 @@ const DDTScomposizione = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/30">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>Nexus · Scomposizione DDT</span>
+          <span>{t("ddtScomposizione.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   FileText,
@@ -44,6 +45,7 @@ const inputCls = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-4
 
 const DDTPrebolle = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [prebolle, setPrebolle] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -57,7 +59,7 @@ const DDTPrebolle = () => {
         const data = await res.json();
         setPrebolle(data);
       } catch (err) {
-        setError("Impossibile caricare le spedizioni");
+        setError(t("ddtPrebolle.error_load"));
       } finally {
         setLoading(false);
       }
@@ -80,7 +82,7 @@ const DDTPrebolle = () => {
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto mb-3" />
-          <p className="text-sm text-slate-500">Caricamento spedizioni...</p>
+          <p className="text-sm text-slate-500">{t("ddtPrebolle.loading")}</p>
         </div>
       </div>
     );
@@ -98,19 +100,19 @@ const DDTPrebolle = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/uffici/ddt")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/uffici/ddt")} type="button" title={t("ddtPrebolle.topbar_back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center flex-shrink-0">
               <FileText className="w-[18px] h-[18px] text-violet-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">DDT Pics Nails</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Documenti di Trasporto</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("ddtPrebolle.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("ddtPrebolle.topbar_eyebrow")}</span>
             </div>
           </div>
           <button onClick={() => navigate("/uffici/ddt")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
-            <LogOut className="w-3.5 h-3.5" /> DDT
+            <LogOut className="w-3.5 h-3.5" /> {t("ddtPrebolle.topbar_ddt")}
           </button>
         </div>
       </header>
@@ -118,12 +120,12 @@ const DDTPrebolle = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">DDT Aziendale</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("ddtPrebolle.hero_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Seleziona una spedizione <span className="text-slate-500">— per generare il DDT.</span>
+            {t("ddtPrebolle.hero_title_main")} <span className="text-slate-500">{t("ddtPrebolle.hero_title_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Scegli tra le spedizioni confermate per creare il documento di trasporto con intestazione Pics Nails.
+            {t("ddtPrebolle.hero_desc")}
           </p>
         </div>
       </section>
@@ -141,9 +143,9 @@ const DDTPrebolle = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatTile icon={CheckCircle} label="Prebolle totali" value={prebolle.length} accent="violet" />
-          <StatTile icon={Package} label="Prodotti totali" value={totProdotti} accent="emerald" />
-          <StatTile icon={Package} label="Pezzi totali" value={totPezzi} accent="blue" />
+          <StatTile icon={CheckCircle} label={t("ddtPrebolle.stat_prebolle")} value={prebolle.length} accent="violet" />
+          <StatTile icon={Package} label={t("ddtPrebolle.stat_prodotti")} value={totProdotti} accent="emerald" />
+          <StatTile icon={Package} label={t("ddtPrebolle.stat_pezzi")} value={totPezzi} accent="blue" />
         </div>
 
         {/* Search */}
@@ -154,10 +156,10 @@ const DDTPrebolle = () => {
               <div className="w-9 h-9 rounded-md border bg-violet-500/10 border-violet-500/40 text-violet-400 flex items-center justify-center flex-shrink-0">
                 <Search className="w-[18px] h-[18px]" />
               </div>
-              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">Cerca Spedizione</h2>
+              <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">{t("ddtPrebolle.search_title")}</h2>
             </div>
             <div className="relative">
-              <input type="text" placeholder="Cerca per progressivo, paese, operatore o prodotto..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+              <input type="text" placeholder={t("ddtPrebolle.search_placeholder")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
               <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               {searchTerm && (
                 <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
@@ -167,7 +169,7 @@ const DDTPrebolle = () => {
             </div>
             {searchTerm && (
               <div className="mt-3 text-[11px] text-violet-400">
-                Trovate <span className="font-semibold">{prebolleFiltrate.length}</span> spedizioni
+                {t("ddtPrebolle.search_found_pre")}<span className="font-semibold"> {prebolleFiltrate.length} </span>{t("ddtPrebolle.search_found_post")}
               </div>
             )}
           </div>
@@ -183,8 +185,8 @@ const DDTPrebolle = () => {
                   <CheckCircle className="w-[18px] h-[18px]" />
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Spedizioni</div>
-                  <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">Confermate</h2>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{t("ddtPrebolle.list_eyebrow")}</div>
+                  <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">{t("ddtPrebolle.list_title")}</h2>
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-md bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[11px] font-medium tabular-nums">
@@ -196,10 +198,10 @@ const DDTPrebolle = () => {
               <div className="text-center py-12">
                 <Package className="w-8 h-8 text-slate-700 mx-auto mb-3" />
                 <p className="text-sm text-slate-500">
-                  {searchTerm ? "Nessuna spedizione trovata" : "Nessuna spedizione confermata"}
+                  {searchTerm ? t("ddtPrebolle.empty_search") : t("ddtPrebolle.empty_none")}
                 </p>
                 <p className="text-xs text-slate-600 mt-1">
-                  {searchTerm ? "Prova con un termine diverso" : "Conferma delle spedizioni dalla sezione Spedizioni"}
+                  {searchTerm ? t("ddtPrebolle.empty_search_hint") : t("ddtPrebolle.empty_none_hint")}
                 </p>
               </div>
             ) : (
@@ -227,7 +229,7 @@ const DDTPrebolle = () => {
                     <div className="space-y-1.5 text-[13px]">
                       <div className="flex items-center gap-2 text-slate-400">
                         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span>{prebolla.data || "Data non specificata"}</span>
+                        <span>{prebolla.data || t("ddtPrebolle.card_data_none")}</span>
                       </div>
                       {prebolla.operatore && (
                         <div className="flex items-center gap-2 text-slate-400">
@@ -238,7 +240,7 @@ const DDTPrebolle = () => {
                       <div className="flex items-center gap-2 text-slate-400">
                         <Package className="w-3.5 h-3.5 flex-shrink-0" />
                         <span>
-                          {prebolla.righe?.length || 0} prodotti · {prebolla.righe?.reduce((s, r) => s + (r.quantita || 0), 0) || 0} pezzi
+                          {t("ddtPrebolle.card_counts", { prodotti: prebolla.righe?.length || 0, pezzi: prebolla.righe?.reduce((s, r) => s + (r.quantita || 0), 0) || 0 })}
                         </span>
                       </div>
                     </div>
@@ -270,7 +272,7 @@ const DDTPrebolle = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/30">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>Nexus · DDT Pics Nails</span>
+          <span>{t("ddtPrebolle.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

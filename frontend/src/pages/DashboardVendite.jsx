@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -61,20 +62,21 @@ function DeltaBadge({ current, previous, isCurrency = false }) {
   );
 }
 
-// Preset periodi rapidi
-const PRESETS = [
-  { label: "7gg", days: 7 },
-  { label: "30gg", days: 30 },
-  { label: "90gg", days: 90 },
-  { label: "6 mesi", days: 180 },
-  { label: "1 anno", days: 365 },
-  { label: "Tutto", days: 0 },
-];
-
 function toISO(d) { return d.toISOString().slice(0, 10); }
 
 const DashboardVendite = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+
+  // Preset periodi rapidi
+  const PRESETS = [
+    { label: t("dashboardVendite.preset_7gg"), days: 7 },
+    { label: t("dashboardVendite.preset_30gg"), days: 30 },
+    { label: t("dashboardVendite.preset_90gg"), days: 90 },
+    { label: t("dashboardVendite.preset_6mesi"), days: 180 },
+    { label: t("dashboardVendite.preset_1anno"), days: 365 },
+    { label: t("dashboardVendite.preset_tutto"), days: 0 },
+  ];
   const [data, setData] = useState(null);
   const [compare, setCompare] = useState(null);
   const [margins, setMargins] = useState([]);
@@ -88,7 +90,7 @@ const DashboardVendite = () => {
     const d = new Date(); d.setDate(d.getDate() - 30); return toISO(d);
   });
   const [dateTo, setDateTo] = useState(() => toISO(new Date()));
-  const [activePreset, setActivePreset] = useState("30gg");
+  const [activePreset, setActivePreset] = useState(t("dashboardVendite.preset_30gg"));
 
   const applyPreset = (preset) => {
     setActivePreset(preset.label);
@@ -113,7 +115,7 @@ const DashboardVendite = () => {
       if (resCompare.ok) setCompare(await resCompare.json());
       if (resMargins.ok) { const j = await resMargins.json(); setMargins(j.data || []); }
     } catch {
-      toast.error("Errore nel caricamento dati vendite");
+      toast.error(t("dashboardVendite.toast_error_load"));
     } finally {
       setLoading(false);
     }
@@ -127,7 +129,7 @@ const DashboardVendite = () => {
       const res = await fetch("/api/v2/reports-amazon/sales-traffic/update", { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Errore");
-      toast.success("Aggiornamento vendite avviato in background");
+      toast.success(t("dashboardVendite.toast_sync_started"));
     } catch (e) {
       toast.error(e.message);
     } finally {
@@ -165,13 +167,13 @@ const DashboardVendite = () => {
               <TrendingUp className="w-[18px] h-[18px] text-emerald-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Dashboard Vendite</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Amazon SP-API</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("dashboardVendite.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("dashboardVendite.topbar_eyebrow")}</span>
             </div>
           </div>
           <button onClick={syncSales} disabled={syncing} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-[12px] font-medium transition-all disabled:opacity-50">
             <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">{syncing ? "Aggiornamento..." : "Aggiorna dati"}</span>
+            <span className="hidden sm:inline">{syncing ? t("dashboardVendite.btn_sync_loading") : t("dashboardVendite.btn_sync_idle")}</span>
           </button>
         </div>
       </header>
@@ -179,9 +181,9 @@ const DashboardVendite = () => {
       {/* Hero */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Analytics</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("dashboardVendite.hero_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Vendite <span className="text-slate-500">— overview multi-marketplace.</span>
+            {t("dashboardVendite.hero_title_main")} <span className="text-slate-500">{t("dashboardVendite.hero_title_suffix")}</span>
           </h1>
         </div>
       </section>
@@ -230,7 +232,7 @@ const DashboardVendite = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
             type="text"
-            placeholder="Cerca per ASIN, SKU o nome prodotto..."
+            placeholder={t("dashboardVendite.search_placeholder")}
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             className="w-full sm:w-80 bg-slate-800/60 border border-slate-700 rounded-md pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
@@ -238,17 +240,17 @@ const DashboardVendite = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-16 text-slate-500">Caricamento...</div>
+          <div className="text-center py-16 text-slate-500">{t("dashboardVendite.loading")}</div>
         ) : !data || totals.fatturato_totale === 0 ? (
           <div className="text-center py-16">
             <ShoppingCart className="w-10 h-10 text-slate-700 mx-auto mb-3" />
             {totals.ultima_data_disponibile ? (
               <p className="text-slate-500">
-                Nessun dato per il periodo selezionato.<br />
+                {t("dashboardVendite.empty_no_data_period")}<br />
                 <span className="text-slate-600 text-xs">I dati Amazon sono disponibili fino al <strong className="text-slate-400">{totals.ultima_data_disponibile}</strong> (ritardo ~48h).</span>
               </p>
             ) : (
-              <p className="text-slate-500">Nessun dato di vendita. Clicca "Aggiorna dati" per importare da Amazon.</p>
+              <p className="text-slate-500">{t("dashboardVendite.empty_no_data_global")}</p>
             )}
           </div>
         ) : (
@@ -256,10 +258,10 @@ const DashboardVendite = () => {
             {/* Stat cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { icon: DollarSign, label: "Fatturato", value: fmtEuro(totals.fatturato_totale), accent: "emerald" },
-                { icon: ShoppingCart, label: "Unita vendute", value: fmtNum(totals.unita_totali), accent: "blue" },
-                { icon: Package, label: "ASIN attivi", value: totals.asin_attivi, accent: "cyan" },
-                { icon: Globe, label: "Marketplace", value: totals.marketplace_attivi, accent: "violet" },
+                { icon: DollarSign, label: t("dashboardVendite.stat_fatturato"), value: fmtEuro(totals.fatturato_totale), accent: "emerald" },
+                { icon: ShoppingCart, label: t("dashboardVendite.stat_unita"), value: fmtNum(totals.unita_totali), accent: "blue" },
+                { icon: Package, label: t("dashboardVendite.stat_asin"), value: totals.asin_attivi, accent: "cyan" },
+                { icon: Globe, label: t("dashboardVendite.stat_marketplace"), value: totals.marketplace_attivi, accent: "violet" },
               ].map((s) => (
                 <div key={s.label} className="relative rounded-lg border border-slate-800 bg-slate-900/60 px-4 py-4 flex flex-col items-center text-center">
                   <s.icon className={`w-5 h-5 mb-2 text-${s.accent}-400`} />
@@ -272,11 +274,11 @@ const DashboardVendite = () => {
             {/* Tabs */}
             <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded-md p-0.5 w-fit">
               {[
-                { key: "overview", label: "Per marketplace" },
-                { key: "prodotti", label: "Top prodotti" },
-                { key: "trend", label: "Per data" },
-                { key: "confronto", label: "Confronto periodi" },
-                { key: "margini", label: "Margini" },
+                { key: "overview", label: t("dashboardVendite.tab_overview") },
+                { key: "prodotti", label: t("dashboardVendite.tab_prodotti") },
+                { key: "trend", label: t("dashboardVendite.tab_trend") },
+                { key: "confronto", label: t("dashboardVendite.tab_confronto") },
+                { key: "margini", label: t("dashboardVendite.tab_margini") },
               ].map((t) => (
                 <button key={t.key} onClick={() => setTab(t.key)} type="button" className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${tab === t.key ? "bg-slate-800 text-white" : "text-slate-500 hover:text-slate-300"}`}>
                   {t.label}
@@ -292,7 +294,7 @@ const DashboardVendite = () => {
                   <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/60" />
                     <div className="px-5 py-4">
-                      <h2 className="text-sm font-semibold text-white mb-4">Fatturato e unita per marketplace</h2>
+                      <h2 className="text-sm font-semibold text-white mb-4">{t("dashboardVendite.chart_fatt_unita_mp")}</h2>
                       <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={perMarketplace.map((mp) => ({ name: `${COUNTRY_FLAG[mp.country] || ""} ${mp.country}`, Fatturato: Math.round(mp.fatturato * 100) / 100, Unita: mp.unita }))}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -317,9 +319,9 @@ const DashboardVendite = () => {
                       <div className="px-4 py-3 flex items-center gap-3">
                         <span className="text-xl">{COUNTRY_FLAG[mp.country] || "🌍"}</span>
                         <div className="min-w-0">
-                          <p className="text-xs text-slate-500">{mp.country} · {mp.asin_count} ASIN</p>
+                          <p className="text-xs text-slate-500">{mp.country} · {mp.asin_count} {t("dashboardVendite.mp_asin_suffix")}</p>
                           <p className="text-sm font-semibold text-emerald-400 tabular-nums">{fmtEuro(mp.fatturato)}</p>
-                          <p className="text-xs text-blue-400 tabular-nums">{fmtNum(mp.unita)} unita</p>
+                          <p className="text-xs text-blue-400 tabular-nums">{fmtNum(mp.unita)} {t("dashboardVendite.mp_unita_suffix")}</p>
                         </div>
                       </div>
                     </div>
@@ -336,12 +338,12 @@ const DashboardVendite = () => {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-800 text-[10px] uppercase tracking-[0.12em] text-slate-500">
-                        <th className="px-4 py-3 text-left w-8">#</th>
-                        <th className="px-4 py-3 text-left">Prodotto</th>
-                        <th className="px-4 py-3 text-right">Fatturato</th>
-                        <th className="px-4 py-3 text-right">Unita</th>
-                        <th className="px-4 py-3 text-right">Sessioni</th>
-                        <th className="px-4 py-3 text-right">Conv. %</th>
+                        <th className="px-4 py-3 text-left w-8">{t("dashboardVendite.th_num")}</th>
+                        <th className="px-4 py-3 text-left">{t("dashboardVendite.th_prodotto")}</th>
+                        <th className="px-4 py-3 text-right">{t("dashboardVendite.th_fatturato")}</th>
+                        <th className="px-4 py-3 text-right">{t("dashboardVendite.th_unita")}</th>
+                        <th className="px-4 py-3 text-right">{t("dashboardVendite.th_sessioni")}</th>
+                        <th className="px-4 py-3 text-right">{t("dashboardVendite.th_conv")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/50">
@@ -377,7 +379,7 @@ const DashboardVendite = () => {
                   <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-400/60" />
                     <div className="px-5 py-4">
-                      <h2 className="text-sm font-semibold text-white mb-4">Trend fatturato e unita</h2>
+                      <h2 className="text-sm font-semibold text-white mb-4">{t("dashboardVendite.chart_trend_fatt_unita")}</h2>
                       <ResponsiveContainer width="100%" height={320}>
                         <AreaChart data={[...perData].reverse().map((d) => ({ data: fmtDate(d.date), Fatturato: Math.round((d.fatturato || 0) * 100) / 100, Unita: d.unita || 0, Sessioni: d.sessioni || 0 }))}>
                           <defs>
@@ -411,10 +413,10 @@ const DashboardVendite = () => {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-slate-800 text-[10px] uppercase tracking-[0.12em] text-slate-500">
-                          <th className="px-4 py-3 text-left">Data</th>
-                          <th className="px-4 py-3 text-right">Fatturato</th>
-                          <th className="px-4 py-3 text-right">Unita</th>
-                          <th className="px-4 py-3 text-right">Sessioni</th>
+                          <th className="px-4 py-3 text-left">{t("dashboardVendite.th_data")}</th>
+                          <th className="px-4 py-3 text-right">{t("dashboardVendite.th_fatturato")}</th>
+                          <th className="px-4 py-3 text-right">{t("dashboardVendite.th_unita")}</th>
+                          <th className="px-4 py-3 text-right">{t("dashboardVendite.th_sessioni")}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/50">
@@ -440,12 +442,12 @@ const DashboardVendite = () => {
                 <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400/60" />
                   <div className="px-5 py-4">
-                    <h2 className="text-sm font-semibold text-white mb-4">Questa settimana vs precedente</h2>
+                    <h2 className="text-sm font-semibold text-white mb-4">{t("dashboardVendite.compare_week_title")}</h2>
                     <div className="space-y-4">
                       {[
-                        { label: "Fatturato", curr: compare.thisWeek?.fatturato, prev: compare.lastWeek?.fatturato, fmt: fmtEuro },
-                        { label: "Unita", curr: compare.thisWeek?.unita, prev: compare.lastWeek?.unita, fmt: fmtNum },
-                        { label: "Sessioni", curr: compare.thisWeek?.sessioni, prev: compare.lastWeek?.sessioni, fmt: fmtNum },
+                        { label: t("dashboardVendite.compare_metric_fatturato"), curr: compare.thisWeek?.fatturato, prev: compare.lastWeek?.fatturato, fmt: fmtEuro },
+                        { label: t("dashboardVendite.compare_metric_unita"), curr: compare.thisWeek?.unita, prev: compare.lastWeek?.unita, fmt: fmtNum },
+                        { label: t("dashboardVendite.compare_metric_sessioni"), curr: compare.thisWeek?.sessioni, prev: compare.lastWeek?.sessioni, fmt: fmtNum },
                       ].map((m) => (
                         <div key={m.label}>
                           <div className="flex items-center justify-between mb-1">
@@ -464,8 +466,8 @@ const DashboardVendite = () => {
                             </div>
                           </div>
                           <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
-                            <span>Precedente: {m.fmt(m.prev)}</span>
-                            <span>Attuale</span>
+                            <span>{t("dashboardVendite.compare_prev", { value: m.fmt(m.prev) })}</span>
+                            <span>{t("dashboardVendite.compare_curr")}</span>
                           </div>
                         </div>
                       ))}
@@ -477,12 +479,12 @@ const DashboardVendite = () => {
                 <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-400/60" />
                   <div className="px-5 py-4">
-                    <h2 className="text-sm font-semibold text-white mb-4">Questo mese vs precedente</h2>
+                    <h2 className="text-sm font-semibold text-white mb-4">{t("dashboardVendite.compare_month_title")}</h2>
                     <div className="space-y-4">
                       {[
-                        { label: "Fatturato", curr: compare.thisMonth?.fatturato, prev: compare.lastMonth?.fatturato, fmt: fmtEuro },
-                        { label: "Unita", curr: compare.thisMonth?.unita, prev: compare.lastMonth?.unita, fmt: fmtNum },
-                        { label: "Sessioni", curr: compare.thisMonth?.sessioni, prev: compare.lastMonth?.sessioni, fmt: fmtNum },
+                        { label: t("dashboardVendite.compare_metric_fatturato"), curr: compare.thisMonth?.fatturato, prev: compare.lastMonth?.fatturato, fmt: fmtEuro },
+                        { label: t("dashboardVendite.compare_metric_unita"), curr: compare.thisMonth?.unita, prev: compare.lastMonth?.unita, fmt: fmtNum },
+                        { label: t("dashboardVendite.compare_metric_sessioni"), curr: compare.thisMonth?.sessioni, prev: compare.lastMonth?.sessioni, fmt: fmtNum },
                       ].map((m) => (
                         <div key={m.label}>
                           <div className="flex items-center justify-between mb-1">
@@ -501,8 +503,8 @@ const DashboardVendite = () => {
                             </div>
                           </div>
                           <div className="flex justify-between text-[10px] text-slate-600 mt-0.5">
-                            <span>Precedente: {m.fmt(m.prev)}</span>
-                            <span>Attuale</span>
+                            <span>{t("dashboardVendite.compare_prev", { value: m.fmt(m.prev) })}</span>
+                            <span>{t("dashboardVendite.compare_curr")}</span>
                           </div>
                         </div>
                       ))}
@@ -518,8 +520,8 @@ const DashboardVendite = () => {
                 {filteredMargins.length === 0 ? (
                   <div className="text-center py-16">
                     <DollarSign className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-                    <p className="text-slate-500">Nessun dato margine disponibile.</p>
-                    <p className="text-xs text-slate-600 mt-1">Servono dati vendite + commissioni FBA + costi in Bilancio.</p>
+                    <p className="text-slate-500">{t("dashboardVendite.margins_empty")}</p>
+                    <p className="text-xs text-slate-600 mt-1">{t("dashboardVendite.margins_empty_hint")}</p>
                   </div>
                 ) : (
                   <>
@@ -527,7 +529,7 @@ const DashboardVendite = () => {
                     <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/60" />
                       <div className="px-5 py-4">
-                        <h2 className="text-sm font-semibold text-white mb-4">Margine per prodotto (top 15)</h2>
+                        <h2 className="text-sm font-semibold text-white mb-4">{t("dashboardVendite.margins_chart_title")}</h2>
                         <ResponsiveContainer width="100%" height={320}>
                           <BarChart data={filteredMargins.slice(0, 15).map((m) => ({ asin: m.nome ? (m.nome.length > 25 ? m.nome.slice(0, 25) + "..." : m.nome) : m.asin.slice(-5), Fatturato: m.fatturato, Fees: m.fee_totale, Costo: m.costo_totale, Margine: m.margine }))} layout="vertical">
                             <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -550,13 +552,13 @@ const DashboardVendite = () => {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-slate-800 text-[10px] uppercase tracking-[0.12em] text-slate-500">
-                              <th className="px-4 py-3 text-left">Prodotto</th>
-                              <th className="px-4 py-3 text-right">Unita</th>
-                              <th className="px-4 py-3 text-right">Fatturato</th>
-                              <th className="px-4 py-3 text-right">Fees Amazon</th>
-                              <th className="px-4 py-3 text-right">Costo prod.</th>
-                              <th className="px-4 py-3 text-right">Margine</th>
-                              <th className="px-4 py-3 text-right">%</th>
+                              <th className="px-4 py-3 text-left">{t("dashboardVendite.th_prodotto")}</th>
+                              <th className="px-4 py-3 text-right">{t("dashboardVendite.th_unita")}</th>
+                              <th className="px-4 py-3 text-right">{t("dashboardVendite.th_fatturato")}</th>
+                              <th className="px-4 py-3 text-right">{t("dashboardVendite.th_fees")}</th>
+                              <th className="px-4 py-3 text-right">{t("dashboardVendite.th_costo_prod")}</th>
+                              <th className="px-4 py-3 text-right">{t("dashboardVendite.th_margine")}</th>
+                              <th className="px-4 py-3 text-right">{t("dashboardVendite.th_pct")}</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-800/50">
@@ -597,7 +599,7 @@ const DashboardVendite = () => {
 
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>&copy; {new Date().getFullYear()} Nexus &middot; Dashboard Vendite</span>
+          <span>&copy; {new Date().getFullYear()} {t("dashboardVendite.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

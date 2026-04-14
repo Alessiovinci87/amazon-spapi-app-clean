@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   Archive,
@@ -11,6 +12,7 @@ import {
 const DDTStorico = () => {
   const [storico, setStorico] = useState([]);
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   useEffect(() => {
     async function fetchData() {
@@ -35,19 +37,19 @@ const DDTStorico = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/uffici/ddt")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/uffici/ddt")} type="button" title={t("ddtStorico.topbar_back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
               <Archive className="w-[18px] h-[18px] text-blue-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Storico DDT</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Documenti di Trasporto</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("ddtStorico.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("ddtStorico.topbar_eyebrow")}</span>
             </div>
           </div>
           <button onClick={() => navigate("/uffici/ddt")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
-            <LogOut className="w-3.5 h-3.5" /> DDT
+            <LogOut className="w-3.5 h-3.5" /> {t("ddtStorico.topbar_ddt")}
           </button>
         </div>
       </header>
@@ -55,12 +57,12 @@ const DDTStorico = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Archivio</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("ddtStorico.hero_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Storico DDT Generici <span className="text-slate-500">— tutti i documenti.</span>
+            {t("ddtStorico.hero_title_main")} <span className="text-slate-500">{t("ddtStorico.hero_title_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Consulta e scarica i PDF di tutti i documenti di trasporto generati.
+            {t("ddtStorico.hero_desc")}
           </p>
         </div>
       </section>
@@ -76,8 +78,8 @@ const DDTStorico = () => {
                   <FileText className="w-[18px] h-[18px]" />
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Documenti generati</div>
-                  <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">DDT Generici</h2>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{t("ddtStorico.card_eyebrow")}</div>
+                  <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">{t("ddtStorico.card_title")}</h2>
                 </div>
               </div>
               <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-medium tabular-nums">
@@ -88,19 +90,19 @@ const DDTStorico = () => {
             {storico.length === 0 ? (
               <div className="text-center py-12">
                 <Archive className="w-8 h-8 text-slate-700 mx-auto mb-3" />
-                <p className="text-sm text-slate-500">Nessun DDT generato</p>
+                <p className="text-sm text-slate-500">{t("ddtStorico.empty_text")}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-slate-700/60">
-                      <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">ID</th>
-                      <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">Numero DDT</th>
-                      <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">Data</th>
-                      <th className="text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">Unità</th>
-                      <th className="text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">Colli</th>
-                      <th className="text-center text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3">PDF</th>
+                      <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_id")}</th>
+                      <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_numero")}</th>
+                      <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_data")}</th>
+                      <th className="text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_unita")}</th>
+                      <th className="text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_colli")}</th>
+                      <th className="text-center text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3">{t("ddtStorico.th_pdf")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -119,7 +121,7 @@ const DDTStorico = () => {
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-400/60 text-blue-400 hover:text-blue-300 text-[11px] font-medium transition-all"
                           >
                             <ExternalLink className="w-3 h-3" />
-                            PDF
+                            {t("ddtStorico.link_pdf")}
                           </a>
                         </td>
                       </tr>
@@ -135,7 +137,7 @@ const DDTStorico = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/30">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>Nexus · Storico DDT</span>
+          <span>{t("ddtStorico.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   FileText,
@@ -111,6 +113,7 @@ function espandiProdottoInRighe(prodotto) {
 const DDTDettaglio = () => {
   const { idSpedizione, ddtNumero } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const [spedizione, setSpedizione] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -139,7 +142,7 @@ const DDTDettaglio = () => {
         const found = prebolle.find((s) => s.id === parseInt(idSpedizione));
 
         if (!found) {
-          setError("Spedizione non trovata");
+          setError(t("ddtDettaglio.error_not_found"));
           setLoading(false);
           return;
         }
@@ -179,7 +182,7 @@ const DDTDettaglio = () => {
         setRighe(righeFinali);
       } catch (err) {
         console.error("Errore caricamento:", err);
-        setError("Errore durante il caricamento");
+        setError(t("ddtDettaglio.error_generic"));
       } finally {
         setLoading(false);
       }
@@ -278,11 +281,11 @@ const DDTDettaglio = () => {
         const url = window.URL.createObjectURL(blob);
         window.open(url, "_blank");
       } else {
-        toast.error("Errore nella generazione del PDF");
+        toast.error(t("ddtDettaglio.toast_error_pdf"));
       }
     } catch (err) {
       console.error("Errore generazione PDF:", err);
-      toast.error("Errore durante la generazione del PDF");
+      toast.error(t("ddtDettaglio.toast_error_pdf_generic"));
     }
   };
 
@@ -292,7 +295,7 @@ const DDTDettaglio = () => {
       <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-purple-400 animate-spin mx-auto mb-4" />
-          <p className="text-zinc-400">Caricamento spedizione...</p>
+          <p className="text-zinc-400">{t("ddtDettaglio.loading")}</p>
         </div>
       </div>
     );
@@ -306,7 +309,7 @@ const DDTDettaglio = () => {
           <div className="bg-red-900/20 border border-red-700/30 rounded-xl p-6 flex items-center gap-4">
             <AlertCircle className="w-8 h-8 text-red-400" />
             <div>
-              <h2 className="text-xl font-bold text-red-400 mb-2">Errore</h2>
+              <h2 className="text-xl font-bold text-red-400 mb-2">{t("ddtDettaglio.error_title")}</h2>
               <p className="text-red-200">{error}</p>
             </div>
           </div>
@@ -315,7 +318,7 @@ const DDTDettaglio = () => {
             className="mt-6 flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg"
           >
             <ArrowLeft className="w-4 h-4" />
-            Torna alla lista
+            {t("ddtDettaglio.btn_torna_lista")}
           </button>
         </div>
       </div>
@@ -339,10 +342,10 @@ const DDTDettaglio = () => {
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-white">
-                  DDT Pics Nails {ddtNumero && <span className="text-purple-400">#{ddtNumero}</span>}
+                  {t("ddtDettaglio.title_ddt")} {ddtNumero && <span className="text-purple-400">#{ddtNumero}</span>}
                 </h1>
                 <p className="text-zinc-400 mt-1">
-                  Spedizione: <span className="text-purple-400 font-semibold">{spedizione?.progressivo}</span>
+                  {t("ddtDettaglio.subtitle_spedizione")} <span className="text-purple-400 font-semibold">{spedizione?.progressivo}</span>
                 </p>
               </div>
             </div>
@@ -352,7 +355,7 @@ const DDTDettaglio = () => {
               className="flex items-center gap-2 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-white font-medium transition-all"
             >
               <ArrowLeft className="w-4 h-4" />
-              Indietro
+              {t("ddtDettaglio.btn_indietro")}
             </button>
           </div>
         </div>
@@ -361,23 +364,23 @@ const DDTDettaglio = () => {
         <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-purple-500/30 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <CheckCircle className="w-5 h-5 text-purple-400" />
-            <h3 className="text-lg font-semibold text-white">Dati Spedizione Originale</h3>
+            <h3 className="text-lg font-semibold text-white">{t("ddtDettaglio.info_title")}</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
-              <p className="text-zinc-400">Progressivo</p>
+              <p className="text-zinc-400">{t("ddtDettaglio.info_progressivo")}</p>
               <p className="text-white font-medium">{spedizione?.progressivo}</p>
             </div>
             <div>
-              <p className="text-zinc-400">Paese</p>
+              <p className="text-zinc-400">{t("ddtDettaglio.info_paese")}</p>
               <p className="text-white font-medium">{spedizione?.paese}</p>
             </div>
             <div>
-              <p className="text-zinc-400">Data Spedizione</p>
+              <p className="text-zinc-400">{t("ddtDettaglio.info_data_sped")}</p>
               <p className="text-white font-medium">{spedizione?.data || "-"}</p>
             </div>
             <div>
-              <p className="text-zinc-400">Operatore</p>
+              <p className="text-zinc-400">{t("ddtDettaglio.info_operatore")}</p>
               <p className="text-white font-medium">{spedizione?.operatore || "-"}</p>
             </div>
           </div>
@@ -387,14 +390,14 @@ const DDTDettaglio = () => {
         <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
             <Building2 className="w-5 h-5 text-purple-400" />
-            Intestazione Documento
+            {t("ddtDettaglio.intestazione_title")}
           </h2>
           <div className="flex items-center gap-4 p-4 bg-zinc-800 border border-zinc-700 rounded-lg">
             <img src="/images/logo.png" alt="Pics Nails" className="h-16 w-auto bg-white p-2 rounded" />
             <div className="flex-1">
               <p className="font-semibold text-white text-lg">Pics Nails</p>
               <p className="text-sm text-zinc-400 mt-1">
-                Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com
+                {t("ddtDettaglio.intestazione_brand_desc")}
               </p>
             </div>
           </div>
@@ -406,16 +409,16 @@ const DDTDettaglio = () => {
           <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
               <FileText className="w-5 h-5 text-blue-400" />
-              Informazioni Documento
+              {t("ddtDettaglio.info_doc_title")}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                  <Hash className="w-4 h-4" />Numero DDT *
+                  <Hash className="w-4 h-4" />{t("ddtDettaglio.lbl_numero_ddt")}
                 </label>
                 <input
                   type="text"
-                  placeholder="es. DDT-2025-001"
+                  placeholder={t("ddtDettaglio.ph_numero_ddt")}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-blue-500"
                   value={numeroDDT}
                   onChange={(e) => setNumeroDDT(e.target.value)}
@@ -424,11 +427,11 @@ const DDTDettaglio = () => {
               </div>
               <div>
                 <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                  <Hash className="w-4 h-4" />N° Riferimento Amazon
+                  <Hash className="w-4 h-4" />{t("ddtDettaglio.lbl_rif_amazon")}
                 </label>
                 <input
                   type="text"
-                  placeholder="Riferimento Amazon (opzionale)"
+                  placeholder={t("ddtDettaglio.ph_rif_amazon")}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-blue-500"
                   value={numeroAmazon}
                   onChange={(e) => setNumeroAmazon(e.target.value)}
@@ -436,7 +439,7 @@ const DDTDettaglio = () => {
               </div>
               <div>
                 <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />Data *
+                  <Calendar className="w-4 h-4" />{t("ddtDettaglio.lbl_data")}
                 </label>
                 <input
                   type="date"
@@ -448,7 +451,7 @@ const DDTDettaglio = () => {
               </div>
               <div>
                 <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />Paese Destinazione *
+                  <MapPin className="w-4 h-4" />{t("ddtDettaglio.lbl_paese")}
                 </label>
                 <select
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500"
@@ -456,7 +459,7 @@ const DDTDettaglio = () => {
                   onChange={(e) => setPaese(e.target.value)}
                   required
                 >
-                  <option value="">-- Seleziona Paese --</option>
+                  <option value="">{t("ddtDettaglio.opt_paese_default")}</option>
                   {paesiOrdinati.map((p) => (
                     <option key={p} value={p}>{p}</option>
                   ))}
@@ -465,13 +468,13 @@ const DDTDettaglio = () => {
             </div>
             <div className="mt-4">
               <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide flex items-center gap-2">
-                <Building2 className="w-4 h-4" />Centro Logistico *
+                <Building2 className="w-4 h-4" />{t("ddtDettaglio.lbl_centro")}
               </label>
               <textarea
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-blue-500"
                 value={centro}
                 onChange={(e) => setCentro(e.target.value)}
-                placeholder="Inserisci l'indirizzo completo del centro logistico..."
+                placeholder={t("ddtDettaglio.ph_centro")}
                 rows={3}
                 required
               />
@@ -482,12 +485,12 @@ const DDTDettaglio = () => {
           <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
               <Truck className="w-5 h-5 text-purple-400" />
-              Informazioni Trasporto
+              {t("ddtDettaglio.trasporto_title")}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide">
-                  Corriere / Trasportatore *
+                  {t("ddtDettaglio.lbl_corriere")}
                 </label>
                 <select
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500"
@@ -498,21 +501,21 @@ const DDTDettaglio = () => {
                   }}
                   required
                 >
-                  <option value="">-- Seleziona Trasportatore --</option>
+                  <option value="">{t("ddtDettaglio.opt_trasp_default")}</option>
                   {corrieriPredefiniti.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
-                  <option value="ALTRO">Altro...</option>
+                  <option value="ALTRO">{t("ddtDettaglio.opt_trasp_altro")}</option>
                 </select>
               </div>
               {trasportatore === "ALTRO" && (
                 <div>
                   <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide">
-                    Nome Trasportatore Personalizzato
+                    {t("ddtDettaglio.lbl_trasp_custom")}
                   </label>
                   <input
                     type="text"
-                    placeholder="Inserisci nome trasportatore"
+                    placeholder={t("ddtDettaglio.ph_trasp_custom")}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-purple-500"
                     value={trasportatoreCustom}
                     onChange={(e) => setTrasportatoreCustom(e.target.value)}
@@ -521,11 +524,11 @@ const DDTDettaglio = () => {
               )}
               <div>
                 <label className="text-xs font-medium text-zinc-400 block mb-2 uppercase tracking-wide">
-                  Numero Tracking
+                  {t("ddtDettaglio.lbl_tracking")}
                 </label>
                 <input
                   type="text"
-                  placeholder="Codice tracking (opzionale)"
+                  placeholder={t("ddtDettaglio.ph_tracking")}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-500 focus:ring-2 focus:ring-purple-500"
                   value={tracking}
                   onChange={(e) => setTracking(e.target.value)}
@@ -539,7 +542,7 @@ const DDTDettaglio = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold flex items-center gap-2 text-white">
                 <Package className="w-5 h-5 text-emerald-400" />
-                Prodotti
+                {t("ddtDettaglio.prodotti_title")}
                 <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm font-normal">
                   {righe.length}
                 </span>
@@ -550,7 +553,7 @@ const DDTDettaglio = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-white font-medium"
               >
                 <Plus className="w-4 h-4" />
-                Aggiungi Prodotto
+                {t("ddtDettaglio.btn_aggiungi_prodotto")}
               </button>
             </div>
 
@@ -567,7 +570,7 @@ const DDTDettaglio = () => {
                   {/* Badge modificato */}
                   {r.isManuallyEdited && (
                     <span className="absolute -top-2 left-4 px-2 py-0.5 bg-yellow-600 text-yellow-100 text-xs rounded font-medium">
-                      Modificato
+                      {t("ddtDettaglio.badge_modificato")}
                     </span>
                   )}
 
@@ -575,7 +578,7 @@ const DDTDettaglio = () => {
                   {r.boxTotali && r.boxTotali > 1 && (
                     <span className="absolute -top-2 left-24 px-2 py-0.5 bg-blue-600 text-blue-100 text-xs rounded font-medium flex items-center gap-1">
                       <Box className="w-3 h-3" />
-                      Box {r.boxNumero}/{r.boxTotali}
+                      {t("ddtDettaglio.badge_box", { num: r.boxNumero, tot: r.boxTotali })}
                     </span>
                   )}
 
@@ -588,7 +591,7 @@ const DDTDettaglio = () => {
                       className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
                         i === 0 ? "bg-zinc-700 text-zinc-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 text-white"
                       }`}
-                      title="Sposta su"
+                      title={t("ddtDettaglio.title_sposta_su")}
                     >
                       <ChevronUp className="w-4 h-4" />
                     </button>
@@ -599,7 +602,7 @@ const DDTDettaglio = () => {
                       className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all ${
                         i === righe.length - 1 ? "bg-zinc-700 text-zinc-500 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 text-white"
                       }`}
-                      title="Sposta giù"
+                      title={t("ddtDettaglio.title_sposta_giu")}
                     >
                       <ChevronDown className="w-4 h-4" />
                     </button>
@@ -607,7 +610,7 @@ const DDTDettaglio = () => {
                       type="button"
                       onClick={() => duplicaRiga(i)}
                       className="w-8 h-8 flex items-center justify-center bg-purple-600 hover:bg-purple-500 rounded-lg text-white"
-                      title="Duplica riga"
+                      title={t("ddtDettaglio.title_duplica")}
                     >
                       <Copy className="w-4 h-4" />
                     </button>
@@ -616,7 +619,7 @@ const DDTDettaglio = () => {
                         type="button"
                         onClick={() => rimuoviRiga(i)}
                         className="w-8 h-8 flex items-center justify-center bg-red-600 hover:bg-red-500 rounded-lg text-white"
-                        title="Elimina riga"
+                        title={t("ddtDettaglio.title_elimina")}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -631,21 +634,21 @@ const DDTDettaglio = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3 pt-6 pr-36">
                     <input
                       type="text"
-                      placeholder="ASIN"
+                      placeholder={t("ddtDettaglio.ph_asin")}
                       className="bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 text-sm focus:ring-2 focus:ring-emerald-500"
                       value={r.asin}
                       onChange={(e) => aggiornaRiga(i, "asin", e.target.value)}
                     />
                     <input
                       type="text"
-                      placeholder="SKU"
+                      placeholder={t("ddtDettaglio.ph_sku")}
                       className="bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 text-sm focus:ring-2 focus:ring-emerald-500"
                       value={r.sku}
                       onChange={(e) => aggiornaRiga(i, "sku", e.target.value)}
                     />
                     <input
                       type="text"
-                      placeholder="Nome prodotto"
+                      placeholder={t("ddtDettaglio.ph_nome_prodotto")}
                       className="lg:col-span-2 bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 text-sm focus:ring-2 focus:ring-emerald-500"
                       value={r.prodottoNome}
                       onChange={(e) => aggiornaRiga(i, "prodottoNome", e.target.value)}
@@ -653,7 +656,7 @@ const DDTDettaglio = () => {
                     <input
                       type="number"
                       min="0"
-                      placeholder="Quantità"
+                      placeholder={t("ddtDettaglio.ph_quantita")}
                       className="bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 text-sm focus:ring-2 focus:ring-emerald-500"
                       value={r.quantita}
                       onChange={(e) => aggiornaRiga(i, "quantita", Number(e.target.value))}
@@ -661,7 +664,7 @@ const DDTDettaglio = () => {
                     <input
                       type="number"
                       min="0"
-                      placeholder="N° Cartone"
+                      placeholder={t("ddtDettaglio.ph_cartone")}
                       className="bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 text-sm focus:ring-2 focus:ring-emerald-500"
                       value={r.cartone}
                       onChange={(e) => aggiornaRiga(i, "cartone", e.target.value)}
@@ -671,7 +674,7 @@ const DDTDettaglio = () => {
                   <div className="mt-3 pr-36">
                     <input
                       type="text"
-                      placeholder="N° Pacco (lettere e numeri)"
+                      placeholder={t("ddtDettaglio.ph_pacco")}
                       className="w-full bg-zinc-700 border border-zinc-600 rounded-lg px-3 py-2 text-white placeholder-zinc-500 text-sm focus:ring-2 focus:ring-emerald-500"
                       value={r.pacco}
                       onChange={(e) => aggiornaRiga(i, "pacco", e.target.value)}
@@ -684,9 +687,9 @@ const DDTDettaglio = () => {
             {/* Totali */}
             <div className="mt-4 p-4 bg-gradient-to-r from-emerald-900/30 to-emerald-800/20 border border-emerald-700/30 rounded-lg">
               <div className="flex items-center justify-between">
-                <span className="text-zinc-300 font-medium">Totale Unità:</span>
+                <span className="text-zinc-300 font-medium">{t("ddtDettaglio.totale_unita")}</span>
                 <span className="text-2xl font-bold text-emerald-400">
-                  {righe.reduce((sum, r) => sum + (Number(r.quantita) || 0), 0)} pz
+                  {righe.reduce((sum, r) => sum + (Number(r.quantita) || 0), 0)} {t("ddtDettaglio.unit_pz")}
                 </span>
               </div>
             </div>
@@ -698,7 +701,7 @@ const DDTDettaglio = () => {
             className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl px-6 py-4 font-semibold text-lg shadow-lg hover:shadow-purple-500/25"
           >
             <Download className="w-6 h-6" />
-            Genera PDF DDT Pics Nails
+            {t("ddtDettaglio.btn_genera_pdf")}
           </button>
         </form>
       </div>

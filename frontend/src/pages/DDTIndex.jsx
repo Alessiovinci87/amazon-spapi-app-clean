@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   FileText,
@@ -30,6 +31,7 @@ function StatTile({ icon: Icon, label, value, accent = "violet" }) {
 
 const DDTIndex = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -50,7 +52,7 @@ const DDTIndex = () => {
             <button
               onClick={() => navigate("/dashboard")}
               type="button"
-              title="Indietro"
+              title={t("ddtIndex.topbar_back")}
               className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -59,8 +61,8 @@ const DDTIndex = () => {
               <FileText className="w-[18px] h-[18px] text-violet-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Genera DDT</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Uffici</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("ddtIndex.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("ddtIndex.topbar_eyebrow")}</span>
             </div>
           </div>
 
@@ -70,7 +72,7 @@ const DDTIndex = () => {
             className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
-            Dashboard
+            {t("ddtIndex.topbar_dashboard")}
           </button>
         </div>
       </header>
@@ -79,14 +81,13 @@ const DDTIndex = () => {
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
           <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
-            Documenti di trasporto
+            {t("ddtIndex.hero_eyebrow")}
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Genera DDT <span className="text-slate-500">— seleziona il tipo.</span>
+            {t("ddtIndex.hero_title_main")} <span className="text-slate-500">{t("ddtIndex.hero_title_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Scegli tra DDT Pics Nails per documenti aziendali o DDT Generico per documenti personalizzati.
-            Puoi consultare lo storico di tutti i documenti generati.
+            {t("ddtIndex.hero_desc")}
           </p>
         </div>
       </section>
@@ -111,17 +112,17 @@ const DDTIndex = () => {
                 </div>
                 <ChevronRight className="w-5 h-5 text-violet-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">Aziendale</div>
-              <h3 className="text-lg font-semibold text-white tracking-tight mb-2">DDT Pics Nails</h3>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">{t("ddtIndex.pics_eyebrow")}</div>
+              <h3 className="text-lg font-semibold text-white tracking-tight mb-2">{t("ddtIndex.pics_title")}</h3>
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                Documenti di trasporto con intestazione aziendale e dati precompilati
+                {t("ddtIndex.pics_desc")}
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="px-2.5 py-1 rounded-md bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[11px] font-medium">
-                  Template predefinito
+                  {t("ddtIndex.pics_tag_template")}
                 </span>
                 <span className="px-2.5 py-1 rounded-md bg-violet-500/10 border border-violet-500/30 text-violet-400 text-[11px] font-medium">
-                  Pre-bolle
+                  {t("ddtIndex.pics_tag_prebolle")}
                 </span>
               </div>
             </div>
@@ -141,17 +142,17 @@ const DDTIndex = () => {
                 </div>
                 <ChevronRight className="w-5 h-5 text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">Personalizzabile</div>
-              <h3 className="text-lg font-semibold text-white tracking-tight mb-2">DDT Generico</h3>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1">{t("ddtIndex.generico_eyebrow")}</div>
+              <h3 className="text-lg font-semibold text-white tracking-tight mb-2">{t("ddtIndex.generico_title")}</h3>
               <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                Documenti di trasporto personalizzati con intestazioni e informazioni customizzabili
+                {t("ddtIndex.generico_desc")}
               </p>
               <div className="flex flex-wrap gap-2">
                 <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">
-                  Flessibile
+                  {t("ddtIndex.generico_tag_flessibile")}
                 </span>
                 <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium">
-                  Custom
+                  {t("ddtIndex.generico_tag_custom")}
                 </span>
               </div>
             </div>
@@ -171,9 +172,9 @@ const DDTIndex = () => {
                 <Archive className="w-5 h-5 text-blue-400" />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">Archivio</div>
-                <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">Storico DDT</h3>
-                <p className="text-sm text-slate-400 mt-0.5">Visualizza tutti i documenti di trasporto generati</p>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{t("ddtIndex.storico_eyebrow")}</div>
+                <h3 className="text-base sm:text-lg font-semibold text-white tracking-tight">{t("ddtIndex.storico_title")}</h3>
+                <p className="text-sm text-slate-400 mt-0.5">{t("ddtIndex.storico_desc")}</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-blue-400 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
@@ -182,16 +183,16 @@ const DDTIndex = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatTile icon={FileCheck} label="DDT Pics Nails" value="--" accent="violet" />
-          <StatTile icon={FileText} label="DDT Generici" value="--" accent="emerald" />
-          <StatTile icon={Archive} label="Totali" value="--" accent="blue" />
+          <StatTile icon={FileCheck} label={t("ddtIndex.stat_pics")} value="--" accent="violet" />
+          <StatTile icon={FileText} label={t("ddtIndex.stat_generici")} value="--" accent="emerald" />
+          <StatTile icon={Archive} label={t("ddtIndex.stat_totali")} value="--" accent="blue" />
         </div>
       </main>
 
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/30">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>Nexus · Documenti di Trasporto</span>
+          <span>{t("ddtIndex.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>
