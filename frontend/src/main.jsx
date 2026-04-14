@@ -1,4 +1,5 @@
 import './utils/fetchInterceptor'; // JWT token su tutte le fetch — DEVE essere il primo import
+import './i18n'; // Inizializza react-i18next prima del render
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';

@@ -1,0 +1,76 @@
+{
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "search": "Search",
+    "error": "Error",
+    "success": "Done",
+    "yes": "Yes",
+    "no": "No",
+    "logout": "Log out",
+    "version": "Version"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "customize Nexus.",
+    "topbar_eyebrow": "Nexus · Configuration",
+    "page_eyebrow": "Configuration",
+    "intro": "Manage the interface theme, language and view information about the application.",
+    "footer_section": "Settings",
+    "theme": {
+      "section_eyebrow": "Appearance",
+      "title": "Interface theme",
+      "dark_label": "Dark",
+      "dark_desc": "Dark theme with white grid. Best for low-light environments.",
+      "light_label": "Light",
+      "light_desc": "White background with indigo grid. Cards stay the same on a light background."
+    },
+    "language": {
+      "section_eyebrow": "Localization",
+      "title": "Interface language",
+      "description": "Select the app language. Your preference is saved locally."
+    },
+    "users": {
+      "section_eyebrow": "Security",
+      "title": "User management",
+      "new_user": "New user",
+      "create_user": "Create user",
+      "username": "Username",
+      "password": "Password",
+      "name_optional": "Name (optional)",
+      "you_label": "(you)",
+      "loading": "Loading...",
+      "new_password_placeholder": "New pw",
+      "title_reset": "Reset password",
+      "title_activate": "Activate user",
+      "title_deactivate": "Deactivate user",
+      "role_admin": "Admin",
+      "role_ufficio": "Office",
+      "role_magazzino": "Warehouse",
+      "msg_user_created": "User {{username}} created",
+      "msg_user_credentials_required": "Username and password are required",
+      "msg_password_reset": "Password reset",
+      "msg_password_min_length": "Minimum 4 characters",
+      "msg_error_update": "Error updating user",
+      "msg_error_role": "Error changing role",
+      "msg_error_reset": "Error resetting password"
+    },
+    "info": {
+      "section_eyebrow": "System",
+      "title": "Application info",
+      "app": "Application",
+      "version": "Version",
+      "framework": "Framework",
+      "backend": "Backend",
+      "database": "Database",
+      "integration": "Integration"
+    }
+  }
+}

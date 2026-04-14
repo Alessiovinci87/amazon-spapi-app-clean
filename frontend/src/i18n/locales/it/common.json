@@ -1,0 +1,76 @@
+{
+  "common": {
+    "back": "Indietro",
+    "close": "Chiudi",
+    "cancel": "Annulla",
+    "save": "Salva",
+    "delete": "Elimina",
+    "edit": "Modifica",
+    "create": "Crea",
+    "confirm": "Conferma",
+    "loading": "Caricamento...",
+    "search": "Cerca",
+    "error": "Errore",
+    "success": "Operazione riuscita",
+    "yes": "Sì",
+    "no": "No",
+    "logout": "Esci",
+    "version": "Versione"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "subtitle": "personalizza Nexus.",
+    "topbar_eyebrow": "Nexus · Configurazione",
+    "page_eyebrow": "Configurazione",
+    "intro": "Gestisci il tema dell'interfaccia, la lingua e visualizza le informazioni sull'applicazione.",
+    "footer_section": "Impostazioni",
+    "theme": {
+      "section_eyebrow": "Aspetto",
+      "title": "Tema interfaccia",
+      "dark_label": "Dark",
+      "dark_desc": "Tema scuro con griglia bianca. Ideale per ambienti con poca luce.",
+      "light_label": "Light",
+      "light_desc": "Sfondo bianco con griglia indigo. Card invariate su sfondo chiaro."
+    },
+    "language": {
+      "section_eyebrow": "Localizzazione",
+      "title": "Lingua interfaccia",
+      "description": "Seleziona la lingua dell'app. La preferenza viene salvata localmente."
+    },
+    "users": {
+      "section_eyebrow": "Sicurezza",
+      "title": "Gestione utenti",
+      "new_user": "Nuovo utente",
+      "create_user": "Crea utente",
+      "username": "Username",
+      "password": "Password",
+      "name_optional": "Nome (opzionale)",
+      "you_label": "(tu)",
+      "loading": "Caricamento...",
+      "new_password_placeholder": "Nuova pw",
+      "title_reset": "Reset password",
+      "title_activate": "Attiva utente",
+      "title_deactivate": "Disattiva utente",
+      "role_admin": "Admin",
+      "role_ufficio": "Ufficio",
+      "role_magazzino": "Magazzino",
+      "msg_user_created": "Utente {{username}} creato",
+      "msg_user_credentials_required": "Username e password obbligatori",
+      "msg_password_reset": "Password resettata",
+      "msg_password_min_length": "Minimo 4 caratteri",
+      "msg_error_update": "Errore aggiornamento utente",
+      "msg_error_role": "Errore cambio ruolo",
+      "msg_error_reset": "Errore reset password"
+    },
+    "info": {
+      "section_eyebrow": "Sistema",
+      "title": "Informazioni applicazione",
+      "app": "Applicazione",
+      "version": "Versione",
+      "framework": "Framework",
+      "backend": "Backend",
+      "database": "Database",
+      "integration": "Integrazione"
+    }
+  }
+}
