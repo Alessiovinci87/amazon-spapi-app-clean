@@ -1,7 +1,13 @@
 const express = require("express");
+const { z } = require("zod");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const { verifyPassword } = require("../utils/password");
+const { validate } = require("../middleware/validate");
+
+const resetContatoreSchema = z.object({
+  password: z.string().min(1, "Password richiesta.").max(200),
+});
 
 // GET → ottieni contatore
 router.get("/produzione-counter", (req, res) => {
@@ -17,12 +23,8 @@ router.get("/produzione-counter", (req, res) => {
 
 // POST → reset contatore + pulizia prenotazioni NON completate
 // Richiede password admin nel body per operazione distruttiva
-router.post("/reset-contatore-produzione", (req, res) => {
+router.post("/reset-contatore-produzione", validate({ body: resetContatoreSchema }), (req, res) => {
     const { password } = req.body;
-
-    if (!password) {
-        return res.status(401).json({ ok: false, message: "Password richiesta." });
-    }
 
     const db = getDb();
     const row = db.prepare("SELECT valore FROM impostazioni WHERE chiave = 'admin_password'").get();

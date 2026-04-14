@@ -1,8 +1,49 @@
 // backend_v2/routes/fornitori.js
 
 const express = require("express");
+const { z } = require("zod");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { validate } = require("../middleware/validate");
+
+// ===== Schemas =====
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const idOrdineParam = z.object({ idOrdine: z.coerce.number().int().positive() });
+const idFornitoreParam = z.object({ idFornitore: z.coerce.number().int().positive() });
+
+const fornitoreBodySchema = z.object({
+  nome: z.string().min(1, "Il nome del fornitore è obbligatorio").max(200),
+  partitaIva: z.string().max(50).nullish(),
+  indirizzo: z.string().max(500).nullish(),
+  email: z.string().max(200).nullish(),
+  telefono: z.string().max(50).nullish(),
+});
+
+const fornitorePatchSchema = fornitoreBodySchema.partial();
+
+const ordineProdottoSchema = z.object({
+  id_sfuso: z.coerce.number().int().positive().nullish(),
+  asin: z.string().max(50).nullish(),
+  quantita_litri: z.coerce.number().nonnegative().optional(),
+}).passthrough();
+
+const creaOrdineSchema = z.object({
+  prodotti: z.array(ordineProdottoSchema).min(1, "Nessun prodotto fornito per l'ordine"),
+  stato: z.string().max(50).default("In attesa"),
+  dataOrdine: z.string().max(50).nullish(),
+  note: z.string().max(1000).nullish(),
+  consegna_prevista: z.string().max(50).nullish(),
+  consegnaPrevista: z.string().max(50).nullish(),
+});
+
+const riceviOrdineSchema = z.object({
+  quantita_ricevuta: z.coerce.number().positive().nullish(),
+  lotto: z.string().max(100).nullish(),
+  data_scadenza: z.string().max(50).nullish(),
+  operatore: z.string().max(100).nullish(),
+  numero_ddt: z.string().max(100).nullish(),
+  data_ricezione: z.string().max(50).nullish(),
+});
 
 /* ============================================================
    📋 ORDINE CORRETTO DELLE ROTTE
@@ -50,7 +91,7 @@ router.get("/ordini-tutti", (req, res) => {
 /* =============================
    🗑️ DELETE - Elimina un singolo ordine
 ============================= */
-router.delete("/ordini/:idOrdine", (req, res) => {
+router.delete("/ordini/:idOrdine", validate({ params: idOrdineParam }), (req, res) => {
   try {
     const db = getDb();
     const { idOrdine } = req.params;
@@ -79,7 +120,7 @@ router.delete("/ordini/:idOrdine", (req, res) => {
    ✅ PATCH - Conferma ricezione singolo ordine
    Aggiorna stock sfuso, registra movimento, segna come Consegnato
 ============================= */
-router.patch("/ordini/:idOrdine/ricevi", (req, res) => {
+router.patch("/ordini/:idOrdine/ricevi", validate({ params: idOrdineParam, body: riceviOrdineSchema }), (req, res) => {
   try {
     const db = getDb();
     const { idOrdine } = req.params;
@@ -283,12 +324,10 @@ router.get("/:id/prodotti", (req, res) => {
 /* =============================
    ➕ POST - Aggiungi nuovo fornitore
 ============================= */
-router.post("/", (req, res) => {
+router.post("/", validate({ body: fornitoreBodySchema }), (req, res) => {
   try {
     const db = getDb();
     const { nome, partitaIva, indirizzo, email, telefono } = req.body;
-    if (!nome)
-      return res.status(400).json({ error: "Il nome del fornitore è obbligatorio" });
 
     const result = db
       .prepare(`
@@ -307,7 +346,7 @@ router.post("/", (req, res) => {
 /* =============================
    🧾 POST - Crea nuovo ordine multiprodotto
 ============================= */
-router.post("/:idFornitore/ordini", (req, res) => {
+router.post("/:idFornitore/ordini", validate({ params: idFornitoreParam, body: creaOrdineSchema }), (req, res) => {
   try {
     const db = getDb();
     const { idFornitore } = req.params;
@@ -466,7 +505,7 @@ router.get("/ordini/asin/:asin", (req, res) => {
 /* =============================
    ✏️ PATCH - Modifica fornitore
 ============================= */
-router.patch("/:id", (req, res) => {
+router.patch("/:id", validate({ params: idParam, body: fornitorePatchSchema }), (req, res) => {
   try {
     const { id } = req.params;
     const { nome, partitaIva, indirizzo, email, telefono } = req.body;
@@ -497,7 +536,7 @@ router.patch("/:id", (req, res) => {
 /* =============================
    🗑️ DELETE - Elimina tutti gli ordini di un fornitore
 ============================= */
-router.delete("/:id/ordini", (req, res) => {
+router.delete("/:id/ordini", validate({ params: idParam }), (req, res) => {
   try {
     const { id } = req.params;
     const db = getDb();

@@ -2,18 +2,52 @@
 // Endpoint login, registrazione utenti, profilo, gestione utenti
 
 const express = require("express");
+const { z } = require("zod");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const { hashPassword, verifyPassword } = require("../utils/password");
 const { requireAuth, requireRole, generateToken } = require("../middleware/authMiddleware");
+const { validate } = require("../middleware/validate");
+
+// ===== Schemas =====
+const RUOLI = ["admin", "ufficio", "magazzino"];
+
+const loginSchema = z.object({
+  username: z.string().min(1, "Username richiesto.").max(50),
+  password: z.string().min(1, "Password richiesta.").max(200),
+});
+
+const cambioPasswordSchema = z.object({
+  passwordAttuale: z.string().min(1, "Password attuale richiesta."),
+  nuovaPassword: z.string().min(4, "La nuova password deve avere almeno 4 caratteri.").max(200),
+});
+
+const creaUtenteSchema = z.object({
+  username: z.string().min(1).max(50),
+  password: z.string().min(4, "Password di almeno 4 caratteri richiesta.").max(200),
+  ruolo: z.enum(RUOLI).optional(),
+  nome: z.string().max(100).nullish(),
+});
+
+const modificaUtenteSchema = z.object({
+  ruolo: z.enum(RUOLI).optional(),
+  attivo: z.boolean().optional(),
+  nome: z.string().max(100).nullish(),
+}).refine((d) => d.ruolo !== undefined || d.attivo !== undefined || d.nome !== undefined, {
+  message: "Nessun campo da aggiornare.",
+});
+
+const resetPasswordSchema = z.object({
+  nuovaPassword: z.string().min(4, "Password di almeno 4 caratteri richiesta.").max(200),
+});
+
+const idParamSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
 
 // POST /api/v2/auth-app/login — login con username + password, ritorna JWT
-router.post("/login", (req, res) => {
+router.post("/login", validate({ body: loginSchema }), (req, res) => {
   const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ ok: false, message: "Username e password richiesti." });
-  }
 
   const db = getDb();
   const user = db.prepare("SELECT * FROM utenti WHERE username = ? AND attivo = 1").get(username);
@@ -44,16 +78,8 @@ router.get("/me", requireAuth, (req, res) => {
 });
 
 // POST /api/v2/auth-app/cambio-password — cambio password (utente autenticato)
-router.post("/cambio-password", requireAuth, (req, res) => {
+router.post("/cambio-password", requireAuth, validate({ body: cambioPasswordSchema }), (req, res) => {
   const { passwordAttuale, nuovaPassword } = req.body;
-
-  if (!passwordAttuale || !nuovaPassword) {
-    return res.status(400).json({ ok: false, message: "Password attuale e nuova richieste." });
-  }
-
-  if (nuovaPassword.length < 4) {
-    return res.status(400).json({ ok: false, message: "La nuova password deve avere almeno 4 caratteri." });
-  }
 
   const db = getDb();
   const user = db.prepare("SELECT * FROM utenti WHERE id = ?").get(req.user.id);
@@ -78,90 +104,89 @@ router.get("/utenti", requireAuth, requireRole("admin"), (_req, res) => {
 });
 
 // POST /api/v2/auth-app/utenti — crea nuovo utente
-router.post("/utenti", requireAuth, requireRole("admin"), (req, res) => {
-  const { username, password, ruolo, nome } = req.body;
+router.post(
+  "/utenti",
+  requireAuth,
+  requireRole("admin"),
+  validate({ body: creaUtenteSchema }),
+  (req, res) => {
+    const { username, password, ruolo, nome } = req.body;
 
-  if (!username || !password) {
-    return res.status(400).json({ ok: false, message: "Username e password richiesti." });
+    const db = getDb();
+    const existing = db.prepare("SELECT 1 FROM utenti WHERE username = ?").get(username);
+    if (existing) {
+      return res.status(409).json({ ok: false, message: "Username già esistente." });
+    }
+
+    const hash = hashPassword(password);
+    const result = db.prepare(
+      "INSERT INTO utenti (username, password, ruolo, nome) VALUES (?, ?, ?, ?)"
+    ).run(username, hash, ruolo || "magazzino", nome || null);
+
+    res.status(201).json({ ok: true, id: result.lastInsertRowid, message: "Utente creato." });
   }
-
-  if (ruolo && !["admin", "ufficio", "magazzino"].includes(ruolo)) {
-    return res.status(400).json({ ok: false, message: "Ruolo non valido. Usa: admin, ufficio, magazzino." });
-  }
-
-  const db = getDb();
-  const existing = db.prepare("SELECT 1 FROM utenti WHERE username = ?").get(username);
-  if (existing) {
-    return res.status(409).json({ ok: false, message: "Username già esistente." });
-  }
-
-  const hash = hashPassword(password);
-  const result = db.prepare(
-    "INSERT INTO utenti (username, password, ruolo, nome) VALUES (?, ?, ?, ?)"
-  ).run(username, hash, ruolo || "magazzino", nome || null);
-
-  res.status(201).json({ ok: true, id: result.lastInsertRowid, message: "Utente creato." });
-});
+);
 
 // PATCH /api/v2/auth-app/utenti/:id — modifica utente (ruolo, attivo, nome)
-router.patch("/utenti/:id", requireAuth, requireRole("admin"), (req, res) => {
-  const { ruolo, attivo, nome } = req.body;
-  const { id } = req.params;
+router.patch(
+  "/utenti/:id",
+  requireAuth,
+  requireRole("admin"),
+  validate({ params: idParamSchema, body: modificaUtenteSchema }),
+  (req, res) => {
+    const { ruolo, attivo, nome } = req.body;
+    const { id } = req.params;
 
-  const db = getDb();
-  const user = db.prepare("SELECT * FROM utenti WHERE id = ?").get(id);
-  if (!user) {
-    return res.status(404).json({ ok: false, message: "Utente non trovato." });
-  }
-
-  const updates = [];
-  const params = [];
-
-  if (ruolo !== undefined) {
-    if (!["admin", "ufficio", "magazzino"].includes(ruolo)) {
-      return res.status(400).json({ ok: false, message: "Ruolo non valido." });
+    const db = getDb();
+    const user = db.prepare("SELECT * FROM utenti WHERE id = ?").get(id);
+    if (!user) {
+      return res.status(404).json({ ok: false, message: "Utente non trovato." });
     }
-    updates.push("ruolo = ?");
-    params.push(ruolo);
-  }
-  if (attivo !== undefined) {
-    updates.push("attivo = ?");
-    params.push(attivo ? 1 : 0);
-  }
-  if (nome !== undefined) {
-    updates.push("nome = ?");
-    params.push(nome);
-  }
 
-  if (updates.length === 0) {
-    return res.status(400).json({ ok: false, message: "Nessun campo da aggiornare." });
+    const updates = [];
+    const params = [];
+
+    if (ruolo !== undefined) {
+      updates.push("ruolo = ?");
+      params.push(ruolo);
+    }
+    if (attivo !== undefined) {
+      updates.push("attivo = ?");
+      params.push(attivo ? 1 : 0);
+    }
+    if (nome !== undefined) {
+      updates.push("nome = ?");
+      params.push(nome);
+    }
+
+    updates.push("updated_at = datetime('now','localtime')");
+    params.push(id);
+
+    db.prepare(`UPDATE utenti SET ${updates.join(", ")} WHERE id = ?`).run(...params);
+    res.json({ ok: true, message: "Utente aggiornato." });
   }
-
-  updates.push("updated_at = datetime('now','localtime')");
-  params.push(id);
-
-  db.prepare(`UPDATE utenti SET ${updates.join(", ")} WHERE id = ?`).run(...params);
-  res.json({ ok: true, message: "Utente aggiornato." });
-});
+);
 
 // POST /api/v2/auth-app/utenti/:id/reset-password — reset password (admin)
-router.post("/utenti/:id/reset-password", requireAuth, requireRole("admin"), (req, res) => {
-  const { nuovaPassword } = req.body;
-  const { id } = req.params;
+router.post(
+  "/utenti/:id/reset-password",
+  requireAuth,
+  requireRole("admin"),
+  validate({ params: idParamSchema, body: resetPasswordSchema }),
+  (req, res) => {
+    const { nuovaPassword } = req.body;
+    const { id } = req.params;
 
-  if (!nuovaPassword || nuovaPassword.length < 4) {
-    return res.status(400).json({ ok: false, message: "Password di almeno 4 caratteri richiesta." });
+    const db = getDb();
+    const hash = hashPassword(nuovaPassword);
+    const result = db.prepare("UPDATE utenti SET password = ?, updated_at = datetime('now','localtime') WHERE id = ?").run(hash, id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ ok: false, message: "Utente non trovato." });
+    }
+
+    res.json({ ok: true, message: "Password resettata." });
   }
-
-  const db = getDb();
-  const hash = hashPassword(nuovaPassword);
-  const result = db.prepare("UPDATE utenti SET password = ?, updated_at = datetime('now','localtime') WHERE id = ?").run(hash, id);
-
-  if (result.changes === 0) {
-    return res.status(404).json({ ok: false, message: "Utente non trovato." });
-  }
-
-  res.json({ ok: true, message: "Password resettata." });
-});
+);
 
 module.exports = router;

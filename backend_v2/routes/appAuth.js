@@ -2,21 +2,23 @@
 // Verifica la password admin dell'applicazione (memorizzata hashata nel DB)
 
 const express = require("express");
+const { z } = require("zod");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const { verifyPassword } = require("../utils/password");
+const { validate } = require("../middleware/validate");
+
+const verificaPasswordSchema = z.object({
+  password: z.string().min(1, "Password mancante.").max(200),
+});
 
 /**
  * POST /api/v2/app-auth/verifica-password
  * Body: { password: string }
  * Risposta: { ok: true } oppure 401
  */
-router.post("/verifica-password", (req, res) => {
+router.post("/verifica-password", validate({ body: verificaPasswordSchema }), (req, res) => {
   const { password } = req.body;
-
-  if (!password || typeof password !== "string") {
-    return res.status(400).json({ ok: false, message: "Password mancante." });
-  }
 
   const db = getDb();
   const row = db.prepare("SELECT valore FROM impostazioni WHERE chiave = 'admin_password'").get();
