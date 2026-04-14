@@ -2,10 +2,66 @@ const express = require("express");
 
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
 const { registraStoricoProduzione } = require("../services/storicoProduzioniSfuso.service");
 const { impegnaAccessori, rilasciaImpegno, scalaAccessori } = require("../services/accessoriImpegno.service");
 const { checkSottoSogliaSfuso, checkSfusoCopertura, checkScadenzaLotto } = require("../services/stockAlerts.service");
+
+// ─── Zod schemas ───────────────────────────────────────
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const asinParam = z.object({ asin: z.string().min(1).max(20) });
+
+const prenotazioneSchema = z.object({
+  id_sfuso: z.coerce.number().int().positive(),
+  lotto: z.string().max(80).nullish(),
+  pezzi: z.coerce.number().int().positive(),
+  accessori: z.object({
+    boccette: z.coerce.number().int().min(0).optional(),
+    tappini: z.coerce.number().int().min(0).optional(),
+    pennellini: z.coerce.number().int().min(0).optional(),
+  }).default({}),
+  priorita: z.string().max(20).nullish(),
+  note: z.string().max(1000).nullish(),
+  operatore: z.string().max(80).nullish(),
+  asin_prodotto: z.string().max(20).nullish(),
+  nome_prodotto: z.string().max(255).nullish(),
+});
+const sfusoCreateSchema = z.object({
+  nome_prodotto: z.string().min(1).max(255),
+  formato: z.string().min(1).max(40),
+  asin_collegati: z.array(z.string().max(20)).default([]),
+  litri_disponibili: z.coerce.number().min(0).default(5),
+  fornitore: z.string().max(120).default("N/D"),
+});
+const setAsinSchema = z.object({ asin: z.string().min(1).max(20) });
+const rettificaSchema = z.object({
+  quantita: z.coerce.number(),
+  operatore: z.string().min(1).max(80),
+  note: z.string().min(1).max(1000),
+});
+const rettificaOldSchema = z.object({
+  quantita_old: z.coerce.number(),
+  note: z.string().min(1).max(1000),
+  operatore: z.string().min(1).max(80),
+});
+const rettificaLottoSchema = z.object({
+  nuovoLotto: z.string().min(1).max(80),
+  dataInserimento: z.string().min(1).max(40),
+  note: z.string().max(1000).nullish(),
+  operatore: z.string().min(1).max(80),
+});
+// PATCH /:id usa "campo" + "nuovoValore" generici; passthrough per non rompere nulla
+const patchSfusoSchema = z.object({
+  campo: z.enum(["sfuso", "lotto", "data_scadenza", "pao_mesi"]),
+  nuovoValore: z.any().nullish(),
+  operatore: z.string().max(80).nullish(),
+  nota: z.string().max(1000).nullish(),
+}).passthrough();
+const resetStoricoSchema = z.object({
+  password: z.string().min(1).max(200),
+});
 
 
 
@@ -275,7 +331,7 @@ router.get("/storico-inventario", (req, res) => {
 // ===============================
 // POST /prenotazione (aggiornata per ProduzioneCard.jsx)
 // ===============================
-router.post("/prenotazione", (req, res) => {
+router.post("/prenotazione", validate({ body: prenotazioneSchema }), (req, res) => {
   const {
     id_sfuso,
     lotto,
@@ -524,7 +580,7 @@ router.post("/popola-default", (req, res) => {
 // ===============================
 // POST nuovo record sfuso
 // ===============================
-router.post("/", (req, res) => {
+router.post("/", validate({ body: sfusoCreateSchema }), (req, res) => {
   try {
     const db = getDb();
     const {
@@ -534,10 +590,6 @@ router.post("/", (req, res) => {
       litri_disponibili = 5,
       fornitore = "N/D",
     } = req.body;
-
-    if (!nome_prodotto || !formato) {
-      return res.status(400).json({ error: "Nome e formato sono obbligatori." });
-    }
 
     const asinJson = JSON.stringify(asin_collegati);
 
@@ -569,14 +621,9 @@ router.post("/", (req, res) => {
 // ============================================================
 // PATCH /api/v2/sfuso/:id/asin → aggiorna asin_collegato
 // ============================================================
-router.patch("/:id/asin", (req, res) => {
+router.patch("/:id/asin", validate({ params: idParam, body: setAsinSchema }), (req, res) => {
   const { id } = req.params;
   const { asin } = req.body;
-
-
-  if (!asin) {
-    return res.status(400).json({ ok: false, message: "ASIN mancante" });
-  }
 
   try {
     const db = getDb();
@@ -606,7 +653,7 @@ router.patch("/:id/asin", (req, res) => {
 // =====================================================
 // PATCH /sfuso/ricevi/:id → trasferisce litri_in_arrivo in litri_disponibili
 // =====================================================
-router.patch("/ricevi/:id", (req, res) => {
+router.patch("/ricevi/:id", validate({ params: idParam }), (req, res) => {
   const { id } = req.params;
 
   try {
@@ -660,13 +707,9 @@ router.patch("/ricevi/:id", (req, res) => {
 // =====================================================
 // PATCH rettifica sfuso da Gestione Sfuso Inventario
 // =====================================================
-router.patch("/:id/rettifica", (req, res) => {
+router.patch("/:id/rettifica", validate({ params: idParam, body: rettificaSchema }), (req, res) => {
   const { id } = req.params;
   const { quantita, operatore, note } = req.body;
-
-  if (!operatore || !note) {
-    return res.status(400).json({ error: "Operatore e nota sono obbligatori" });
-  }
 
   try {
     const db = getDb();
@@ -677,9 +720,6 @@ router.patch("/:id/rettifica", (req, res) => {
     }
 
     const valoreNumerico = Number(quantita);
-    if (isNaN(valoreNumerico)) {
-      return res.status(400).json({ error: "Valore non valido per sfuso" });
-    }
 
     // ✅ Aggiorna la quantità
     db.prepare("UPDATE sfuso SET litri_disponibili = ?, updated_at = datetime('now','localtime') WHERE id = ?")
@@ -734,13 +774,9 @@ router.patch("/:id/rettifica", (req, res) => {
 // ===============================
 // PATCH /api/v2/sfuso/:id/rettifica-old
 // ===============================
-router.patch("/:id/rettifica-old", (req, res) => {
+router.patch("/:id/rettifica-old", validate({ params: idParam, body: rettificaOldSchema }), (req, res) => {
   const { id } = req.params;
   const { quantita_old, note, operatore } = req.body;
-
-  if (quantita_old == null || !note || !operatore) {
-    return res.status(400).json({ error: "Dati mancanti." });
-  }
 
   try {
     const db = getDb();
@@ -822,14 +858,9 @@ router.patch("/:id/rettifica-old", (req, res) => {
 // =====================================================
 // PATCH rettifica lotto da Inventario Sfuso
 // =====================================================
-router.patch("/:id/rettifica-lotto", (req, res) => {
+router.patch("/:id/rettifica-lotto", validate({ params: idParam, body: rettificaLottoSchema }), (req, res) => {
   const { id } = req.params;
   const { nuovoLotto, dataInserimento, note, operatore } = req.body;
-
-  if (!nuovoLotto || !dataInserimento || !operatore) {
-    return res.status(400).json({ error: "Campi obbligatori mancanti (lotto, data o operatore)" });
-  }
-
 
   try {
     const db = getDb();
@@ -891,13 +922,9 @@ router.patch("/:id/rettifica-lotto", (req, res) => {
 // ===============================
 // PATCH /api/v2/sfuso/:id/rettifica-lotto-old
 // ===============================
-router.patch("/:id/rettifica-lotto-old", (req, res) => {
+router.patch("/:id/rettifica-lotto-old", validate({ params: idParam, body: rettificaLottoSchema }), (req, res) => {
   const { id } = req.params;
   const { nuovoLotto, dataInserimento, note, operatore } = req.body;
-
-  if (!nuovoLotto || !dataInserimento || !operatore) {
-    return res.status(400).json({ error: "Campi obbligatori mancanti (lotto, data o operatore)" });
-  }
 
   try {
     const db = getDb();
@@ -959,7 +986,7 @@ router.patch("/:id/rettifica-lotto-old", (req, res) => {
 // ===============================
 // PATCH rettifica diretta sfuso o lotto
 // ===============================
-router.patch("/:id", (req, res) => {
+router.patch("/:id", validate({ params: idParam, body: patchSfusoSchema }), (req, res) => {
 
   const { id } = req.params;
   const { campo, nuovoValore, operatore, nota } = req.body;
@@ -1058,7 +1085,7 @@ router.patch("/:id", (req, res) => {
 // ===============================
 // PATCH stato prenotazione
 // ===============================
-router.patch("/prenotazione/:id", async (req, res) => {
+router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res) => {
   const { id } = req.params;
   const { nuovoStato, prodotti, operatore, quantitaProdotta } = req.body;
 
@@ -1682,7 +1709,7 @@ router.patch("/prenotazione/:id", async (req, res) => {
 // ===============================
 // PATCH Conferma produzione SFUSO → aggiorna inventario
 // ===============================
-router.patch("/prenotazione/:id/conferma", (req, res) => {
+router.patch("/prenotazione/:id/conferma", validate({ params: idParam }), (req, res) => {
   try {
     const db = getDb();
     const { id } = req.params;
@@ -1768,7 +1795,7 @@ router.patch("/prenotazione/:id/conferma", (req, res) => {
 // ===============================
 // DELETE /api/v2/sfuso/:id → elimina uno sfuso
 // ===============================
-router.delete("/:id", (req, res) => {
+router.delete("/:id", validate({ params: idParam }), (req, res) => {
   try {
     const db = getDb();
     const { id } = req.params;
@@ -1804,12 +1831,8 @@ router.delete("/:id", (req, res) => {
 });
 
 
-router.delete("/storico-inventario/reset", (req, res) => {
+router.delete("/storico-inventario/reset", validate({ body: resetStoricoSchema }), (req, res) => {
   const { password } = req.body;
-
-  if (!password || typeof password !== "string") {
-    return res.status(400).json({ ok: false, message: "Password richiesta." });
-  }
 
   const db = getDb();
   const { verifyPassword } = require("../utils/password");
