@@ -1,6 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
+
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const idFornitoreParam = z.object({ idFornitore: z.coerce.number().int().positive() });
+const associaSchema = z.object({
+  id_sfuso: z.coerce.number().int().positive(),
+  prezzo: z.coerce.number().min(0).default(0),
+  note: z.string().max(500).nullish(),
+});
+const patchSchema = z.object({
+  prezzo: z.coerce.number().min(0).default(0),
+  note: z.string().max(500).nullish(),
+});
 
 // 📦 GET - Prodotti associati a un fornitore
 router.get("/:idFornitore/prodotti", (req, res) => {
@@ -74,14 +88,10 @@ router.get("/:idFornitore/catalogo", (req, res) => {
 
 
 // ➕ POST - Associa un prodotto a un fornitore
-router.post("/:idFornitore/prodotti", (req, res) => {
+router.post("/:idFornitore/prodotti", validate({ params: idFornitoreParam, body: associaSchema }), (req, res) => {
     const db = getDb();
     const { idFornitore } = req.params;
     const { id_sfuso, prezzo, note } = req.body;
-
-    if (!id_sfuso) {
-        return res.status(400).json({ error: "id_sfuso mancante" });
-    }
 
     try {
         const stmt = db.prepare(
@@ -100,7 +110,7 @@ router.post("/:idFornitore/prodotti", (req, res) => {
 });
 
 // ✏️ PATCH - Modifica prezzo o note
-router.patch("/:id", (req, res) => {
+router.patch("/:id", validate({ params: idParam, body: patchSchema }), (req, res) => {
     const db = getDb();
     const { id } = req.params;
     const { prezzo, note } = req.body;
@@ -119,7 +129,7 @@ router.patch("/:id", (req, res) => {
 });
 
 // 🗑️ DELETE - Rimuove associazione
-router.delete("/:id", (req, res) => {
+router.delete("/:id", validate({ params: idParam }), (req, res) => {
     const db = getDb();
     const { id } = req.params;
 

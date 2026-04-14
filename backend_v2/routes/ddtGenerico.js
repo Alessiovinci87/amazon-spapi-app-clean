@@ -3,8 +3,34 @@ const fs = require("fs");
 const path = require("path");
 const pdf = require("html-pdf-node");
 const { getDb } = require("../db/database");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
 
 const router = express.Router();
+
+const rigaSchema = z.object({
+  prodottoNome: z.string().max(255).default(""),
+  asin: z.string().max(20).default(""),
+  sku: z.string().max(80).default(""),
+  quantita: z.coerce.number().int().min(0).default(0),
+  cartone: z.string().max(40).default(""),
+  pacco: z.string().max(40).default(""),
+  lotto: z.string().max(80).nullish(),
+});
+const ddtPdfSchema = z.object({
+  brand: z.enum(["lookink", "cside", "pics"]).optional(),
+  numeroDDT: z.string().max(80).nullish(),
+  numeroAmazon: z.string().max(80).nullish(),
+  data: z.string().max(40).nullish(),
+  paese: z.string().max(120).nullish(),
+  centro: z.string().max(120).nullish(),
+  trasportatore: z.string().max(120).nullish(),
+  tracking: z.string().max(200).nullish(),
+  righe: z.array(rigaSchema).default([]),
+});
+const picsNailsPdfSchema = ddtPdfSchema.extend({
+  spedizioneProgressivo: z.union([z.string().max(40), z.coerce.number()]).nullish(),
+});
 
 // Il path Chrome viene letto dall'env, non hardcoded
 if (process.env.PUPPETEER_EXECUTABLE_PATH) {
@@ -115,7 +141,7 @@ function salvaDdtNelDb(db, brand, fields, righe, totUnita, totColli) {
 // ============================================================
 // POST -> genera PDF DDT generico
 // ============================================================
-router.post("/generico/pdf", async (req, res) => {
+router.post("/generico/pdf", validate({ body: ddtPdfSchema }), async (req, res) => {
   try {
     const {
       brand,
@@ -187,7 +213,7 @@ router.post("/generico/pdf", async (req, res) => {
 // ============================================================
 // POST -> genera PDF DDT Pics Nails (da spedizione)
 // ============================================================
-router.post("/pics-nails/pdf", async (req, res) => {
+router.post("/pics-nails/pdf", validate({ body: picsNailsPdfSchema }), async (req, res) => {
   try {
     const {
       numeroDDT,

@@ -7,8 +7,21 @@ const fs = require('fs');
 const path = require('path');
 const { getDb, getDbPath } = require('../db/database');
 const { verifyPassword } = require('../utils/password');
+const { z } = require('zod');
+const { validate } = require('../middleware/validate');
 
 const router = express.Router();
+
+const filenameParam = z.object({
+  filename: z.string().min(1).max(255).regex(/^[a-zA-Z0-9._-]+$/, "filename non valido"),
+});
+const restoreBodySchema = z.object({
+  password: z.string().max(200).optional(),
+  mode: z.enum(['replace', 'merge']).default('replace'),
+}).passthrough();
+const restoreDbBodySchema = z.object({
+  password: z.string().max(200).optional(),
+}).passthrough();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Guard: blocca tutti gli endpoint se siamo in production
@@ -122,7 +135,7 @@ router.get('/backup/db', (req, res) => {
 // POST /api/v2/dev/restore/:filename → ripristina da snapshot JSON
 // Body: { password, mode?: "replace" | "merge" }
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/restore/:filename', (req, res) => {
+router.post('/restore/:filename', validate({ params: filenameParam, body: restoreBodySchema }), (req, res) => {
   try {
     const file = safeBackupPath(req.params.filename);
     if (!fs.existsSync(file)) {
@@ -196,7 +209,7 @@ router.post('/restore/:filename', (req, res) => {
 // POST /api/v2/dev/restore/db/:filename → sostituisce il file inventario.db
 // Crea automaticamente un backup del DB corrente prima di sovrascrivere.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/restore/db/:filename', (req, res) => {
+router.post('/restore/db/:filename', validate({ params: filenameParam, body: restoreDbBodySchema }), (req, res) => {
   try {
     const src = safeBackupPath(req.params.filename);
     const dest = getDbPath();
