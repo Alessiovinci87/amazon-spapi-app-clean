@@ -9,7 +9,79 @@ const multer = require("multer");
 const { getDb } = require("../db/database");
 const axios = require("axios");
 const { sign } = require("aws4");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
 const { checkSottoSogliaModulo } = require("../services/stockAlerts.service");
+
+// ─── Zod schemas ───────────────────────────────────────
+const slugParam = z.object({ slug: z.string().regex(/^[a-z0-9-]+$/).max(60) });
+const slugAsinParam = slugParam.extend({ asin: z.string().min(1).max(20) });
+const slugIdParam = slugParam.extend({ id: z.coerce.number().int().positive() });
+const slugIdRigaParam = slugParam.extend({
+  id: z.coerce.number().int().positive(),
+  rigaId: z.coerce.number().int().positive(),
+});
+
+const moduloCreateSchema = z.object({
+  slug: z.string().regex(/^[a-z0-9-]+$/, "slug deve contenere solo lettere minuscole, numeri e trattini").max(60),
+  label: z.string().min(1).max(120),
+  icona: z.string().max(20).default("📦"),
+  stile_codice: z.enum(["numerico", "testuale"]).default("numerico"),
+  colore: z.string().max(40).default("blue"),
+});
+const moduloPatchSchema = z.object({
+  label: z.string().max(120).nullish(),
+  icona: z.string().max(20).nullish(),
+  stile_codice: z.enum(["numerico", "testuale"]).nullish(),
+  colore: z.string().max(40).nullish(),
+});
+const moduloDeleteSchema = z.object({ conferma: z.literal("DELETE") });
+const prodottoCreateSchema = z.object({
+  asin: z.string().min(1).max(20),
+  sku: z.string().max(80).nullish(),
+  codice_colore: z.string().max(40).nullish(),
+  nome: z.string().max(255).nullish(),
+  image_url: z.string().max(1000).nullish(),
+  soglia_minima: z.coerce.number().int().min(0).default(10),
+});
+const prodottoPatchSchema = z.object({
+  codice_colore: z.string().max(40).nullish(),
+  soglia_minima: z.coerce.number().int().min(0).nullish(),
+});
+const rettificaSchema = z.object({
+  asin: z.string().min(1).max(20),
+  nuova_quantita: z.coerce.number().int().min(0),
+  note: z.string().max(500).nullish(),
+  operatore: z.string().max(80).default("ufficio"),
+});
+const ordineCreateSchema = z.object({
+  fornitore: z.string().min(1).max(120),
+  data_consegna_prevista: z.string().max(40).nullish(),
+  note: z.string().max(500).nullish(),
+  operatore: z.string().max(80).default("ufficio"),
+  righe: z.array(z.object({
+    asin: z.string().min(1).max(20),
+    quantita_ordinata: z.coerce.number().int().positive(),
+  })).default([]),
+});
+const ordinePatchSchema = z.object({
+  stato: z.enum(["bozza", "confermato", "in_attesa", "ricevuto_parziale", "ricevuto", "annullato"]).nullish(),
+  fornitore: z.string().max(120).nullish(),
+  data_consegna_prevista: z.string().max(40).nullish(),
+  note: z.string().max(500).nullish(),
+});
+const rigaCreateSchema = z.object({
+  asin: z.string().min(1).max(20),
+  quantita_ordinata: z.coerce.number().int().positive(),
+});
+const riceviSchema = z.object({
+  operatore: z.string().max(80).default("magazzino"),
+  righe: z.array(z.object({
+    id_riga: z.coerce.number().int().positive(),
+    quantita_ricevuta: z.coerce.number().int().min(0),
+  })).default([]),
+});
+const resetSchema = z.object({ conferma: z.literal("RESET") });
 
 // ─── UPLOAD SETUP ──────────────────────────────────────────
 const UPLOAD_BASE = path.join(__dirname, "../../frontend/public/moduli-images");
@@ -89,13 +161,9 @@ router.get("/", (_req, res) => {
 
 // POST /api/v2/moduli — crea nuovo modulo
 // Body: { slug, label, icona?, stile_codice?, colore? }
-router.post("/", (req, res) => {
+router.post("/", validate({ body: moduloCreateSchema }), (req, res) => {
   try {
-    const { slug, label, icona = "📦", stile_codice = "numerico", colore = "blue" } = req.body;
-    if (!slug || !label) return res.status(400).json({ error: "slug e label obbligatori" });
-    if (!/^[a-z0-9-]+$/.test(slug)) return res.status(400).json({ error: "slug deve contenere solo lettere minuscole, numeri e trattini" });
-    if (!["numerico", "testuale"].includes(stile_codice)) return res.status(400).json({ error: "stile_codice deve essere 'numerico' o 'testuale'" });
-
+    const { slug, label, icona, stile_codice, colore } = req.body;
     const db = getDb();
     const exists = db.prepare("SELECT id FROM moduli_custom WHERE slug = ?").get(slug);
     if (exists) return res.status(409).json({ error: "slug già esistente" });
@@ -116,7 +184,7 @@ router.post("/", (req, res) => {
 router.get("/:slug", loadModulo, (req, res) => res.json(req.modulo));
 
 // PATCH /api/v2/moduli/:slug — aggiorna metadati modulo
-router.patch("/:slug", loadModulo, (req, res) => {
+router.patch("/:slug", validate({ params: slugParam, body: moduloPatchSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     const { label, icona, stile_codice, colore } = req.body;
@@ -136,11 +204,8 @@ router.patch("/:slug", loadModulo, (req, res) => {
 
 // DELETE /api/v2/moduli/:slug — elimina modulo + tutti i dati (CASCADE)
 // Body: { conferma: "RESET" }
-router.delete("/:slug", loadModulo, (req, res) => {
+router.delete("/:slug", validate({ params: slugParam, body: moduloDeleteSchema }), loadModulo, (req, res) => {
   try {
-    if (req.body?.conferma !== "DELETE") {
-      return res.status(400).json({ error: "Conferma mancante. Invia { conferma: 'DELETE' } per eliminare il modulo." });
-    }
     const db = getDb();
     db.prepare("DELETE FROM moduli_custom WHERE id = ?").run(req.modulo.id);
     res.json({ ok: true });
@@ -204,11 +269,10 @@ router.get("/:slug/prodotti/disponibili", loadModulo, (req, res) => {
 });
 
 // POST /api/v2/moduli/:slug/prodotti — aggiungi/upsert ASIN
-router.post("/:slug/prodotti", loadModulo, (req, res) => {
+router.post("/:slug/prodotti", validate({ params: slugParam, body: prodottoCreateSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     const { asin, sku, codice_colore, nome, image_url, soglia_minima = 10 } = req.body;
-    if (!asin) return res.status(400).json({ error: "asin obbligatorio" });
 
     db.prepare(`
       INSERT INTO moduli_prodotti (modulo_id, asin, sku, codice_colore, nome, image_url, soglia_minima)
@@ -227,7 +291,7 @@ router.post("/:slug/prodotti", loadModulo, (req, res) => {
 });
 
 // PATCH /api/v2/moduli/:slug/prodotti/:asin
-router.patch("/:slug/prodotti/:asin", loadModulo, (req, res) => {
+router.patch("/:slug/prodotti/:asin", validate({ params: slugAsinParam, body: prodottoPatchSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     const { codice_colore, soglia_minima } = req.body;
@@ -245,7 +309,7 @@ router.patch("/:slug/prodotti/:asin", loadModulo, (req, res) => {
 });
 
 // DELETE /api/v2/moduli/:slug/prodotti/:asin
-router.delete("/:slug/prodotti/:asin", loadModulo, (req, res) => {
+router.delete("/:slug/prodotti/:asin", validate({ params: slugAsinParam }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     db.prepare("DELETE FROM moduli_prodotti WHERE modulo_id = ? AND asin = ?").run(req.modulo.id, req.params.asin);
@@ -256,7 +320,7 @@ router.delete("/:slug/prodotti/:asin", loadModulo, (req, res) => {
 });
 
 // POST /api/v2/moduli/:slug/rettifica
-router.post("/:slug/rettifica", loadModulo, (req, res) => {
+router.post("/:slug/rettifica", validate({ params: slugParam, body: rettificaSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     const { asin, nuova_quantita, note, operatore = "ufficio" } = req.body;
@@ -327,11 +391,10 @@ router.get("/:slug/ordini/in-arrivo", loadModulo, (req, res) => {
 });
 
 // POST /api/v2/moduli/:slug/ordini — crea ordine
-router.post("/:slug/ordini", loadModulo, (req, res) => {
+router.post("/:slug/ordini", validate({ params: slugParam, body: ordineCreateSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
-    const { fornitore, data_consegna_prevista, note, operatore = "ufficio", righe = [] } = req.body;
-    if (!fornitore) return res.status(400).json({ error: "Fornitore obbligatorio" });
+    const { fornitore, data_consegna_prevista, note, operatore, righe = [] } = req.body;
 
     let idOrdine;
     db.transaction(() => {
@@ -354,7 +417,7 @@ router.post("/:slug/ordini", loadModulo, (req, res) => {
 });
 
 // PATCH /api/v2/moduli/:slug/ordini/:id
-router.patch("/:slug/ordini/:id", loadModulo, (req, res) => {
+router.patch("/:slug/ordini/:id", validate({ params: slugIdParam, body: ordinePatchSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     const { stato, fornitore, data_consegna_prevista, note } = req.body;
@@ -374,7 +437,7 @@ router.patch("/:slug/ordini/:id", loadModulo, (req, res) => {
 });
 
 // POST /api/v2/moduli/:slug/ordini/:id/righe
-router.post("/:slug/ordini/:id/righe", loadModulo, (req, res) => {
+router.post("/:slug/ordini/:id/righe", validate({ params: slugIdParam, body: rigaCreateSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     const { asin, quantita_ordinata } = req.body;
@@ -389,7 +452,7 @@ router.post("/:slug/ordini/:id/righe", loadModulo, (req, res) => {
 });
 
 // DELETE /api/v2/moduli/:slug/ordini/:id/righe/:rigaId
-router.delete("/:slug/ordini/:id/righe/:rigaId", loadModulo, (req, res) => {
+router.delete("/:slug/ordini/:id/righe/:rigaId", validate({ params: slugIdRigaParam }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     db.prepare("DELETE FROM moduli_ordini_righe WHERE id = ? AND id_ordine = ?").run(req.params.rigaId, req.params.id);
@@ -400,7 +463,7 @@ router.delete("/:slug/ordini/:id/righe/:rigaId", loadModulo, (req, res) => {
 });
 
 // POST /api/v2/moduli/:slug/ordini/:id/ricevi  — IDEMPOTENTE (calcolo su delta)
-router.post("/:slug/ordini/:id/ricevi", loadModulo, (req, res) => {
+router.post("/:slug/ordini/:id/ricevi", validate({ params: slugIdParam, body: riceviSchema }), loadModulo, (req, res) => {
   try {
     const db = getDb();
     const { operatore = "magazzino", righe = [] } = req.body;
@@ -498,11 +561,8 @@ router.get("/:slug/movimenti", loadModulo, (req, res) => {
 // ══════════════════════════════════════════════
 // RESET (svuota ordini, righe, movimenti, azzera stock)
 // ══════════════════════════════════════════════
-router.post("/:slug/reset", loadModulo, (req, res) => {
+router.post("/:slug/reset", validate({ params: slugParam, body: resetSchema }), loadModulo, (req, res) => {
   try {
-    if (req.body?.conferma !== "RESET") {
-      return res.status(400).json({ error: "Conferma mancante. Invia { conferma: 'RESET' }." });
-    }
     const db = getDb();
     const stats = {};
     db.transaction(() => {
@@ -525,7 +585,7 @@ router.post("/:slug/reset", loadModulo, (req, res) => {
 // UPLOAD IMMAGINE MANUALE
 // POST /api/v2/moduli/:slug/prodotti/:asin/immagine  (multipart, campo "immagine")
 // ══════════════════════════════════════════════
-router.post("/:slug/prodotti/:asin/immagine", loadModulo, upload.single("immagine"), (req, res) => {
+router.post("/:slug/prodotti/:asin/immagine", validate({ params: slugAsinParam }), loadModulo, upload.single("immagine"), (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Nessun file ricevuto" });
     const db = getDb();
