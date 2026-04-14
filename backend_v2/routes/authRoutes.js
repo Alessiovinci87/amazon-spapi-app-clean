@@ -3,11 +3,22 @@
 
 const express = require("express");
 const { z } = require("zod");
+const rateLimit = require("express-rate-limit");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const { hashPassword, verifyPassword } = require("../utils/password");
 const { requireAuth, requireRole, generateToken } = require("../middleware/authMiddleware");
 const { validate } = require("../middleware/validate");
+
+// Rate limit sul login: max 10 tentativi ogni 15 min per IP (conta solo i falliti)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { ok: false, message: "Troppi tentativi di login. Riprova tra qualche minuto." },
+});
 
 // ===== Schemas =====
 const RUOLI = ["admin", "ufficio", "magazzino"];
@@ -46,7 +57,7 @@ const idParamSchema = z.object({
 });
 
 // POST /api/v2/auth-app/login — login con username + password, ritorna JWT
-router.post("/login", validate({ body: loginSchema }), (req, res) => {
+router.post("/login", loginLimiter, validate({ body: loginSchema }), (req, res) => {
   const { username, password } = req.body;
 
   const db = getDb();
