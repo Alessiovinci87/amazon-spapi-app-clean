@@ -239,10 +239,17 @@ const DashboardVendite = () => {
 
         {loading ? (
           <div className="text-center py-16 text-slate-500">Caricamento...</div>
-        ) : !data || totals.unita_totali === 0 ? (
+        ) : !data || totals.fatturato_totale === 0 ? (
           <div className="text-center py-16">
             <ShoppingCart className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500">Nessun dato di vendita. Clicca "Aggiorna dati" per importare da Amazon.</p>
+            {totals.ultima_data_disponibile ? (
+              <p className="text-slate-500">
+                Nessun dato per il periodo selezionato.<br />
+                <span className="text-slate-600 text-xs">I dati Amazon sono disponibili fino al <strong className="text-slate-400">{totals.ultima_data_disponibile}</strong> (ritardo ~48h).</span>
+              </p>
+            ) : (
+              <p className="text-slate-500">Nessun dato di vendita. Clicca "Aggiorna dati" per importare da Amazon.</p>
+            )}
           </div>
         ) : (
           <>

@@ -23,6 +23,7 @@ function todayISO() {
 
 function ensureTable() {
   const db = getDb();
+  // Tabella per dettaglio ASIN (aggregato periodo intero)
   db.prepare(`
     CREATE TABLE IF NOT EXISTS sales_traffic (
       asin TEXT,
@@ -37,6 +38,21 @@ function ensureTable() {
       date TEXT NOT NULL DEFAULT '',
       created_at TEXT DEFAULT (datetime('now','localtime')),
       PRIMARY KEY (asin, country, date)
+    );
+  `).run();
+  // Tabella per dati giornalieri aggregati (da salesAndTrafficByDate)
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS sales_daily (
+      country TEXT NOT NULL,
+      date TEXT NOT NULL,
+      units_ordered INTEGER DEFAULT 0,
+      ordered_product_sales REAL DEFAULT 0,
+      sessions INTEGER DEFAULT 0,
+      page_views INTEGER DEFAULT 0,
+      unit_session_percentage REAL DEFAULT 0,
+      order_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      PRIMARY KEY (country, date)
     );
   `).run();
 }
@@ -79,25 +95,29 @@ async function aggiornaSalesTraffic() {
   const today = todayISO();
   let totalInserted = 0;
 
-  const insertStmt = db.prepare(`
+  const insertAsinStmt = db.prepare(`
     INSERT OR REPLACE INTO sales_traffic
     (asin, sku, country, units_ordered, ordered_product_sales,
      average_sales_per_unit, conversion_rate, sessions, page_views, date)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  const insertDailyStmt = db.prepare(`
+    INSERT OR REPLACE INTO sales_daily
+    (country, date, units_ordered, ordered_product_sales, sessions, page_views, unit_session_percentage, order_count)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
   for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
     console.log(`[SalesTraffic] Marketplace: ${country}`);
 
-    // Skip se abbiamo gia molti giorni di dati per questo country (non solo oggi)
+    // Skip se abbiamo gia molti giorni di dati per questo country e aggiornamento recente
     const dataCount = db.prepare(
-      "SELECT COUNT(DISTINCT date) AS days FROM sales_traffic WHERE country = ? AND date != ''"
+      "SELECT COUNT(DISTINCT date) AS days FROM sales_daily WHERE country = ?"
     ).get(country);
 
     if (dataCount && dataCount.days >= 30) {
-      // Gia abbastanza storico — controlla se aggiornato nelle ultime 12h
       const lastUpdate = db.prepare(
-        "SELECT MAX(created_at) AS last_ts FROM sales_traffic WHERE country = ?"
+        "SELECT MAX(created_at) AS last_ts FROM sales_daily WHERE country = ?"
       ).get(country);
       if (lastUpdate?.last_ts) {
         const hoursSince = (Date.now() - new Date(lastUpdate.last_ts).getTime()) / (1000 * 60 * 60);
@@ -185,60 +205,74 @@ async function aggiornaSalesTraffic() {
         // Parsing JSON
         const json = JSON.parse(text);
 
-        // Il report puo avere i dati in due formati:
-        // 1. json.salesAndTrafficByAsin (array diretto)
-        // 2. json.salesAndTrafficByDate[].salesAndTrafficByAsin (per giorno)
-        let asinRows = [];
-        let reportDate = today;
+        // Amazon restituisce DUE sezioni indipendenti:
+        // 1. salesAndTrafficByDate → aggregati giornalieri (totali per giorno) → salva in sales_daily
+        // 2. salesAndTrafficByAsin → dettaglio per ASIN (aggregato periodo intero) → salva in sales_traffic
+        let insertedDaily = 0;
+        let insertedAsin = 0;
 
-        if (Array.isArray(json?.salesAndTrafficByAsin)) {
-          asinRows = json.salesAndTrafficByAsin;
-        } else if (Array.isArray(json?.salesAndTrafficByDate)) {
-          // Estrai data dal primo giorno disponibile
-          for (const dayData of json.salesAndTrafficByDate) {
-            const dayDate = dayData.date || today;
-            const dayAsinRows = dayData.salesAndTrafficByAsin || [];
-            for (const r of dayAsinRows) {
-              r._reportDate = dayDate;
+        // --- SEZIONE 1: dati giornalieri (sales_daily) ---
+        if (Array.isArray(json?.salesAndTrafficByDate)) {
+          const insertDailyTx = db.transaction((rows) => {
+            for (const dayData of rows) {
+              const dayDate = dayData.date;
+              if (!dayDate) continue;
+              const sales = dayData.salesByDate || {};
+              const traffic = dayData.trafficByDate || {};
+              insertDailyStmt.run(
+                country,
+                dayDate,
+                sales.unitsOrdered || 0,
+                sales.orderedProductSales?.amount || 0,
+                traffic.sessions || 0,
+                traffic.pageViews || 0,
+                traffic.unitSessionPercentage || 0,
+                sales.orderCount || sales.ordersPlaced || 0
+              );
+              insertedDaily++;
             }
-            asinRows.push(...dayAsinRows);
-          }
+          });
+          insertDailyTx(json.salesAndTrafficByDate);
+          console.log(`[SalesTraffic] ${country}: ${insertedDaily} giorni salvati in sales_daily`);
         }
 
-        if (!asinRows.length) {
+        // --- SEZIONE 2: dettaglio per ASIN (sales_traffic) ---
+        const asinRows = Array.isArray(json?.salesAndTrafficByAsin)
+          ? json.salesAndTrafficByAsin : [];
+
+        if (asinRows.length) {
+          const insertAsinTx = db.transaction((rows) => {
+            for (const r of rows) {
+              const asin = r.parentAsin || r.childAsin || "";
+              const stats = r.salesByAsin || {};
+              const traffic = r.trafficByAsin || {};
+              insertAsinStmt.run(
+                asin,
+                r.sku || "",
+                country,
+                stats.unitsOrdered || 0,
+                stats.orderedProductSales?.amount || 0,
+                stats.unitsOrdered
+                  ? (stats.orderedProductSales?.amount || 0) / stats.unitsOrdered
+                  : 0,
+                traffic.unitSessionPercentage || 0,
+                traffic.sessions || 0,
+                traffic.pageViews || 0,
+                today // ASIN data è aggregata sull'intero periodo
+              );
+              insertedAsin++;
+            }
+          });
+          insertAsinTx(asinRows);
+        }
+
+        if (!insertedDaily && !insertedAsin) {
           console.warn(`[SalesTraffic] Nessun dato nel report per ${country}`);
           break;
         }
 
-        let inserted = 0;
-        const insertMany = db.transaction((rows) => {
-          for (const r of rows) {
-            const asin = r.parentAsin || r.asin || "";
-            const stats = r.salesByAsin || {};
-            const traffic = r.trafficByAsin || {};
-            const rowDate = r._reportDate || today;
-
-            insertStmt.run(
-              asin,
-              r.sku || "",
-              country,
-              stats.unitsOrdered || 0,
-              stats.orderedProductSales?.amount || 0,
-              stats.unitsOrdered
-                ? (stats.orderedProductSales?.amount || 0) / stats.unitsOrdered
-                : 0,
-              traffic.unitSessionPercentage || 0,
-              traffic.sessions || 0,
-              traffic.pageViews || 0,
-              rowDate
-            );
-            inserted++;
-          }
-        });
-
-        insertMany(asinRows);
-        console.log(`[SalesTraffic] ${country}: ${inserted} righe salvate`);
-        totalInserted += inserted;
+        console.log(`[SalesTraffic] ${country}: ${insertedAsin} ASIN salvati in sales_traffic`);
+        totalInserted += insertedDaily + insertedAsin;
         success = true;
       } catch (err) {
         lastError = err;

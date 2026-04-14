@@ -82,44 +82,55 @@ router.get("/sales-traffic", async (req, res) => {
 
 // 📊 GET → riepilogo vendite aggregato (con filtro date opzionale)
 // Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Usa sales_daily per totali/trend (dati giornalieri reali da Amazon)
+// Usa sales_traffic per dettaglio ASIN (aggregato intero periodo)
 router.get("/sales-traffic/summary", async (req, res) => {
   try {
     const { getDb } = require("../../db/database");
     const db = getDb();
     const { from, to } = req.query;
 
-    const dateFilter = (from && to) ? "WHERE date >= ? AND date <= ? AND date != ''" : "WHERE date != ''";
+    // Filtro date per sales_daily (dati giornalieri)
+    const dailyFilter = (from && to) ? "WHERE date >= ? AND date <= ?" : "WHERE 1=1";
     const dateParams = (from && to) ? [from, to] : [];
 
-    // Totali nel periodo
+    // Totali nel periodo (da sales_daily)
     const totals = db.prepare(`
       SELECT
         COALESCE(SUM(units_ordered), 0) AS unita_totali,
         COALESCE(SUM(ordered_product_sales), 0) AS fatturato_totale,
-        COUNT(DISTINCT asin) AS asin_attivi,
         COUNT(DISTINCT country) AS marketplace_attivi,
         COUNT(DISTINCT date) AS giorni_con_dati,
         MIN(date) AS data_inizio,
-        MAX(date) AS data_fine
-      FROM sales_traffic ${dateFilter}
+        MAX(date) AS data_fine,
+        COALESCE(SUM(order_count), 0) AS ordini_totali
+      FROM sales_daily ${dailyFilter}
     `).get(...dateParams);
 
-    // Per marketplace
+    // Conta ASIN attivi da sales_traffic
+    const asinCount = db.prepare(
+      "SELECT COUNT(DISTINCT asin) AS cnt FROM sales_traffic WHERE asin != ''"
+    ).get();
+    totals.asin_attivi = asinCount?.cnt || 0;
+
+    // Data più recente disponibile nel DB (utile quando il range selezionato non ha dati)
+    const lastAvailable = db.prepare(
+      "SELECT MAX(date) AS ultima_data FROM sales_daily"
+    ).get();
+    totals.ultima_data_disponibile = lastAvailable?.ultima_data || null;
+
+    // Per marketplace (da sales_daily)
     const perMarketplace = db.prepare(`
       SELECT country,
         SUM(units_ordered) AS unita,
         SUM(ordered_product_sales) AS fatturato,
-        COUNT(DISTINCT asin) AS asin_count
-      FROM sales_traffic ${dateFilter}
+        COUNT(DISTINCT date) AS giorni
+      FROM sales_daily ${dailyFilter}
       GROUP BY country
       ORDER BY fatturato DESC
     `).all(...dateParams);
 
-    // Top ASIN per fatturato (con nome dal catalogo)
-    const stDateFilter = (from && to)
-      ? "WHERE st.date >= ? AND st.date <= ? AND st.date != ''"
-      : "WHERE st.date != ''";
-
+    // Top ASIN per fatturato (da sales_traffic — aggregato periodo intero, no filtro date)
     const topAsin = db.prepare(`
       SELECT st.asin, st.sku,
         SUM(st.units_ordered) AS unita,
@@ -130,19 +141,19 @@ router.get("/sales-traffic/summary", async (req, res) => {
       FROM sales_traffic st
       LEFT JOIN product_catalog pc ON pc.asin = st.asin
       LEFT JOIN amazon_listings al ON al.asin = st.asin
-      ${stDateFilter}
+      WHERE st.asin != ''
       GROUP BY st.asin
       ORDER BY fatturato DESC
       LIMIT 50
-    `).all(...dateParams);
+    `).all();
 
-    // Per data (trend) — tutte le date nel range, ordine cronologico
+    // Per data — trend giornaliero (da sales_daily)
     const perData = db.prepare(`
       SELECT date,
         SUM(units_ordered) AS unita,
         SUM(ordered_product_sales) AS fatturato,
         SUM(sessions) AS sessioni
-      FROM sales_traffic ${dateFilter}
+      FROM sales_daily ${dailyFilter}
       GROUP BY date
       ORDER BY date ASC
     `).all(...dateParams);
@@ -166,7 +177,7 @@ router.get("/sales-traffic/compare", (req, res) => {
           COALESCE(SUM(units_ordered), 0) AS unita,
           COALESCE(SUM(ordered_product_sales), 0) AS fatturato,
           COALESCE(SUM(sessions), 0) AS sessioni
-        FROM sales_traffic
+        FROM sales_daily
         WHERE date >= ? AND date <= ?
       `).get(startDate, endDate);
     }
@@ -198,17 +209,11 @@ router.get("/sales-traffic/compare", (req, res) => {
 });
 
 // 📊 GET → margine per prodotto (fatturato - fees - costo produzione)
-// Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+// Nota: i dati ASIN sono aggregati sull'intero periodo del report (365gg), non filtrabili per data
 router.get("/sales-traffic/margins", (req, res) => {
   try {
     const { getDb } = require("../../db/database");
     const db = getDb();
-    const { from, to } = req.query;
-
-    const dateFilter = (from && to)
-      ? "AND st.date >= ? AND st.date <= ? AND st.date != ''"
-      : "AND st.date != ''";
-    const dateParams = (from && to) ? [from, to] : [];
 
     const rows = db.prepare(`
       SELECT
@@ -225,11 +230,11 @@ router.get("/sales-traffic/margins", (req, res) => {
       LEFT JOIN bilancio_catalogo bc ON bc.tipo = 'prodotto' AND bc.id_riferimento = p.rowid
       LEFT JOIN product_catalog pc ON pc.asin = st.asin
       LEFT JOIN amazon_listings al ON al.asin = st.asin
-      WHERE st.units_ordered > 0 ${dateFilter}
+      WHERE st.units_ordered > 0 AND st.asin != ''
       GROUP BY st.asin
       ORDER BY fatturato DESC
       LIMIT 50
-    `).all(...dateParams);
+    `).all();
 
     const result = rows.map((r) => {
       const feeTotale = (r.fee_media || 0) * (r.unita || 0);
