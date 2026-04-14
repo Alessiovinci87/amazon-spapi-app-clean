@@ -4,15 +4,17 @@ import {
   AlertDescription,
 } from "@/components/ui/alert";
 import { InfoIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 const Alert = () => {
+  const { t } = useTranslation();
   return (
     <div className="p-4">
       <ShadcnAlert>
         <InfoIcon className="h-4 w-4" />
-        <AlertTitle>Benvenuto nel gestionale Amazon</AlertTitle>
+        <AlertTitle>{t("alert.welcome_title")}</AlertTitle>
         <AlertDescription>
-          Seleziona una sezione dal menu per iniziare.
+          {t("alert.welcome_desc")}
         </AlertDescription>
       </ShadcnAlert>
     </div>

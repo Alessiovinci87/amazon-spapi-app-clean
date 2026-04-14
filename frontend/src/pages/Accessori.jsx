@@ -1,6 +1,7 @@
 // src/pages/Accessori.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import AccessorioCard from "../components/inventario/AccessorioCard";
 import {
   ArrowLeft,
@@ -68,13 +69,13 @@ function StatTile({ icon: Icon, label, value, accent = "orange" }) {
   );
 }
 
-const FILTERS = [
-  { key: "tutti", label: "Tutti", icon: Box },
-  { key: "12ml", label: "12ml", icon: Droplet },
-  { key: "100ml", label: "100ml", icon: Package },
-];
-
 const Accessori = () => {
+  const { t } = useTranslation();
+  const FILTERS = [
+    { key: "tutti", label: t("common.tutti"), icon: Box },
+    { key: "12ml", label: "12ml", icon: Droplet },
+    { key: "100ml", label: "100ml", icon: Package },
+  ];
   const [accessori, setAccessori] = useState([]);
   const [filtro, setFiltro] = useState("tutti");
   const navigate = useNavigate();
@@ -153,7 +154,7 @@ const Accessori = () => {
             <button
               onClick={() => navigate("/magazzino")}
               type="button"
-              title="Indietro"
+              title={t("common.back")}
               className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -162,8 +163,8 @@ const Accessori = () => {
               <Wrench className="w-[18px] h-[18px] text-orange-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Accessori</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Magazzino</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("accessori.title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("accessori.topbar_eyebrow")}</span>
             </div>
           </div>
 
@@ -174,7 +175,7 @@ const Accessori = () => {
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all"
             >
               <FileText className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Storico</span>
+              <span className="hidden sm:inline">{t("common.storico")}</span>
             </button>
             <button
               onClick={() => navigate("/magazzino")}
@@ -182,7 +183,7 @@ const Accessori = () => {
               className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
             >
               <LogOut className="w-3.5 h-3.5" />
-              Magazzino
+              {t("common.magazzino")}
             </button>
           </div>
         </div>
@@ -194,13 +195,13 @@ const Accessori = () => {
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="min-w-0">
               <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
-                Accessori · Magazzino
+                {t("accessori.page_eyebrow")}
               </div>
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-                Boccette, tappini e pennellini <span className="text-slate-500">— per formato.</span>
+                {t("accessori.hero_title_main")} <span className="text-slate-500">{t("accessori.hero_title_suffix")}</span>
               </h1>
               <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-                Gestione stock accessori per prodotti 12ml e 100ml.
+                {t("accessori.intro")}
               </p>
             </div>
           </div>
@@ -244,9 +245,9 @@ const Accessori = () => {
         {/* Stats */}
         {accessori.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatTile icon={Droplet} label="Accessori 12ml" value={accessori12.length} accent="emerald" />
-            <StatTile icon={Package} label="Accessori 100ml" value={accessori100.length} accent="blue" />
-            <StatTile icon={Box} label="Totale accessori" value={accessori.length} accent="orange" />
+            <StatTile icon={Droplet} label={t("accessori.sec12_title")} value={accessori12.length} accent="emerald" />
+            <StatTile icon={Package} label={t("accessori.sec100_title")} value={accessori100.length} accent="blue" />
+            <StatTile icon={Box} label={t("accessori.stat_total")} value={accessori.length} accent="orange" />
           </div>
         )}
 
@@ -255,15 +256,15 @@ const Accessori = () => {
           <SectionCard
             accent="emerald"
             icon={Droplet}
-            eyebrow="Formato piccolo"
-            title="Accessori 12ml"
+            eyebrow={t("accessori.sec12_eyebrow")}
+            title={t("accessori.sec12_title")}
             badge={
               <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">
-                {accessori12.length} accessori
+                {t("accessori.count_badge", { n: accessori12.length })}
               </span>
             }
           >
-            {accessori12.length > 0 ? renderGrid(accessori12) : emptyState("Nessun accessorio 12ml trovato")}
+            {accessori12.length > 0 ? renderGrid(accessori12) : emptyState(t("accessori.empty12"))}
           </SectionCard>
         )}
 
@@ -271,15 +272,15 @@ const Accessori = () => {
           <SectionCard
             accent="blue"
             icon={Package}
-            eyebrow="Formato grande"
-            title="Accessori 100ml"
+            eyebrow={t("accessori.sec100_eyebrow")}
+            title={t("accessori.sec100_title")}
             badge={
               <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-medium tabular-nums">
-                {accessori100.length} accessori
+                {t("accessori.count_badge", { n: accessori100.length })}
               </span>
             }
           >
-            {accessori100.length > 0 ? renderGrid(accessori100) : emptyState("Nessun accessorio 100ml trovato")}
+            {accessori100.length > 0 ? renderGrid(accessori100) : emptyState(t("accessori.empty100"))}
           </SectionCard>
         )}
 
@@ -289,8 +290,8 @@ const Accessori = () => {
             <div className="w-14 h-14 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto mb-4">
               <Wrench className="w-6 h-6 text-slate-600" />
             </div>
-            <h3 className="text-base font-semibold text-white mb-1">Nessun accessorio disponibile</h3>
-            <p className="text-sm text-slate-500">Gli accessori appariranno qui una volta caricati dal database</p>
+            <h3 className="text-base font-semibold text-white mb-1">{t("accessori.empty_global_title")}</h3>
+            <p className="text-sm text-slate-500">{t("accessori.empty_global_desc")}</p>
           </div>
         )}
       </main>
@@ -298,7 +299,7 @@ const Accessori = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/30">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>Nexus · Gestione Accessori</span>
+          <span>Nexus · {t("accessori.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

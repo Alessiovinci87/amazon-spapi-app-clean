@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -21,17 +22,17 @@ import {
 } from "lucide-react";
 
 /* ── Configurazione categorie ──────────────────────────────── */
-const CATEGORIES = [
-  { key: "prodotti",   label: "Inventario Prodotti",  icon: Boxes,        color: "blue" },
-  { key: "accessori",  label: "Accessori",            icon: Package,      color: "amber" },
-  { key: "sfuso",      label: "Sfuso",                icon: AlertTriangle, color: "orange" },
-  { key: "onestep",    label: "One Step",             icon: Sparkles,     color: "pink" },
-  { key: "topcoat",    label: "Top Coat",             icon: Sparkles,     color: "cyan" },
-  { key: "modulo",     label: "Moduli Custom",        icon: Puzzle,       color: "purple" },
-  { key: "scatolette", label: "Scatolette",            icon: Box,          color: "teal" },
-  { key: "etichette",  label: "Etichette",             icon: Tag,          color: "indigo" },
-  { key: "lotti",      label: "Scadenze Lotti",        icon: CalendarX2,   color: "red" },
-  { key: "europa",     label: "Europa SP-API",         icon: TrendingDown, color: "rose" },
+const CATEGORY_KEYS = [
+  { key: "prodotti",   icon: Boxes,        color: "blue" },
+  { key: "accessori",  icon: Package,      color: "amber" },
+  { key: "sfuso",      icon: AlertTriangle, color: "orange" },
+  { key: "onestep",    icon: Sparkles,     color: "pink" },
+  { key: "topcoat",    icon: Sparkles,     color: "cyan" },
+  { key: "modulo",     icon: Puzzle,       color: "purple" },
+  { key: "scatolette", icon: Box,          color: "teal" },
+  { key: "etichette",  icon: Tag,          color: "indigo" },
+  { key: "lotti",      icon: CalendarX2,   color: "red" },
+  { key: "europa",     icon: TrendingDown, color: "rose" },
 ];
 
 const COLOR_MAP = {
@@ -84,6 +85,8 @@ const TIPO_ICON = {
 /* ── Componente principale ──────────────────────────────────── */
 const CentroAlert = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
+  const CATEGORIES = CATEGORY_KEYS.map(c => ({ ...c, label: t(`centroAlert.cat_${c.key}`) }));
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rigenerando, setRigenerando] = useState(false);
@@ -101,11 +104,11 @@ const CentroAlert = () => {
       const json = await res.json();
       setAlerts(json.events ?? []);
     } catch {
-      toast.error("Errore nel caricamento alert");
+      toast.error(t("centroAlert.toast_error_load"));
     } finally {
       setLoading(false);
     }
-  }, [filterStato]);
+  }, [filterStato, t]);
 
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
@@ -117,7 +120,7 @@ const CentroAlert = () => {
   const segnaTuttiLetti = async () => {
     await fetch("/api/v2/europa/alert-events/leggi-tutti", { method: "PATCH" });
     setAlerts([]);
-    toast.success("Tutti gli alert segnati come letti");
+    toast.success(t("centroAlert.toast_tutti_letti"));
   };
 
   const rigeneraAlert = async () => {
@@ -126,7 +129,7 @@ const CentroAlert = () => {
       const res = await fetch("/api/v2/europa/alert-events/rigenera-stock", { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Errore");
-      toast.success(`Scansione: ${json.totaleScansionati} prodotti, ${json.alertAperti?.delta ?? 0} nuovi alert`);
+      toast.success(t("centroAlert.toast_scansione", { tot: json.totaleScansionati, nuovi: json.alertAperti?.delta ?? 0 }));
       await fetchAlerts();
     } catch (e) {
       toast.error(e.message);
@@ -169,26 +172,26 @@ const CentroAlert = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/dashboard")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/dashboard")} type="button" title={t("common.back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/40 flex items-center justify-center flex-shrink-0">
               <Bell className="w-[18px] h-[18px] text-amber-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Centro Alert</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Notifiche</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("centroAlert.title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("centroAlert.topbar_eyebrow")}</span>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <button onClick={rigeneraAlert} disabled={rigenerando} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-[12px] font-medium transition-all disabled:opacity-50">
               <RefreshCw className={`w-3.5 h-3.5 ${rigenerando ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Rigenera</span>
+              <span className="hidden sm:inline">{t("centroAlert.btn_rigenera")}</span>
             </button>
             {filterStato === "non_letti" && alerts.length > 0 && (
               <button onClick={segnaTuttiLetti} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-[12px] font-medium transition-all">
                 <CheckCheck className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Tutti letti</span>
+                <span className="hidden sm:inline">{t("centroAlert.btn_tutti_letti")}</span>
               </button>
             )}
           </div>
@@ -198,9 +201,9 @@ const CentroAlert = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Notifiche</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("centroAlert.page_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Centro Alert <span className="text-slate-500">— tutti gli avvisi per categoria.</span>
+            {t("centroAlert.hero_title_main")} <span className="text-slate-500">{t("centroAlert.hero_title_suffix")}</span>
           </h1>
         </div>
       </section>
@@ -240,7 +243,7 @@ const CentroAlert = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
-              placeholder="Cerca ASIN o messaggio..."
+              placeholder={t("centroAlert.search_placeholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 rounded-md bg-slate-900/60 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500/60 focus:border-blue-500/60 transition-colors"
@@ -248,9 +251,9 @@ const CentroAlert = () => {
           </div>
           <div className="flex items-center gap-1 bg-slate-900/60 border border-slate-800 rounded-md p-0.5">
             {[
-              { key: "non_letti", label: "Non letti" },
-              { key: "letti", label: "Letti" },
-              { key: "tutti", label: "Tutti" },
+              { key: "non_letti", label: t("centroAlert.filter_non_letti") },
+              { key: "letti", label: t("centroAlert.filter_letti") },
+              { key: "tutti", label: t("centroAlert.filter_tutti") },
             ].map((s) => (
               <button
                 key={s.key}
@@ -269,18 +272,18 @@ const CentroAlert = () => {
           {filterCat !== "all" && (
             <button onClick={() => setFilterCat("all")} type="button" className="flex items-center gap-1 px-2 py-1.5 rounded-md bg-slate-800 border border-slate-700 text-xs text-slate-400 hover:text-white transition-colors">
               <Filter className="w-3 h-3" />
-              Rimuovi filtro
+              {t("centroAlert.btn_remove_filter")}
             </button>
           )}
         </div>
 
         {/* Lista raggruppata */}
         {loading ? (
-          <div className="text-center py-16 text-slate-500">Caricamento...</div>
+          <div className="text-center py-16 text-slate-500">{t("centroAlert.loading")}</div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
             <Bell className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500">Nessun alert trovato</p>
+            <p className="text-slate-500">{t("centroAlert.empty_text")}</p>
           </div>
         ) : (
           CATEGORIES.filter((cat) => filterCat === "all" || filterCat === cat.key)
@@ -331,7 +334,7 @@ const CentroAlert = () => {
                               <button
                                 onClick={() => segnaLetto(alert.id)}
                                 className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-emerald-400 transition-all mt-0.5"
-                                title="Segna come letto"
+                                title={t("centroAlert.title_segna_letto")}
                               >
                                 <CheckCheck className="w-4 h-4" />
                               </button>
@@ -350,7 +353,7 @@ const CentroAlert = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>&copy; {new Date().getFullYear()} Nexus &middot; Centro Alert</span>
+          <span>&copy; {new Date().getFullYear()} Nexus &middot; {t("centroAlert.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>
