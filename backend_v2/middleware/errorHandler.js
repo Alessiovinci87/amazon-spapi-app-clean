@@ -1,3 +1,5 @@
+const logger = require("../utils/logger");
+
 function notFoundHandler(req, res, next) {
   res.status(404).json({
     ok: false,
@@ -6,12 +8,11 @@ function notFoundHandler(req, res, next) {
 }
 
 function errorHandler(err, req, res, next) {
-  console.error('❌ Error:', err);
+  (req.log || logger).error({ err, url: req.originalUrl }, "Errore richiesta");
 
   res.status(err.status || 500).json({
     ok: false,
     message: err.message || 'Errore interno del server',
-    // mostra lo stack solo se sei in sviluppo
     stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 }

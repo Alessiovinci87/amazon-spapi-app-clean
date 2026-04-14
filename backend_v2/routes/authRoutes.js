@@ -9,6 +9,7 @@ const { getDb } = require("../db/database");
 const { hashPassword, verifyPassword } = require("../utils/password");
 const { requireAuth, requireRole, generateToken } = require("../middleware/authMiddleware");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 // Rate limit sul login: max 10 tentativi ogni 15 min per IP (conta solo i falliti)
 const loginLimiter = rateLimit({
@@ -64,10 +65,12 @@ router.post("/login", loginLimiter, validate({ body: loginSchema }), (req, res) 
   const user = db.prepare("SELECT * FROM utenti WHERE username = ? AND attivo = 1").get(username);
 
   if (!user || !verifyPassword(password, user.password)) {
+    logger.warn({ event: "login_failed", username, ip: req.ip }, "Login fallito");
     return res.status(401).json({ ok: false, message: "Credenziali non valide." });
   }
 
   const token = generateToken(user);
+  logger.info({ event: "login_success", userId: user.id, username: user.username, ruolo: user.ruolo, ip: req.ip }, "Login riuscito");
 
   res.json({
     ok: true,
