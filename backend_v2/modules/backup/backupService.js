@@ -7,14 +7,55 @@ const cron = require("node-cron");
 const { getDb, getDbPath } = require("../../db/database");
 
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(path.dirname(getDbPath()), "backups");
+const BACKUP_DIR_SECONDARY = process.env.BACKUP_DIR_SECONDARY || "";
 const MAX_BACKUPS = parseInt(process.env.BACKUP_MAX_KEEP, 10) || 7;
-const BACKUP_CRON = process.env.BACKUP_CRON || "0 2 * * *"; // ogni notte alle 02:00
+// Default: ogni 4 ore dalle 10:00 alle 22:00 (PC spento di notte)
+const BACKUP_CRON = process.env.BACKUP_CRON || "0 10,14,18,22 * * *";
+// Se ultimo backup più vecchio di queste ore, fai un backup all'avvio
+const BACKUP_STARTUP_MAX_AGE_HOURS = parseInt(process.env.BACKUP_STARTUP_MAX_AGE_HOURS, 10) || 12;
 
 let lastBackup = null;
 
-function ensureBackupDir() {
-  if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+function ensureBackupDir(dir = BACKUP_DIR) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+/**
+ * Copia l'ultimo backup nella directory secondaria (se configurata)
+ * e applica la rotazione su di essa.
+ */
+function mirrorToSecondary(sourcePath, filename) {
+  if (!BACKUP_DIR_SECONDARY) return;
+  try {
+    ensureBackupDir(BACKUP_DIR_SECONDARY);
+    const destPath = path.join(BACKUP_DIR_SECONDARY, filename);
+    fs.copyFileSync(sourcePath, destPath);
+    console.log(`🪞 Backup copiato su secondario: ${destPath}`);
+    rotateBackupsInDir(BACKUP_DIR_SECONDARY);
+  } catch (err) {
+    console.error(`❌ Errore copia backup secondario (${BACKUP_DIR_SECONDARY}):`, err.message);
+  }
+}
+
+function rotateBackupsInDir(dir) {
+  ensureBackupDir(dir);
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.startsWith("inventario_") && f.endsWith(".db"))
+    .map((f) => ({
+      name: f,
+      path: path.join(dir, f),
+      mtime: fs.statSync(path.join(dir, f)).mtimeMs,
+    }))
+    .sort((a, b) => b.mtime - a.mtime);
+
+  if (files.length > MAX_BACKUPS) {
+    for (const f of files.slice(MAX_BACKUPS)) {
+      fs.unlinkSync(f.path);
+      console.log(`🗑️  Backup rimosso (rotazione, ${dir}): ${f.name}`);
+    }
   }
 }
 
@@ -49,33 +90,16 @@ async function runBackup(manual = false) {
   console.log(`💾 Backup ${tag} completato: ${filename} (${sizeMB} MB)`);
 
   rotateBackups();
+  mirrorToSecondary(destPath, filename);
 
   return lastBackup;
 }
 
 /**
- * Rimuove i backup più vecchi, mantiene solo MAX_BACKUPS file.
+ * Rimuove i backup più vecchi dalla directory primaria.
  */
 function rotateBackups() {
-  ensureBackupDir();
-
-  const files = fs
-    .readdirSync(BACKUP_DIR)
-    .filter((f) => f.startsWith("inventario_") && f.endsWith(".db"))
-    .map((f) => ({
-      name: f,
-      path: path.join(BACKUP_DIR, f),
-      mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs,
-    }))
-    .sort((a, b) => b.mtime - a.mtime); // più recenti prima
-
-  if (files.length > MAX_BACKUPS) {
-    const toDelete = files.slice(MAX_BACKUPS);
-    for (const f of toDelete) {
-      fs.unlinkSync(f.path);
-      console.log(`🗑️  Backup rimosso (rotazione): ${f.name}`);
-    }
-  }
+  rotateBackupsInDir(BACKUP_DIR);
 }
 
 /**
@@ -99,11 +123,41 @@ function listBackups() {
 }
 
 /**
- * Avvia il cron job per backup notturno.
+ * Ritorna il timestamp (ms) dell'ultimo backup sul filesystem, o null se nessuno.
+ */
+function getLastBackupMtime() {
+  ensureBackupDir();
+  const files = fs
+    .readdirSync(BACKUP_DIR)
+    .filter((f) => f.startsWith("inventario_") && f.endsWith(".db"))
+    .map((f) => fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs);
+  return files.length ? Math.max(...files) : null;
+}
+
+/**
+ * Avvia il cron job e fa un backup all'avvio se l'ultimo è troppo vecchio.
  */
 function startBackupCron() {
   console.log(`⏰ Backup cron schedulato: "${BACKUP_CRON}" (mantiene ultimi ${MAX_BACKUPS})`);
   console.log(`📁 Directory backup: ${BACKUP_DIR}`);
+  if (BACKUP_DIR_SECONDARY) {
+    console.log(`🪞 Directory backup secondaria: ${BACKUP_DIR_SECONDARY}`);
+  }
+
+  // Backup all'avvio se l'ultimo è più vecchio di BACKUP_STARTUP_MAX_AGE_HOURS
+  const lastMtime = getLastBackupMtime();
+  const ageHours = lastMtime ? (Date.now() - lastMtime) / (1000 * 60 * 60) : Infinity;
+  if (ageHours >= BACKUP_STARTUP_MAX_AGE_HOURS) {
+    const reason = lastMtime
+      ? `ultimo backup ${ageHours.toFixed(1)}h fa`
+      : "nessun backup esistente";
+    console.log(`🔄 Backup all'avvio (${reason})…`);
+    runBackup(false).catch((err) =>
+      console.error("❌ Errore backup all'avvio:", err.message)
+    );
+  } else {
+    console.log(`✔️  Ultimo backup ${ageHours.toFixed(1)}h fa, nessun backup all'avvio necessario`);
+  }
 
   cron.schedule(BACKUP_CRON, async () => {
     try {

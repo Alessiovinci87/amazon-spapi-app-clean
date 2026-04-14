@@ -13,6 +13,7 @@ const rateLimit = require("express-rate-limit");
 const path = require("path");
 const { ensureDatabaseReady } = require("./db/database");
 const { errorHandler, notFoundHandler } = require("./middleware/errorHandler");
+const { requireAuth } = require("./middleware/authMiddleware");
 
 const { runMigrations } = require("./db/migrate.js");
 
@@ -87,6 +88,7 @@ const configRoutes = require("./routes/config");
 const appAuthRoutes = require("./routes/appAuth");
 
 const scatoletteRoutes = require("./routes/scatolette");
+const etichetteRoutes = require("./routes/etichette");
 
 // --- Auth App (JWT)
 const authAppRoutes = require("./routes/authRoutes");
@@ -162,6 +164,20 @@ async function bootstrap() {
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true }));
 
+  // =========================================================
+  // 🔐 AUTH GLOBALE — tutte le API richiedono JWT tranne whitelist
+  // =========================================================
+  const PUBLIC_API_PATHS = new Set([
+    "/api/v2/auth-app/login",
+    "/api/v2/health",
+  ]);
+
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api/")) return next();
+    if (PUBLIC_API_PATHS.has(req.path)) return next();
+    return requireAuth(req, res, next);
+  });
+
   console.log("➡️ Montaggio rotte principali...");
   
 
@@ -193,7 +209,7 @@ async function bootstrap() {
   app.use("/api/v2/storico-scatolette", require("./routes/scatoletteStorico"));
 
   app.use("/api/v2/scatolette", scatoletteRoutes);
-
+  app.use("/api/v2/etichette", etichetteRoutes);
 
   // =========================================================
   // 🚚 SPEDIZIONI E DDT
