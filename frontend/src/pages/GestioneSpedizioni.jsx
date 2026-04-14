@@ -93,9 +93,11 @@ const GestioneSpedizioni = () => {
   });
 
   const [righe, setRighe] = useState([]);
-  const [nuovaRiga, setNuovaRiga] = useState({ asin: "", quantita: "" });
+  const [prodottoSelezionato, setProdottoSelezionato] = useState(null);
+  const [quantitaInput, setQuantitaInput] = useState("");
   const [filtro, setFiltro] = useState("");
   const [errore, setErrore] = useState("");
+  const [salvando, setSalvando] = useState(false);
   const [impegni, setImpegni] = useState({});
 
   useEffect(() => {
@@ -108,23 +110,36 @@ const GestioneSpedizioni = () => {
   }, []);
 
   const handleInfoChange = (campo, valore) => setSpedizioneInfo((p) => ({ ...p, [campo]: valore }));
-  const handleRigaChange = (campo, valore) => setNuovaRiga((p) => ({ ...p, [campo]: valore }));
+
+  const selezionaProdotto = (prodotto) => {
+    setProdottoSelezionato(prodotto);
+    setQuantitaInput("");
+    setErrore("");
+  };
+
+  const deselezionaProdotto = () => {
+    setProdottoSelezionato(null);
+    setQuantitaInput("");
+  };
 
   const aggiungiRiga = () => {
-    const prodotto = inventario.find((p) => p.asin === nuovaRiga.asin);
-    if (!prodotto) { setErrore("Seleziona un prodotto valido."); return; }
-    const quantita = parseInt(nuovaRiga.quantita, 10);
+    if (!prodottoSelezionato) { setErrore("Seleziona un prodotto valido."); return; }
+    const quantita = parseInt(quantitaInput, 10);
     if (isNaN(quantita) || quantita <= 0) { setErrore("Inserisci una quantità valida."); return; }
-    if (quantita > prodotto.pronto) { setErrore(`Quantità richiesta (${quantita}) superiore alla giacenza (${prodotto.pronto}).`); return; }
-    setRighe((p) => [...p, { asin: prodotto.asin, prodotto_nome: prodotto.nome, quantita }]);
-    setNuovaRiga({ asin: "", quantita: "" });
+    if (quantita > prodottoSelezionato.pronto) { setErrore(`Quantità richiesta (${quantita}) superiore alla giacenza (${prodottoSelezionato.pronto}).`); return; }
+    setRighe((p) => [...p, { asin: prodottoSelezionato.asin, prodotto_nome: prodottoSelezionato.nome, quantita }]);
+    setProdottoSelezionato(null);
+    setQuantitaInput("");
+    setFiltro("");
     setErrore("");
   };
 
   const rimuoviRiga = (index) => setRighe((p) => p.filter((_, i) => i !== index));
 
   const salvaSpedizione = async () => {
+    if (salvando) return;
     if (!spedizioneInfo.data || righe.length === 0) { setErrore("Inserisci data e almeno un prodotto."); return; }
+    setSalvando(true);
     try {
       const bozza = spedizioni.find((s) => s.stato === "BOZZA" && s.paese === spedizioneInfo.paese);
       if (bozza) {
@@ -139,7 +154,7 @@ const GestioneSpedizioni = () => {
       fetch("/api/v2/magazzino").then((r) => r.json()).then((d) => setInventario(d.data || []));
       setRighe([]);
       setErrore("");
-    } catch { setErrore("Errore durante il salvataggio."); }
+    } catch { setErrore("Errore durante il salvataggio."); } finally { setSalvando(false); }
   };
 
   const handleExportCSV = (spedizione) => {
@@ -291,11 +306,68 @@ const GestioneSpedizioni = () => {
 
         {/* Aggiungi prodotti */}
         <SectionCard accent="emerald" icon={Package} eyebrow="Step 2" title="Aggiungi Prodotti">
-          {/* Search */}
+
+          {/* Prodotto selezionato → quantità + aggiungi */}
+          {prodottoSelezionato ? (
+            <div className="mb-5">
+              <div className="bg-emerald-500/5 border border-emerald-500/30 rounded-lg p-4 sm:p-5">
+                <div className="flex items-start gap-4">
+                  {prodottoSelezionato.immagine_main ? (
+                    <img src={prodottoSelezionato.immagine_main} alt="" className="w-20 h-20 sm:w-24 sm:h-24 rounded-md object-contain bg-white/5 border border-slate-700 flex-shrink-0" />
+                  ) : (
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0">
+                      <Package className="w-8 h-8 text-slate-600" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm sm:text-base font-semibold text-white leading-snug">{prodottoSelezionato.nome}</p>
+                        <p className="text-[11px] text-slate-500 font-mono mt-1">{prodottoSelezionato.asin}</p>
+                        {prodottoSelezionato.sku && <p className="text-[11px] text-slate-600 font-mono">SKU: {prodottoSelezionato.sku}</p>}
+                      </div>
+                      <button onClick={deselezionaProdotto} type="button" className="text-slate-500 hover:text-rose-400 transition-colors flex-shrink-0 p-1">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded border ${prodottoSelezionato.pronto > 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
+                        Giacenza: {prodottoSelezionato.pronto}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-4">
+                      <div className="flex-1 max-w-[160px]">
+                        <label className={labelCls}>Quantità</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          min="1"
+                          max={prodottoSelezionato.pronto}
+                          autoFocus
+                          className={inputCls}
+                          value={quantitaInput}
+                          onChange={(e) => setQuantitaInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") aggiungiRiga(); }}
+                        />
+                      </div>
+                      <div className="flex items-end pt-5">
+                        <button onClick={aggiungiRiga} type="button" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all">
+                          <Plus className="w-4 h-4" />
+                          Aggiungi
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Barra di ricerca */}
           <div className="mb-4">
-            <label className={labelCls}><Search className="w-3 h-3" /> Cerca prodotto</label>
+            <label className={labelCls}><Search className="w-3 h-3" /> {prodottoSelezionato ? "Cambia prodotto" : "Cerca prodotto per nome, ASIN o SKU"}</label>
             <div className="relative">
-              <input type="text" placeholder="Cerca per nome, ASIN o SKU..." value={filtro} onChange={(e) => setFiltro(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+              <input type="text" placeholder="Digita per cercare..." value={filtro} onChange={(e) => setFiltro(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
               <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               {filtro && (
                 <button onClick={() => setFiltro("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
@@ -305,29 +377,47 @@ const GestioneSpedizioni = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-1">
-              <label className={labelCls}>Seleziona prodotto</label>
-              <select className={`${inputCls} appearance-none cursor-pointer`} value={nuovaRiga.asin} onChange={(e) => handleRigaChange("asin", e.target.value)}>
-                <option value="">-- Seleziona --</option>
-                {prodottiFiltrati.map((p) => (
-                  <option key={p.asin || p.id || p.nome} value={p.asin || ""}>
-                    {p.nome} (Giacenza: {p.pronto})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Quantità</label>
-              <input type="number" placeholder="0" min="1" className={inputCls} value={nuovaRiga.quantita} onChange={(e) => handleRigaChange("quantita", e.target.value)} />
-            </div>
-            <div className="flex items-end">
-              <button onClick={aggiungiRiga} type="button" className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all">
-                <Plus className="w-4 h-4" />
-                Aggiungi
-              </button>
-            </div>
-          </div>
+          {/* Griglia risultati ricerca */}
+          {filtro.length >= 2 ? (
+            prodottiFiltrati.length === 0 ? (
+              <p className="text-sm text-slate-500 text-center py-6">Nessun prodotto trovato per "{filtro}"</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-h-[420px] overflow-y-auto pr-1">
+                {prodottiFiltrati.slice(0, 30).map((p) => {
+                  const isSelected = prodottoSelezionato?.asin === p.asin;
+                  return (
+                    <button
+                      key={p.asin || p.id}
+                      type="button"
+                      onClick={() => selezionaProdotto(p)}
+                      className={`group text-left rounded-lg border p-3 transition-all ${
+                        isSelected
+                          ? "border-emerald-500/60 bg-emerald-500/10 ring-1 ring-emerald-500/30"
+                          : "border-slate-700/60 bg-slate-800/40 hover:border-slate-600 hover:bg-slate-800/70"
+                      }`}
+                    >
+                      {p.immagine_main ? (
+                        <img src={p.immagine_main} alt="" className="w-full aspect-square rounded-md object-contain bg-white/5 mb-2" />
+                      ) : (
+                        <div className="w-full aspect-square rounded-md bg-slate-800 border border-slate-700/50 flex items-center justify-center mb-2">
+                          <Package className="w-8 h-8 text-slate-700" />
+                        </div>
+                      )}
+                      <p className="text-[12px] font-medium text-slate-200 leading-snug line-clamp-2 min-h-[2.4em]">{p.nome}</p>
+                      <p className="text-[10px] text-slate-500 font-mono mt-1 truncate">{p.asin}</p>
+                      <span className={`inline-block mt-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded border ${p.pronto > 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
+                        {p.pronto} pz
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )
+          ) : filtro.length > 0 ? (
+            <p className="text-sm text-slate-600 text-center py-4">Digita almeno 2 caratteri per cercare...</p>
+          ) : !prodottoSelezionato ? (
+            <p className="text-sm text-slate-600 text-center py-4">Inizia a digitare per trovare un prodotto</p>
+          ) : null}
 
           {/* Carrello */}
           {righe.length > 0 && (
@@ -346,18 +436,28 @@ const GestioneSpedizioni = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {righe.map((r, i) => (
-                  <div key={i} className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-white truncate">{r.prodotto_nome}</p>
-                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">{r.asin}</p>
+                {righe.map((r, i) => {
+                  const img = inventario.find((p) => p.asin === r.asin)?.immagine_main;
+                  return (
+                    <div key={i} className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-3 flex items-center gap-3">
+                      {img ? (
+                        <img src={img} alt="" className="w-10 h-10 rounded object-contain bg-white/5 flex-shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-slate-700/50 flex items-center justify-center flex-shrink-0">
+                          <Package className="w-5 h-5 text-slate-600" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-white truncate">{r.prodotto_nome}</p>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">{r.asin}</p>
+                      </div>
+                      <span className="text-lg font-semibold text-emerald-400 tabular-nums">{r.quantita}</span>
+                      <button onClick={() => rimuoviRiga(i)} type="button" className="text-slate-600 hover:text-rose-400 transition-colors flex-shrink-0">
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <span className="text-lg font-semibold text-emerald-400 tabular-nums">{r.quantita}</span>
-                    <button onClick={() => rimuoviRiga(i)} type="button" className="text-slate-600 hover:text-rose-400 transition-colors flex-shrink-0">
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Totale */}
@@ -374,16 +474,18 @@ const GestioneSpedizioni = () => {
         {/* Pulsante salva */}
         <button
           onClick={salvaSpedizione}
-          disabled={righe.length === 0 || !spedizioneInfo.data}
+          disabled={righe.length === 0 || !spedizioneInfo.data || salvando}
           type="button"
           className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-500/10 disabled:hover:border-blue-500/40 disabled:hover:text-blue-300"
         >
           <Save className="w-4 h-4" />
-          {righe.length === 0
-            ? "Aggiungi prodotti per salvare"
-            : !spedizioneInfo.data
-              ? "Inserisci data per salvare"
-              : `Salva Spedizione (${righe.length} ${righe.length === 1 ? "prodotto" : "prodotti"})`}
+          {salvando
+            ? "Salvataggio in corso..."
+            : righe.length === 0
+              ? "Aggiungi prodotti per salvare"
+              : !spedizioneInfo.data
+                ? "Inserisci data per salvare"
+                : `Salva Spedizione (${righe.length} ${righe.length === 1 ? "prodotto" : "prodotti"})`}
         </button>
 
         {/* Lista spedizioni */}
