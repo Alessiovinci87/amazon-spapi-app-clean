@@ -2,7 +2,25 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
 const { checkSottoSogliaSfuso } = require("../services/stockAlerts.service");
+
+const idParam = z.object({ id: z.coerce.number().int().positive() });
+const rettificaSchema = z.object({
+  quantita: z.coerce.number(),
+  operatore: z.string().min(1).max(80),
+  note: z.string().min(1).max(1000),
+});
+const rettificaLottoSchema = z.object({
+  nuovoLotto: z.string().min(1).max(80),
+  dataInserimento: z.string().min(1).max(40),
+  operatore: z.string().min(1).max(80),
+  note: z.string().min(1).max(1000),
+});
+const sogliaSchema = z.object({
+  soglia_minima: z.coerce.number().min(0),
+});
 
 // ===========================
 //  BASE: Gestione inventario sfuso
@@ -21,13 +39,9 @@ router.get("/", (req, res) => {
 });
 
 // ✅ Rettifica quantità sfuso (solo inventario)
-router.patch("/:id/rettifica", (req, res) => {
+router.patch("/:id/rettifica", validate({ params: idParam, body: rettificaSchema }), (req, res) => {
   const { id } = req.params;
   const { quantita, operatore, note } = req.body;
-
-  if (!operatore || !note) {
-    return res.status(400).json({ error: "Operatore e nota sono obbligatori." });
-  }
 
   try {
     const db = getDb();
@@ -94,15 +108,9 @@ router.patch("/:id/rettifica", (req, res) => {
 });
 
 // ✅ Rettifica lotto sfuso (solo inventario)
-router.patch("/:id/rettifica-lotto", (req, res) => {
+router.patch("/:id/rettifica-lotto", validate({ params: idParam, body: rettificaLottoSchema }), (req, res) => {
   const { id } = req.params;
   const { nuovoLotto, dataInserimento, operatore, note } = req.body;
-
-  if (!nuovoLotto || !dataInserimento || !operatore || !note) {
-    return res.status(400).json({
-      error: "Tutti i campi (lotto, data, operatore, nota) sono obbligatori.",
-    });
-  }
 
   try {
     const db = getDb();
@@ -162,13 +170,9 @@ router.patch("/:id/rettifica-lotto", (req, res) => {
 
 
 // ✅ Imposta soglia minima sfuso
-router.patch("/:id/soglia", (req, res) => {
+router.patch("/:id/soglia", validate({ params: idParam, body: sogliaSchema }), (req, res) => {
   const { id } = req.params;
   const { soglia_minima } = req.body;
-
-  if (typeof soglia_minima !== "number" || soglia_minima < 0) {
-    return res.status(400).json({ error: '"soglia_minima" deve essere un numero >= 0' });
-  }
 
   try {
     const db = getDb();

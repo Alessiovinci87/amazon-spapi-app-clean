@@ -2,15 +2,15 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
 const { verifyPassword } = require("../utils/password");
 
-// 🔹 DELETE → Reset storico sfuso inventario (richiede password admin verificata server-side)
-router.delete("/storico-inventario/reset", (req, res) => {
-  const { password } = req.body;
+const resetSchema = z.object({ password: z.string().min(1).max(200) });
 
-  if (!password || typeof password !== "string") {
-    return res.status(400).json({ ok: false, message: "Password richiesta." });
-  }
+// 🔹 DELETE → Reset storico sfuso inventario (richiede password admin verificata server-side)
+router.delete("/storico-inventario/reset", validate({ body: resetSchema }), (req, res) => {
+  const { password } = req.body;
 
   const db = getDb();
 

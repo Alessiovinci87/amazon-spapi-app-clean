@@ -2,7 +2,23 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const { z } = require("zod");
+const { validate } = require("../middleware/validate");
 const storicoService = require("../services/storicoProduzioniSfuso.service");
+
+const eventoSchema = z.object({
+  id_produzione: z.coerce.number().int().positive(),
+  id_sfuso: z.coerce.number().int().positive().nullish(),
+  asin_prodotto: z.string().max(20).nullish(),
+  nome_prodotto: z.string().max(255).nullish(),
+  formato: z.string().max(40).nullish(),
+  quantita: z.coerce.number().nullish(),
+  litri_usati: z.coerce.number().nullish(),
+  evento: z.string().min(1).max(60),
+  note: z.string().max(1000).default(""),
+  operatore: z.string().max(80).default("system"),
+  data_evento: z.string().max(40).nullish(),
+});
 
 
 // =========================================================
@@ -71,35 +87,18 @@ router.get("/", (req, res) => {
 // 🔹 POST /api/v2/storico-produsfuso
 //    → registra un nuovo evento nello storico
 // =========================================================
-router.post("/", (req, res) => {
+router.post("/", validate({ body: eventoSchema }), (req, res) => {
   try {
     const payload = {
-      id_produzione: req.body.id_produzione,
+      ...req.body,
       id_sfuso: req.body.id_sfuso ?? null,
       asin_prodotto: req.body.asin_prodotto ?? null,
       nome_prodotto: req.body.nome_prodotto ?? null,
       formato: req.body.formato ?? null,
       quantita: req.body.quantita ?? null,
       litri_usati: req.body.litri_usati ?? null,
-      evento: req.body.evento,  // CREATA / AGGIORNATA / COMPLETATA / ELIMINATA
-      note: req.body.note || "",
-      operatore: req.body.operatore || "system",
-      data_evento: req.body.data_evento ?? null
+      data_evento: req.body.data_evento ?? null,
     };
-
-    if (!payload.id_produzione) {
-      return res.status(400).json({
-        ok: false,
-        message: "id_produzione obbligatorio"
-      });
-    }
-
-    if (!payload.evento) {
-      return res.status(400).json({
-        ok: false,
-        message: "evento obbligatorio"
-      });
-    }
 
     storicoService.registraEvento(payload);
 
