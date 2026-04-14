@@ -5,6 +5,7 @@ const {
   getListingItem,
   patchListingItem,
   deleteListingItem,
+  updateListingViaFeed,
 } = require("./listingsAmazonService");
 
 /**
@@ -14,7 +15,6 @@ const {
  */
 router.get("/test-listing", async (req, res) => {
   const { getAccessToken } = require("../auth/authService");
-  const { spGet } = require("../catalog/catalogAmazonService");
   const axios = require("axios");
   const { sign } = require("aws4");
 
@@ -24,22 +24,11 @@ router.get("/test-listing", async (req, res) => {
   const { access_token } = await getAccessToken();
 
   const results = {};
+  results.env = { SELLER_ID: sellerId, AWS_REGION: process.env.AWS_REGION, sku_testato: sku, marketplaceId };
 
-  // Info ambiente
-  results.env = {
-    SELLER_ID: sellerId,
-    AWS_REGION: process.env.AWS_REGION,
-    sku_testato: sku,
-    marketplaceId,
-  };
-
-  // TEST 1: GET Listings Items (path-based, signed)
-  try {
-    const encodedSku = encodeURIComponent(sku);
-    const path = `/listings/2021-08-01/items/${sellerId}/${encodedSku}`;
-    const qs = `marketplaceIds=${marketplaceId}&includedData=summaries,attributes,issues`;
-    const fullPath = `${path}?${qs}`;
-
+  // Helper: firma e chiama, restituisce debug completo
+  async function debugCall(label, path, qs) {
+    const fullPath = qs ? `${path}?${qs}` : path;
     const opts = {
       host: "sellingpartnerapi-eu.amazon.com",
       path: fullPath,
@@ -52,159 +41,158 @@ router.get("/test-listing", async (req, res) => {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     });
-    const resp = await axios.get(`https://sellingpartnerapi-eu.amazon.com${fullPath}`, {
-      headers: signed.headers,
-    });
-    results.test1_get_listing = { ok: true, status: resp.status, data: resp.data };
-  } catch (err) {
-    results.test1_get_listing = {
-      ok: false,
-      status: err.response?.status,
-      error: err.response?.data || err.message,
-      requestId: err.response?.headers?.["x-amzn-requestid"],
+    const debug = {
+      label,
+      fullPath,
+      canonical_uri: path,
+      canonical_querystring: qs,
+      signed_headers: { ...signed.headers },
     };
+    // Rimuovi il valore completo delle chiavi sensibili per leggibilita
+    if (debug.signed_headers.Authorization) {
+      debug.signed_headers.Authorization = debug.signed_headers.Authorization.substring(0, 80) + "...";
+    }
+    try {
+      const resp = await axios.get(`https://sellingpartnerapi-eu.amazon.com${fullPath}`, { headers: signed.headers });
+      return { ok: true, status: resp.status, data: resp.data, debug };
+    } catch (err) {
+      return {
+        ok: false,
+        status: err.response?.status,
+        error: err.response?.data || err.message,
+        requestId: err.response?.headers?.["x-amzn-requestid"],
+        debug,
+      };
+    }
   }
 
-  // TEST 2: GET con marketplaceIds come parametro ripetuto (non comma-separated)
-  try {
-    const encodedSku = encodeURIComponent(sku);
-    const path = `/listings/2021-08-01/items/${sellerId}/${encodedSku}`;
-    const qs = `marketplaceIds=${marketplaceId}`;
-    const fullPath = `${path}?${qs}`;
-
-    const opts = {
-      host: "sellingpartnerapi-eu.amazon.com",
-      path: fullPath,
-      service: "execute-api",
-      region: process.env.AWS_REGION,
-      method: "GET",
-      headers: { "x-amz-access-token": access_token },
-    };
-    const signed = sign(opts, {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    });
-    const resp = await axios.get(`https://sellingpartnerapi-eu.amazon.com${fullPath}`, {
-      headers: signed.headers,
-    });
-    results.test2_get_single_mp = { ok: true, status: resp.status, productType: resp.data?.productType };
-  } catch (err) {
-    results.test2_get_single_mp = {
-      ok: false,
-      status: err.response?.status,
-      error: err.response?.data || err.message,
-    };
-  }
-
-  // TEST 3: Marketplace Participations (verifica SELLER_ID valido)
-  try {
-    const resp = await axios.get(
-      "https://sellingpartnerapi-eu.amazon.com/sellers/v1/marketplaceParticipations",
-      { headers: { "x-amz-access-token": access_token } }
-    );
-    const partecipazioni = resp.data?.payload || resp.data;
-    results.test3_participations = {
-      ok: true,
-      seller_id_env: sellerId,
-      marketplace_count: Array.isArray(partecipazioni) ? partecipazioni.length : "N/A",
-      marketplaces: Array.isArray(partecipazioni)
-        ? partecipazioni.map(p => ({
-            id: p.marketplace?.id,
-            country: p.marketplace?.countryCode,
-            participating: p.participation?.isParticipating,
-          }))
-        : partecipazioni,
-    };
-  } catch (err) {
-    results.test3_participations = {
-      ok: false,
-      status: err.response?.status,
-      error: err.response?.data || err.message,
-    };
-  }
-
-  // TEST 4: GET Listing SENZA includedData (parametri minimi)
-  try {
-    const encodedSku = encodeURIComponent(sku);
-    const path = `/listings/2021-08-01/items/${sellerId}/${encodedSku}`;
-    const qs = `marketplaceIds=${marketplaceId}`;
-    const fullPath = `${path}?${qs}`;
-
-    const opts = {
-      host: "sellingpartnerapi-eu.amazon.com",
-      path: fullPath,
-      service: "execute-api",
-      region: process.env.AWS_REGION,
-      method: "GET",
-      headers: { "x-amz-access-token": access_token },
-    };
-    const signed = sign(opts, {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    });
-    const resp = await axios.get(`https://sellingpartnerapi-eu.amazon.com${fullPath}`, {
-      headers: signed.headers,
-    });
-    results.test4_minimal_get = { ok: true, status: resp.status, data: resp.data };
-  } catch (err) {
-    results.test4_minimal_get = {
-      ok: false,
-      status: err.response?.status,
-      error: err.response?.data || err.message,
-    };
-  }
-
-  // TEST 5: searchListingsItems (sellerId in QUERY, non in path)
-  // Se 403 → ruolo mancante. Se 400 → problema parametri diverso.
-  try {
-    const path = `/listings/2021-08-01/items`;
-    const qs = `sellerId=${sellerId}&marketplaceIds=${marketplaceId}&identifiers=${encodeURIComponent(sku)}&identifiersType=SKU&includedData=summaries`;
-    const fullPath = `${path}?${qs}`;
-
-    const opts = {
-      host: "sellingpartnerapi-eu.amazon.com",
-      path: fullPath,
-      service: "execute-api",
-      region: process.env.AWS_REGION,
-      method: "GET",
-      headers: { "x-amz-access-token": access_token },
-    };
-    const signed = sign(opts, {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    });
-    const resp = await axios.get(`https://sellingpartnerapi-eu.amazon.com${fullPath}`, {
-      headers: signed.headers,
-    });
-    results.test5_search_listings = { ok: true, status: resp.status, data: resp.data };
-  } catch (err) {
-    results.test5_search_listings = {
-      ok: false,
-      status: err.response?.status,
-      error: err.response?.data || err.message,
-    };
-  }
-
-  // TEST 6: Catalog Items (confronto — questo funziona sicuramente)
+  // Recupera ASIN per questo SKU dal DB locale
+  let asin = null;
   try {
     const { getDb } = require("../../db/database");
     const db = getDb();
     const row = db.prepare("SELECT asin FROM amazon_listings WHERE sku = ? LIMIT 1").get(sku);
-    if (row?.asin) {
-      const catalogData = await spGet(
-        `/catalog/2022-04-01/items/${row.asin}`,
-        { marketplaceIds: marketplaceId, includedData: "summaries" },
-        access_token
-      );
-      results.test6_catalog = { ok: true, asin: row.asin, title: catalogData?.summaries?.[0]?.itemName };
-    } else {
-      results.test6_catalog = { ok: true, note: "SKU non in cache locale, skip test catalog" };
-    }
+    asin = row?.asin;
+  } catch (_) {}
+
+  // ═══ A) CATALOG API — funziona, baseline ═══
+  if (asin) {
+    const catalogPath = `/catalog/2022-04-01/items/${asin}`;
+    const catalogQs = `marketplaceIds=${marketplaceId}&includedData=summaries`;
+    results.catalog_baseline = await debugCall("Catalog API (baseline)", catalogPath, catalogQs);
+  }
+
+  // ═══ B) LISTINGS — encoding singolo (standard) ═══
+  const singleEnc = encodeURIComponent(sku);
+  const listPath1 = `/listings/2021-08-01/items/${sellerId}/${singleEnc}`;
+  const listQs1 = `includedData=summaries&marketplaceIds=${marketplaceId}`;
+  results.listings_single_enc = await debugCall("Listings single-encode", listPath1, listQs1);
+
+  // ═══ C) LISTINGS — doppio encoding ═══
+  const doubleEnc = encodeURIComponent(encodeURIComponent(sku));
+  const listPath2 = `/listings/2021-08-01/items/${sellerId}/${doubleEnc}`;
+  const listQs2 = `includedData=summaries&marketplaceIds=${marketplaceId}`;
+  results.listings_double_enc = await debugCall("Listings double-encode", listPath2, listQs2);
+
+  // ═══ D) LISTINGS — senza includedData ═══
+  const listPath3 = `/listings/2021-08-01/items/${sellerId}/${singleEnc}`;
+  const listQs3 = `marketplaceIds=${marketplaceId}`;
+  results.listings_no_included = await debugCall("Listings no includedData", listPath3, listQs3);
+
+  // ═══ E) LISTINGS — ZERO query params ═══
+  const listPath4 = `/listings/2021-08-01/items/${sellerId}/${encodeURIComponent(sku)}`;
+  try {
+    const opts4 = {
+      host: "sellingpartnerapi-eu.amazon.com",
+      path: listPath4,
+      service: "execute-api",
+      region: process.env.AWS_REGION,
+      method: "GET",
+      headers: { "x-amz-access-token": access_token },
+    };
+    const signed4 = sign(opts4, {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    });
+    const resp4 = await axios.get(`https://sellingpartnerapi-eu.amazon.com${listPath4}`, { headers: signed4.headers });
+    results.listings_no_params = {
+      ok: true, status: resp4.status, data: resp4.data,
+      headers: { "x-amzn-requestid": resp4.headers["x-amzn-requestid"], "x-amz-apigw-id": resp4.headers["x-amz-apigw-id"], "content-type": resp4.headers["content-type"] },
+    };
   } catch (err) {
-    results.test6_catalog = { ok: false, error: err.message };
+    results.listings_no_params = {
+      ok: false, status: err.response?.status,
+      body: err.response?.data,
+      headers: err.response?.headers ? {
+        "x-amzn-requestid": err.response.headers["x-amzn-requestid"],
+        "x-amzn-errortype": err.response.headers["x-amzn-errortype"],
+        "x-amz-apigw-id": err.response.headers["x-amz-apigw-id"],
+        "content-type": err.response.headers["content-type"],
+      } : null,
+      debug: { path: listPath4 },
+    };
   }
 
   res.json(results);
+});
+
+/**
+ * POST /api/v2/listings-amazon/feed-update
+ * Workaround: aggiorna listing via JSON_LISTINGS_FEED (Feeds API)
+ * Body: { sku, productType, attributes, marketplaceIds? }
+ *
+ * Esempio body per modificare titolo:
+ * {
+ *   "sku": "0C-GRMH-AF5U",
+ *   "productType": "BEAUTY",
+ *   "attributes": {
+ *     "item_name": [{ "value": "Nuovo titolo", "marketplace_id": "APJ6JRA9NG5V4" }]
+ *   }
+ * }
+ */
+router.post("/feed-update", async (req, res) => {
+  try {
+    const { sku, productType, attributes, marketplaceIds } = req.body;
+    if (!sku || !productType || !attributes) {
+      return res.status(400).json({ ok: false, error: "Parametri obbligatori: sku, productType, attributes" });
+    }
+    const mpIds = marketplaceIds || ["APJ6JRA9NG5V4"];
+    console.log(`[Feed] Route feed-update: SKU=${sku}, productType=${productType}`);
+    const result = await updateListingViaFeed(sku, productType, attributes, mpIds);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error("❌ Errore feed-update:", e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/**
+ * POST /api/v2/listings-amazon/feed-test
+ * Test rapido: modifica il titolo di un prodotto via feed
+ * Query: ?sku=XXX&title=NuovoTitolo&marketplaceId=APJ6JRA9NG5V4
+ */
+router.post("/feed-test", async (req, res) => {
+  try {
+    const sku = req.query.sku || req.body.sku;
+    const title = req.query.title || req.body.title;
+    const marketplaceId = req.query.marketplaceId || "APJ6JRA9NG5V4";
+
+    if (!sku || !title) {
+      return res.status(400).json({ ok: false, error: "Parametri: sku, title" });
+    }
+
+    console.log(`[Feed] Test: SKU=${sku}, title="${title.substring(0, 50)}..."`);
+
+    const attributes = {
+      item_name: [{ value: title, marketplace_id: marketplaceId }],
+    };
+
+    const result = await updateListingViaFeed(sku, "PRODUCT", attributes, [marketplaceId]);
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    console.error("❌ Errore feed-test:", e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 /**

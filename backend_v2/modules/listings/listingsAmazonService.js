@@ -87,6 +87,7 @@ async function sendSignedRequest(method, urlPath, query = "", body = null) {
  */
 async function getListingItem(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   const encodedSku = encodeURIComponent(sku);
+  // Prova 2021-08-01, se fallisce prova 2020-09-01
   const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
   return await sendSignedRequest("GET", urlPath, {
     marketplaceIds: marketplaceIds.join(","),
@@ -145,10 +146,159 @@ async function deleteListingItem(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════
+// WORKAROUND: JSON_LISTINGS_FEED via Feeds API
+// Usato finché Listings Items API dà 400 (problema lato Amazon)
+// ═══════════════════════════════════════════════════════════
+
+const zlib = require("zlib");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Step 1: Crea un feed document e ottieni l'URL di upload
+ */
+async function createFeedDocument() {
+  const result = await sendSignedRequest("POST", "/feeds/2021-06-30/documents", "", {
+    contentType: "application/json; charset=utf-8",
+  });
+  if (result.error) throw new Error(`createFeedDocument failed: ${JSON.stringify(result.data || result.message)}`);
+  console.log("[Feed] Document creato:", result.feedDocumentId);
+  return result; // { feedDocumentId, url }
+}
+
+/**
+ * Step 2: Carica il JSON del listing sul presigned S3 URL
+ */
+async function uploadFeedContent(uploadUrl, jsonContent) {
+  const body = JSON.stringify(jsonContent);
+  console.log("[Feed] Upload content:", body.substring(0, 200) + "...");
+  await axios.put(uploadUrl, body, {
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+  console.log("[Feed] Upload completato");
+}
+
+/**
+ * Step 3: Avvia il feed
+ */
+async function createFeed(feedDocumentId, marketplaceIds = ["APJ6JRA9NG5V4"]) {
+  const result = await sendSignedRequest("POST", "/feeds/2021-06-30/feeds", "", {
+    feedType: "JSON_LISTINGS_FEED",
+    marketplaceIds,
+    inputFeedDocumentId: feedDocumentId,
+  });
+  if (result.error) throw new Error(`createFeed failed: ${JSON.stringify(result.data || result.message)}`);
+  console.log("[Feed] Feed avviato:", result.feedId);
+  return result; // { feedId }
+}
+
+/**
+ * Step 4: Polling fino a DONE/CANCELLED/FATAL
+ */
+async function waitForFeed(feedId, maxAttempts = 20) {
+  for (let i = 0; i < maxAttempts; i++) {
+    await sleep(10000);
+    const result = await sendSignedRequest("GET", `/feeds/2021-06-30/feeds/${feedId}`);
+    if (result.error) {
+      console.warn("[Feed] Errore polling:", result.data || result.message);
+      continue;
+    }
+    const status = result.processingStatus;
+    console.log(`[Feed] Polling ${i + 1}/${maxAttempts}: ${status}`);
+    if (status === "DONE" || status === "CANCELLED" || status === "FATAL") {
+      return result;
+    }
+  }
+  throw new Error("Feed timeout dopo " + maxAttempts + " tentativi");
+}
+
+/**
+ * Step 5: Scarica il risultato del feed
+ */
+async function getFeedResult(resultFeedDocumentId) {
+  const docResult = await sendSignedRequest("GET", `/feeds/2021-06-30/documents/${resultFeedDocumentId}`);
+  if (docResult.error) throw new Error(`getFeedResult doc failed: ${JSON.stringify(docResult.data)}`);
+
+  const { url, compressionAlgorithm } = docResult;
+  const fileRes = await axios.get(url, { responseType: "arraybuffer" });
+  let buffer = Buffer.from(fileRes.data);
+  if (compressionAlgorithm === "GZIP") buffer = zlib.gunzipSync(buffer);
+  const text = buffer.toString("utf-8");
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
+  }
+}
+
+/**
+ * Flusso completo: modifica un listing via JSON_LISTINGS_FEED
+ *
+ * @param {string} sku - SKU del prodotto
+ * @param {string} productType - es. "PRODUCT", "BEAUTY"
+ * @param {object} patches - array di patch operations [{op, path, value}]
+ * @param {string[]} marketplaceIds
+ * @returns {{ feedId, status, result }}
+ */
+/**
+ * @param {string} sku
+ * @param {string} productType - es. "PRODUCT", "BEAUTY"
+ * @param {object} attributes - formato { item_name: [{value, language_tag, marketplace_id}], ... }
+ *                              Verrà convertito in patches JSON Patch per PARTIAL_UPDATE
+ * @param {string[]} marketplaceIds
+ */
+async function updateListingViaFeed(sku, productType, attributes, marketplaceIds = ["APJ6JRA9NG5V4"]) {
+  console.log(`[Feed] Avvio update listing: SKU=${sku}, productType=${productType}`);
+
+  const feedContent = {
+    header: {
+      sellerId: SELLER_ID,
+      version: "2.0",
+      issueLocale: "it_IT",
+    },
+    messages: [
+      {
+        messageId: 1,
+        sku,
+        operationType: "PARTIAL_UPDATE",
+        productType,
+        attributes,
+      },
+    ],
+  };
+
+  // Step 1: Crea feed document
+  const doc = await createFeedDocument();
+
+  // Step 2: Upload JSON
+  await uploadFeedContent(doc.url, feedContent);
+
+  // Step 3: Avvia feed
+  const feed = await createFeed(doc.feedDocumentId, marketplaceIds);
+
+  // Step 4: Attendi completamento
+  const feedResult = await waitForFeed(feed.feedId);
+
+  // Step 5: Scarica risultato
+  let result = null;
+  if (feedResult.resultFeedDocumentId) {
+    result = await getFeedResult(feedResult.resultFeedDocumentId);
+  }
+
+  return {
+    feedId: feed.feedId,
+    status: feedResult.processingStatus,
+    result,
+  };
+}
+
 module.exports = {
   getListingItem,
   getListingItemFull,
   getSubmissionStatus,
   patchListingItem,
   deleteListingItem,
+  updateListingViaFeed,
+  sendSignedRequest,
 };
