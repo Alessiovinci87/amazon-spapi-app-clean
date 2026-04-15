@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft, Package, ShoppingCart, History,
   Plus, Trash2, Edit3, Check, X, AlertTriangle,
@@ -9,24 +10,39 @@ import {
 import { toast } from "sonner";
 
 // ─── helpers ──────────────────────────────────────────────
-const STATO_ORDINE = {
-  bozza:             { label: "Bozza",            color: "bg-zinc-700 text-zinc-300" },
-  confermato:        { label: "Confermato",        color: "bg-blue-900 text-blue-200" },
-  in_attesa:         { label: "In attesa",         color: "bg-amber-900 text-amber-200" },
-  ricevuto_parziale: { label: "Parz. ricevuto",    color: "bg-orange-900 text-orange-200" },
-  ricevuto:          { label: "Ricevuto",          color: "bg-green-900 text-green-200" },
-  annullato:         { label: "Annullato",         color: "bg-red-900 text-red-200" },
+const STATO_ORDINE_COLORS = {
+  bozza:             "bg-zinc-700 text-zinc-300",
+  confermato:        "bg-blue-900 text-blue-200",
+  in_attesa:         "bg-amber-900 text-amber-200",
+  ricevuto_parziale: "bg-orange-900 text-orange-200",
+  ricevuto:          "bg-green-900 text-green-200",
+  annullato:         "bg-red-900 text-red-200",
+};
+const STATO_ORDINE_KEYS = {
+  bozza:             "gestioneOneStep.stato_bozza",
+  confermato:        "gestioneOneStep.stato_confermato",
+  in_attesa:         "gestioneOneStep.stato_in_attesa",
+  ricevuto_parziale: "gestioneOneStep.stato_ricevuto_parziale",
+  ricevuto:          "gestioneOneStep.stato_ricevuto",
+  annullato:         "gestioneOneStep.stato_annullato",
 };
 
-const TIPO_MOV = {
-  CARICO_ORDINE: { label: "Carico ordine", color: "text-green-400" },
-  SCARICO_DDT:   { label: "Scarico DDT",   color: "text-red-400" },
-  RETTIFICA:     { label: "Rettifica",     color: "text-amber-400" },
+const TIPO_MOV_COLORS = {
+  CARICO_ORDINE: "text-green-400",
+  SCARICO_DDT:   "text-red-400",
+  RETTIFICA:     "text-amber-400",
+};
+const TIPO_MOV_KEYS = {
+  CARICO_ORDINE: "gestioneOneStep.tipo_carico_ordine",
+  SCARICO_DDT:   "gestioneOneStep.tipo_scarico_ddt",
+  RETTIFICA:     "gestioneOneStep.tipo_rettifica",
 };
 
 function StatoChip({ stato }) {
-  const s = STATO_ORDINE[stato] ?? { label: stato, color: "bg-zinc-700 text-zinc-300" };
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium ${s.color}`}>{s.label}</span>;
+  const { t } = useTranslation();
+  const color = STATO_ORDINE_COLORS[stato] ?? "bg-zinc-700 text-zinc-300";
+  const label = STATO_ORDINE_KEYS[stato] ? t(STATO_ORDINE_KEYS[stato]) : stato;
+  return <span className={`px-2 py-0.5 rounded text-xs font-medium ${color}`}>{label}</span>;
 }
 
 function fmt(dateStr) {
@@ -38,6 +54,7 @@ function fmt(dateStr) {
 // TAB INVENTARIO
 // ══════════════════════════════════════════════════════════
 function TabInventario() {
+  const { t } = useTranslation();
   const [prodotti, setProdotti] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -82,7 +99,7 @@ function TabInventario() {
       const res = await fetch("/api/v2/onestep/prodotti");
       const json = await res.json();
       setProdotti(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento prodotti"); }
+    } catch { toast.error(t("gestioneOneStep.errore_caricamento_prodotti")); }
     finally { setLoading(false); }
   }
 
@@ -98,7 +115,7 @@ function TabInventario() {
       const res = await fetch("/api/v2/onestep/prodotti/disponibili");
       const json = await res.json();
       setDisponibili(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento disponibili"); }
+    } catch { toast.error(t("gestioneOneStep.errore_caricamento_disponibili")); }
     finally { setLoadingDisp(false); }
   }
 
@@ -127,7 +144,7 @@ function TabInventario() {
 
   async function importaMassivo() {
     const selezionati = Object.keys(selezione);
-    if (selezionati.length === 0) { toast.error("Seleziona almeno un prodotto"); return; }
+    if (selezionati.length === 0) { toast.error(t("gestioneOneStep.seleziona_almeno_prodotto")); return; }
     setImporting(true);
     let ok = 0;
     for (const asin of selezionati) {
@@ -150,18 +167,18 @@ function TabInventario() {
       } catch { /* continua con gli altri */ }
     }
     setImporting(false);
-    toast.success(`${ok} colori aggiunti al catalogo One Step`);
+    toast.success(t("gestioneOneStep.colori_aggiunti_catalogo", { count: ok }));
     setShowAggiungi(false);
     carica();
   }
 
   async function eliminaProdotto(asin) {
-    if (!confirm("Eliminare questo prodotto dal catalogo One Step?")) return;
+    if (!confirm(t("gestioneOneStep.conferma_eliminazione_prodotto"))) return;
     try {
       await fetch(`/api/v2/onestep/prodotti/${asin}`, { method: "DELETE" });
-      toast.success("Prodotto rimosso");
+      toast.success(t("gestioneOneStep.prodotto_rimosso"));
       carica();
-    } catch { toast.error("Errore eliminazione"); }
+    } catch { toast.error(t("gestioneOneStep.errore_eliminazione")); }
   }
 
   async function eseguiReset() {
@@ -175,11 +192,11 @@ function TabInventario() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success(`Reset completato — ${json.eliminati.ordini} ordini, ${json.eliminati.movimenti} movimenti eliminati. Stock di ${json.eliminati.stockAzzerato} prodotti azzerato.`);
+      toast.success(t("gestioneOneStep.reset_completato", { ordini: json.eliminati.ordini, movimenti: json.eliminati.movimenti, stock: json.eliminati.stockAzzerato }));
       setShowReset(false);
       setResetConferma("");
       carica();
-    } catch (e) { toast.error("Errore reset: " + e.message); }
+    } catch (e) { toast.error(t("gestioneOneStep.errore_reset", { msg: e.message })); }
     finally { setResetting(false); }
   }
 
@@ -191,9 +208,9 @@ function TabInventario() {
       const res = await fetch(`/api/v2/onestep/prodotti/${asin}/immagine`, { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success("Immagine caricata");
+      toast.success(t("gestioneOneStep.immagine_caricata"));
       carica();
-    } catch (e) { toast.error("Errore upload: " + e.message); }
+    } catch (e) { toast.error(t("gestioneOneStep.errore_upload", { msg: e.message })); }
     finally { setUploadingAsin(null); }
   }
 
@@ -203,9 +220,9 @@ function TabInventario() {
       const res = await fetch("/api/v2/onestep/sync-images", { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success(`Immagini aggiornate: ${json.aggiornati} / ${json.totale}`);
+      toast.success(t("gestioneOneStep.immagini_aggiornate", { aggiornati: json.aggiornati, totale: json.totale }));
       carica();
-    } catch (e) { toast.error("Errore sync immagini: " + e.message); }
+    } catch (e) { toast.error(t("gestioneOneStep.errore_sync_immagini", { msg: e.message })); }
     finally { setSyncing(false); }
   }
 
@@ -216,10 +233,10 @@ function TabInventario() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ codice_colore: editColoreVal.trim() || null }),
       });
-      toast.success("Codice colore aggiornato");
+      toast.success(t("gestioneOneStep.codice_colore_aggiornato"));
       setEditingColore(null);
       carica();
-    } catch { toast.error("Errore salvataggio"); }
+    } catch { toast.error(t("gestioneOneStep.errore_salvataggio")); }
   }
 
   async function confermaRettifica() {
@@ -236,10 +253,10 @@ function TabInventario() {
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Rettifica registrata");
+      toast.success(t("gestioneOneStep.rettifica_registrata"));
       setRettificaProd(null);
       carica();
-    } catch { toast.error("Errore rettifica"); }
+    } catch { toast.error(t("gestioneOneStep.errore_rettifica")); }
   }
 
   async function aggiornaSoglia() {
@@ -250,10 +267,10 @@ function TabInventario() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ soglia_minima: Number(nuovaSoglia) }),
       });
-      toast.success("Soglia aggiornata");
+      toast.success(t("gestioneOneStep.soglia_aggiornata"));
       setSogliaProd(null);
       carica();
-    } catch { toast.error("Errore aggiornamento soglia"); }
+    } catch { toast.error(t("gestioneOneStep.errore_aggiornamento_soglia")); }
   }
 
   const searchQ = search.trim().replace(/^#/, "");
@@ -297,27 +314,27 @@ function TabInventario() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Cerca per nome, n° colore, ASIN…"
+            placeholder={t("gestioneOneStep.placeholder_cerca_prodotti")}
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
           />
         </div>
-        <button onClick={carica} className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white" title="Ricarica">
+        <button onClick={carica} className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white" title={t("gestioneOneStep.title_ricarica")}>
           <RefreshCw className="w-4 h-4" />
         </button>
         <button
           onClick={syncImmagini}
           disabled={syncing || prodotti.length === 0}
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-300 text-sm font-medium transition-colors"
-          title="Scarica le immagini corrette per ogni colore dalla SP-API Amazon"
+          title={t("gestioneOneStep.title_sync_img")}
         >
           <ImageOff className="w-4 h-4" />
-          {syncing ? "Sync…" : "Sync img"}
+          {syncing ? t("gestioneOneStep.btn_sync_loading") : t("gestioneOneStep.btn_sync_img")}
         </button>
         <button
           onClick={apriAggiungi}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-sm font-medium transition-colors"
         >
-          <Plus className="w-4 h-4" /> Aggiungi colori
+          <Plus className="w-4 h-4" /> {t("gestioneOneStep.btn_aggiungi_colori")}
         </button>
       </div>
 
@@ -325,25 +342,25 @@ function TabInventario() {
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-white">{prodotti.length}</div>
-          <div className="text-xs text-zinc-400 mt-0.5">Colori in catalogo</div>
+          <div className="text-xs text-zinc-400 mt-0.5">{t("gestioneOneStep.stat_colori_catalogo")}</div>
         </div>
         <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-amber-400">
             {prodotti.filter(p => p.quantita < p.soglia_minima).length}
           </div>
-          <div className="text-xs text-zinc-400 mt-0.5">Sotto soglia</div>
+          <div className="text-xs text-zinc-400 mt-0.5">{t("gestioneOneStep.stat_sotto_soglia")}</div>
         </div>
         <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-white">{prodotti.reduce((s, p) => s + p.quantita, 0)}</div>
-          <div className="text-xs text-zinc-400 mt-0.5">Unità totali</div>
+          <div className="text-xs text-zinc-400 mt-0.5">{t("gestioneOneStep.stat_unita_totali")}</div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-zinc-500">Caricamento…</div>
+        <div className="text-center py-16 text-zinc-500">{t("gestioneOneStep.loading_caricamento")}</div>
       ) : filtrati.length === 0 ? (
         <div className="text-center py-16 text-zinc-500">
-          {prodotti.length === 0 ? "Nessun colore nel catalogo. Clicca \"Aggiungi colori\" per iniziare." : "Nessun risultato."}
+          {prodotti.length === 0 ? t("gestioneOneStep.empty_catalogo") : t("gestioneOneStep.empty_nessun_risultato")}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -379,7 +396,7 @@ function TabInventario() {
                   {/* Upload immagine — appare al hover */}
                   <label
                     className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-black/60 text-zinc-300 hover:text-white cursor-pointer opacity-0 group-hover/img:opacity-100 transition-opacity z-10"
-                    title="Carica immagine manualmente"
+                    title={t("gestioneOneStep.title_carica_immagine")}
                   >
                     {uploadingAsin === p.asin
                       ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -404,7 +421,7 @@ function TabInventario() {
                         value={editColoreVal}
                         onChange={e => setEditColoreVal(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") salvaColore(p.asin); if (e.key === "Escape") setEditingColore(null); }}
-                        placeholder="es. 001"
+                        placeholder={t("gestioneOneStep.placeholder_codice_colore_es")}
                         className="flex-1 min-w-0 bg-zinc-700 border border-pink-500 rounded px-1.5 py-0.5 text-xs text-white font-mono focus:outline-none"
                       />
                       <button onClick={() => salvaColore(p.asin)} className="text-green-400 hover:text-green-300">
@@ -418,12 +435,12 @@ function TabInventario() {
                     <button
                       onClick={() => { setEditingColore(p.asin); setEditColoreVal(p.codice_colore ?? ""); }}
                       className="text-left group flex items-center gap-1"
-                      title="Clicca per modificare il numero colore"
+                      title={t("gestioneOneStep.title_modifica_numero_colore")}
                     >
                       {p.codice_colore ? (
                         <span className="text-xs font-mono font-bold text-pink-400">#{p.codice_colore}</span>
                       ) : (
-                        <span className="text-xs text-zinc-600 italic">+ n° colore</span>
+                        <span className="text-xs text-zinc-600 italic">{t("gestioneOneStep.placeholder_aggiungi_n_colore")}</span>
                       )}
                       <Edit3 className="w-2.5 h-2.5 text-zinc-600 group-hover:text-zinc-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
@@ -433,9 +450,9 @@ function TabInventario() {
                     {p.nome ?? p.asin}
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.asin); toast.success(`ASIN ${p.asin} copiato`); }}
+                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.asin); toast.success(t("gestioneOneStep.asin_copiato", { asin: p.asin })); }}
                     className="text-xs text-zinc-600 hover:text-pink-400 font-mono text-left transition-colors"
-                    title="Clicca per copiare l'ASIN"
+                    title={t("gestioneOneStep.title_copia_asin")}
                   >
                     {p.asin}
                   </button>
@@ -453,7 +470,7 @@ function TabInventario() {
                     <div className="mt-1 px-2 py-1 rounded-md bg-blue-900/30 border border-blue-700/40 flex items-center gap-1.5">
                       <Truck className="w-3 h-3 text-blue-400 flex-shrink-0" />
                       <div className="text-[10px] text-blue-200 leading-tight">
-                        <span className="font-bold">+{p.qta_in_arrivo}</span> in arrivo
+                        <span className="font-bold">+{p.qta_in_arrivo}</span> {t("gestioneOneStep.in_arrivo")}
                         {p.prima_consegna && <> · {new Date(p.prima_consegna).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}</>}
                       </div>
                     </div>
@@ -465,19 +482,19 @@ function TabInventario() {
                       onClick={() => { setRettificaProd(p); setNuovaQta(p.quantita); setNoteRett(""); }}
                       className="flex-1 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-xs text-zinc-300 font-medium transition-colors"
                     >
-                      Rettifica
+                      {t("gestioneOneStep.btn_rettifica")}
                     </button>
                     <button
                       onClick={() => { setSogliaProd(p); setNuovaSoglia(p.soglia_minima); }}
                       className="p-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-400 hover:text-amber-400 transition-colors"
-                      title="Modifica soglia alert"
+                      title={t("gestioneOneStep.title_modifica_soglia")}
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => eliminaProdotto(p.asin)}
                       className="p-1 rounded bg-zinc-700 hover:bg-red-900/50 text-zinc-400 hover:text-red-400 transition-colors"
-                      title="Rimuovi dal catalogo"
+                      title={t("gestioneOneStep.title_rimuovi_catalogo")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -495,9 +512,9 @@ function TabInventario() {
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
             <div>
-              <div className="text-sm font-bold text-red-300">Zona pericolosa</div>
+              <div className="text-sm font-bold text-red-300">{t("gestioneOneStep.zona_pericolosa")}</div>
               <div className="text-xs text-zinc-400 mt-0.5">
-                Cancella ordini fornitori e storico movimenti, azzera lo stock. Il <span className="text-zinc-200 font-semibold">catalogo colori resta invariato</span>. Da usare per ripartire da zero in produzione.
+                {t("gestioneOneStep.zona_pericolosa_desc_pre")}<span className="text-zinc-200 font-semibold">{t("gestioneOneStep.catalogo_colori_resta_invariato")}</span>{t("gestioneOneStep.zona_pericolosa_desc_post")}
               </div>
             </div>
           </div>
@@ -506,7 +523,7 @@ function TabInventario() {
             className="px-4 py-2 rounded-lg bg-red-900/50 hover:bg-red-900 border border-red-700/50 text-red-300 hover:text-white text-sm font-medium transition-colors flex-shrink-0 flex items-center gap-2"
           >
             <Trash2 className="w-4 h-4" />
-            Reset ordini e stock
+            {t("gestioneOneStep.btn_reset_ordini_stock")}
           </button>
         </div>
       </div>
@@ -519,28 +536,28 @@ function TabInventario() {
               <div className="p-2 rounded-xl bg-red-900/40">
                 <AlertTriangle className="w-6 h-6 text-red-400" />
               </div>
-              <h3 className="text-lg font-bold text-white">Conferma reset</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneOneStep.conferma_reset_titolo")}</h3>
             </div>
             <p className="text-sm text-zinc-300 mb-2">
-              Stai per eliminare:
+              {t("gestioneOneStep.stai_per_eliminare")}
             </p>
             <ul className="text-sm text-zinc-400 mb-3 space-y-1 pl-4">
-              <li>• Tutti gli ordini fornitore (attivi, ricevuti, annullati)</li>
-              <li>• Tutto lo storico movimenti di stock</li>
-              <li>• Le quantità in stock dei {prodotti.length} colori (azzerate a 0)</li>
+              <li>• {t("gestioneOneStep.reset_lista_ordini")}</li>
+              <li>• {t("gestioneOneStep.reset_lista_storico")}</li>
+              <li>• {t("gestioneOneStep.reset_lista_quantita", { count: prodotti.length })}</li>
             </ul>
             <div className="bg-emerald-950/30 border border-emerald-900/40 rounded-lg p-2.5 mb-3">
               <p className="text-xs text-emerald-300">
-                ✓ Il <span className="font-bold">catalogo colori</span> ({prodotti.length} prodotti) e i numeri colore assegnati restano <span className="font-bold">invariati</span>.
+                {t("gestioneOneStep.reset_check_pre")}<span className="font-bold">{t("gestioneOneStep.reset_check_catalogo")}</span>{t("gestioneOneStep.reset_check_mid", { count: prodotti.length })}<span className="font-bold">{t("gestioneOneStep.reset_check_invariati")}</span>.
               </p>
             </div>
             <div className="bg-red-950/30 border border-red-900/40 rounded-lg p-3 mb-4">
               <p className="text-xs text-red-300 font-medium">
-                ⚠️ Questa operazione è <span className="underline">irreversibile</span>. I dati non potranno essere recuperati.
+                {t("gestioneOneStep.reset_warning_pre")}<span className="underline">{t("gestioneOneStep.reset_warning_irreversibile")}</span>{t("gestioneOneStep.reset_warning_post")}
               </p>
             </div>
             <label className="text-xs text-zinc-400 block mb-1">
-              Per confermare scrivi <span className="font-mono font-bold text-red-300">RESET</span> qui sotto:
+              {t("gestioneOneStep.reset_label_conferma")}<span className="font-mono font-bold text-red-300">RESET</span>{t("gestioneOneStep.reset_label_qui_sotto")}
             </label>
             <input
               autoFocus
@@ -555,7 +572,7 @@ function TabInventario() {
                 disabled={resetting}
                 className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 text-sm font-medium"
               >
-                Annulla
+                {t("gestioneOneStep.btn_annulla")}
               </button>
               <button
                 onClick={eseguiReset}
@@ -565,9 +582,9 @@ function TabInventario() {
                 {resetting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Cancellazione…
+                    {t("gestioneOneStep.btn_cancellazione")}
                   </>
-                ) : "Cancella tutto"}
+                ) : t("gestioneOneStep.btn_cancella_tutto")}
               </button>
             </div>
           </div>
@@ -580,9 +597,9 @@ function TabInventario() {
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-zinc-800">
               <div>
-                <h3 className="text-lg font-bold text-white">Aggiungi colori al catalogo One Step</h3>
+                <h3 className="text-lg font-bold text-white">{t("gestioneOneStep.modale_aggiungi_titolo")}</h3>
                 <p className="text-xs text-zinc-500 mt-0.5">
-                  {disponibili.length} prodotti disponibili · {numSelezionati} selezionati
+                  {t("gestioneOneStep.modale_aggiungi_subtitle", { disp: disponibili.length, sel: numSelezionati })}
                 </p>
               </div>
               <button onClick={() => setShowAggiungi(false)} className="text-zinc-500 hover:text-white">
@@ -597,7 +614,7 @@ function TabInventario() {
                 <input
                   value={searchDisp}
                   onChange={e => setSearchDisp(e.target.value)}
-                  placeholder="Cerca per nome o ASIN…"
+                  placeholder={t("gestioneOneStep.placeholder_cerca_nome_asin")}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
                 />
               </div>
@@ -605,17 +622,17 @@ function TabInventario() {
                 onClick={tuttiSelezionati ? deselezionaTutti : selezionaTutti}
                 className="whitespace-nowrap px-3 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-xs text-zinc-300 font-medium"
               >
-                {tuttiSelezionati ? "Deseleziona tutti" : "Seleziona tutti"}
+                {tuttiSelezionati ? t("gestioneOneStep.btn_deseleziona_tutti") : t("gestioneOneStep.btn_seleziona_tutti")}
               </button>
             </div>
 
             {/* Lista prodotti */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {loadingDisp ? (
-                <div className="text-center py-8 text-zinc-500">Caricamento…</div>
+                <div className="text-center py-8 text-zinc-500">{t("gestioneOneStep.loading_caricamento")}</div>
               ) : dispFiltrati.length === 0 ? (
                 <div className="text-center py-8 text-zinc-500">
-                  {disponibili.length === 0 ? "Tutti i prodotti sono già nel catalogo One Step." : "Nessun risultato."}
+                  {disponibili.length === 0 ? t("gestioneOneStep.empty_tutti_in_catalogo") : t("gestioneOneStep.empty_nessun_risultato")}
                 </div>
               ) : (
                 dispFiltrati.map(p => {
@@ -650,7 +667,7 @@ function TabInventario() {
                           value={selezione[p.asin]?.codice_colore ?? ""}
                           onChange={e => setCodiceColore(p.asin, e.target.value)}
                           onClick={e => e.stopPropagation()}
-                          placeholder="n° colore"
+                          placeholder={t("gestioneOneStep.placeholder_n_colore")}
                           className="w-24 bg-zinc-700 border border-zinc-600 rounded-lg px-2 py-1.5 text-xs text-center text-white font-mono placeholder-zinc-500 focus:outline-none focus:border-pink-500 flex-shrink-0"
                         />
                       )}
@@ -663,7 +680,7 @@ function TabInventario() {
             {/* Footer: soglia globale + pulsante import */}
             <div className="p-4 border-t border-zinc-800 flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-zinc-400 whitespace-nowrap">Soglia minima</label>
+                <label className="text-xs text-zinc-400 whitespace-nowrap">{t("gestioneOneStep.label_soglia_minima")}</label>
                 <input
                   type="number"
                   min={0}
@@ -677,7 +694,7 @@ function TabInventario() {
                 disabled={importing || numSelezionati === 0}
                 className="flex-1 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
               >
-                {importing ? "Importazione…" : `Aggiungi ${numSelezionati > 0 ? numSelezionati : ""} colori`}
+                {importing ? t("gestioneOneStep.btn_importazione") : t("gestioneOneStep.btn_aggiungi_n_colori", { count: numSelezionati > 0 ? numSelezionati : "" })}
               </button>
             </div>
           </div>
@@ -689,7 +706,7 @@ function TabInventario() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Rettifica stock</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneOneStep.rettifica_stock_titolo")}</h3>
               <button onClick={() => setRettificaProd(null)} className="text-zinc-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -700,10 +717,10 @@ function TabInventario() {
               )}
               <div>
                 <div className="text-sm text-zinc-200 font-medium">{rettificaProd.nome ?? rettificaProd.asin}</div>
-                <div className="text-xs text-zinc-500">Stock attuale: {rettificaProd.quantita}</div>
+                <div className="text-xs text-zinc-500">{t("gestioneOneStep.stock_attuale", { q: rettificaProd.quantita })}</div>
               </div>
             </div>
-            <label className="text-xs text-zinc-400 block mb-1">Nuova quantità</label>
+            <label className="text-xs text-zinc-400 block mb-1">{t("gestioneOneStep.label_nuova_quantita")}</label>
             <input
               type="number"
               min={0}
@@ -711,19 +728,19 @@ function TabInventario() {
               onChange={e => setNuovaQta(e.target.value)}
               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white mb-3 focus:outline-none focus:border-zinc-500"
             />
-            <label className="text-xs text-zinc-400 block mb-1">Note (opzionale)</label>
+            <label className="text-xs text-zinc-400 block mb-1">{t("gestioneOneStep.label_note_opzionale")}</label>
             <input
               value={noteRett}
               onChange={e => setNoteRett(e.target.value)}
-              placeholder="Es: conteggio fisico"
+              placeholder={t("gestioneOneStep.placeholder_conteggio_fisico")}
               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 mb-4 focus:outline-none focus:border-zinc-500"
             />
             <div className="flex gap-2">
               <button onClick={() => setRettificaProd(null)} className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">
-                Annulla
+                {t("gestioneOneStep.btn_annulla")}
               </button>
               <button onClick={confermaRettifica} className="flex-1 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white text-sm font-medium">
-                Conferma
+                {t("gestioneOneStep.btn_conferma")}
               </button>
             </div>
           </div>
@@ -735,13 +752,13 @@ function TabInventario() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Soglia minima</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneOneStep.soglia_minima_titolo")}</h3>
               <button onClick={() => setSogliaProd(null)} className="text-zinc-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <p className="text-sm text-zinc-400 mb-4">
-              Sotto questa quantità il prodotto viene evidenziato in arancione come "sotto soglia".
+              {t("gestioneOneStep.soglia_minima_desc")}
             </p>
             <input
               type="number"
@@ -752,10 +769,10 @@ function TabInventario() {
             />
             <div className="flex gap-2">
               <button onClick={() => setSogliaProd(null)} className="flex-1 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">
-                Annulla
+                {t("gestioneOneStep.btn_annulla")}
               </button>
               <button onClick={aggiornaSoglia} className="flex-1 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-sm font-medium">
-                Salva
+                {t("gestioneOneStep.btn_salva")}
               </button>
             </div>
           </div>
@@ -769,6 +786,7 @@ function TabInventario() {
 // TAB ORDINI
 // ══════════════════════════════════════════════════════════
 function TabOrdini() {
+  const { t } = useTranslation();
   const [ordini, setOrdini] = useState([]);
   const [loading, setLoading] = useState(true);
   const [espanso, setEspanso] = useState(null);
@@ -794,7 +812,7 @@ function TabOrdini() {
       const res = await fetch("/api/v2/onestep/ordini");
       const json = await res.json();
       setOrdini(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento ordini"); }
+    } catch { toast.error(t("gestioneOneStep.errore_caricamento_ordini")); }
     finally { setLoading(false); }
   }
 
@@ -829,8 +847,8 @@ function TabOrdini() {
   }
 
   async function creaOrdine() {
-    if (!fornitore.trim()) { toast.error("Inserisci il fornitore"); return; }
-    if (righeNuove.length === 0) { toast.error("Aggiungi almeno un prodotto"); return; }
+    if (!fornitore.trim()) { toast.error(t("gestioneOneStep.inserisci_fornitore")); return; }
+    if (righeNuove.length === 0) { toast.error(t("gestioneOneStep.aggiungi_almeno_prodotto")); return; }
     try {
       const res = await fetch("/api/v2/onestep/ordini", {
         method: "POST",
@@ -844,10 +862,10 @@ function TabOrdini() {
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Ordine creato");
+      toast.success(t("gestioneOneStep.ordine_creato"));
       setShowNuovo(false);
       carica();
-    } catch { toast.error("Errore creazione ordine"); }
+    } catch { toast.error(t("gestioneOneStep.errore_creazione_ordine")); }
   }
 
   async function aggiornaStatoOrdine(id, stato) {
@@ -857,9 +875,9 @@ function TabOrdini() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stato }),
       });
-      toast.success("Stato aggiornato");
+      toast.success(t("gestioneOneStep.stato_aggiornato"));
       carica();
-    } catch { toast.error("Errore aggiornamento stato"); }
+    } catch { toast.error(t("gestioneOneStep.errore_aggiornamento_stato")); }
   }
 
   function apriRicezione(ordine) {
@@ -885,10 +903,10 @@ function TabOrdini() {
         body: JSON.stringify({ operatore: "magazzino", righe }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Ricezione registrata — stock aggiornato");
+      toast.success(t("gestioneOneStep.ricezione_registrata"));
       setRicezioneOrdine(null);
       carica();
-    } catch { toast.error("Errore ricezione"); }
+    } catch { toast.error(t("gestioneOneStep.errore_ricezione")); }
     finally { setConfermandoRicezione(false); }
   }
 
@@ -912,20 +930,20 @@ function TabOrdini() {
   // Stati validi all'interno di ogni vista (per il dropdown contestuale)
   const STATI_PER_VISTA = {
     attivi:  [
-      { key: "bozza",             label: "Bozze" },
-      { key: "confermato",        label: "Confermati" },
-      { key: "ricevuto_parziale", label: "Parziali" },
+      { key: "bozza",             label: t("gestioneOneStep.stato_bozze") },
+      { key: "confermato",        label: t("gestioneOneStep.stato_confermati") },
+      { key: "ricevuto_parziale", label: t("gestioneOneStep.stato_parziali") },
     ],
     storico: [
-      { key: "ricevuto",  label: "Ricevuti" },
-      { key: "annullato", label: "Annullati" },
+      { key: "ricevuto",  label: t("gestioneOneStep.stato_ricevuti") },
+      { key: "annullato", label: t("gestioneOneStep.stato_annullati") },
     ],
     tutti: [
-      { key: "bozza",             label: "Bozze" },
-      { key: "confermato",        label: "Confermati" },
-      { key: "ricevuto_parziale", label: "Parziali" },
-      { key: "ricevuto",          label: "Ricevuti" },
-      { key: "annullato",         label: "Annullati" },
+      { key: "bozza",             label: t("gestioneOneStep.stato_bozze") },
+      { key: "confermato",        label: t("gestioneOneStep.stato_confermati") },
+      { key: "ricevuto_parziale", label: t("gestioneOneStep.stato_parziali") },
+      { key: "ricevuto",          label: t("gestioneOneStep.stato_ricevuti") },
+      { key: "annullato",         label: t("gestioneOneStep.stato_annullati") },
     ],
   };
 
@@ -942,9 +960,9 @@ function TabOrdini() {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   const VISTE = [
-    { key: "attivi",  label: "Attivi",  count: numAttivi  },
-    { key: "storico", label: "Storico", count: numStorico },
-    { key: "tutti",   label: "Tutti",   count: ordini.length },
+    { key: "attivi",  label: t("gestioneOneStep.vista_attivi"),  count: numAttivi  },
+    { key: "storico", label: t("gestioneOneStep.vista_storico"), count: numStorico },
+    { key: "tutti",   label: t("gestioneOneStep.vista_tutti"),   count: ordini.length },
   ];
 
   // Quando cambia vista resetta il filtro fine (evita combinazioni impossibili)
@@ -960,13 +978,13 @@ function TabOrdini() {
           <button onClick={carica} className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <span className="text-sm text-zinc-500">{ordiniFiltrati.length} di {ordini.length} ordini</span>
+          <span className="text-sm text-zinc-500">{t("gestioneOneStep.ordini_count", { filtrati: ordiniFiltrati.length, totale: ordini.length })}</span>
         </div>
         <button
           onClick={apriNuovoOrdine}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
         >
-          <Plus className="w-4 h-4" /> Nuovo ordine
+          <Plus className="w-4 h-4" /> {t("gestioneOneStep.btn_nuovo_ordine")}
         </button>
       </div>
 
@@ -999,7 +1017,7 @@ function TabOrdini() {
             onChange={e => setStatoFine(e.target.value)}
             className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500 cursor-pointer"
           >
-            <option value="">Filtra per stato…</option>
+            <option value="">{t("gestioneOneStep.filtra_per_stato")}</option>
             {STATI_PER_VISTA[vista].map(s => (
               <option key={s.key} value={s.key}>
                 {s.label} ({conteggi[s.key] ?? 0})
@@ -1010,7 +1028,7 @@ function TabOrdini() {
             <button
               onClick={() => setStatoFine("")}
               className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
-              title="Rimuovi filtro"
+              title={t("gestioneOneStep.title_rimuovi_filtro")}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -1019,10 +1037,10 @@ function TabOrdini() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-zinc-500">Caricamento…</div>
+        <div className="text-center py-16 text-zinc-500">{t("gestioneOneStep.loading_caricamento")}</div>
       ) : ordiniFiltrati.length === 0 ? (
         <div className="text-center py-16 text-zinc-500">
-          {ordini.length === 0 ? "Nessun ordine registrato." : "Nessun ordine corrisponde al filtro selezionato."}
+          {ordini.length === 0 ? t("gestioneOneStep.empty_nessun_ordine") : t("gestioneOneStep.empty_nessun_ordine_filtro")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -1044,9 +1062,9 @@ function TabOrdini() {
                       <StatoChip stato={o.stato} />
                     </div>
                     <div className="text-xs text-zinc-500 mt-0.5">
-                      Creato: {fmt(o.created_at)}
-                      {o.data_consegna_prevista && ` · Consegna prevista: ${fmt(o.data_consegna_prevista)}`}
-                      {o.num_righe > 0 && ` · ${o.num_righe} prodotti, ${o.tot_ordinato} pz`}
+                      {t("gestioneOneStep.creato_label", { data: fmt(o.created_at) })}
+                      {o.data_consegna_prevista && t("gestioneOneStep.consegna_prevista_label", { data: fmt(o.data_consegna_prevista) })}
+                      {o.num_righe > 0 && t("gestioneOneStep.ordine_riepilogo", { righe: o.num_righe, tot: o.tot_ordinato })}
                     </div>
                   </div>
                   {aperto ? <ChevronUp className="w-4 h-4 text-zinc-400" /> : <ChevronDown className="w-4 h-4 text-zinc-400" />}
@@ -1087,7 +1105,7 @@ function TabOrdini() {
                               )}
                               <span className="text-sm text-zinc-200 truncate">{r.nome ?? r.asin}</span>
                             </div>
-                            <div className="text-xs text-zinc-500">Ord: {r.quantita_ordinata} · Ric: {r.quantita_ricevuta ?? 0}</div>
+                            <div className="text-xs text-zinc-500">{t("gestioneOneStep.ord_label", { q: r.quantita_ordinata })}{t("gestioneOneStep.ric_label", { q: r.quantita_ricevuta ?? 0 })}</div>
                           </div>
                           <StatoChip stato={r.stato ?? "in_attesa"} />
                         </div>
@@ -1101,7 +1119,7 @@ function TabOrdini() {
                           onClick={() => aggiornaStatoOrdine(o.id, "confermato")}
                           className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white text-xs font-medium"
                         >
-                          Conferma ordine
+                          {t("gestioneOneStep.btn_conferma_ordine")}
                         </button>
                       )}
                       {puoRicevere && (
@@ -1109,7 +1127,7 @@ function TabOrdini() {
                           onClick={() => apriRicezione(o)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-white text-xs font-medium"
                         >
-                          <Truck className="w-3.5 h-3.5" /> Registra ricezione
+                          <Truck className="w-3.5 h-3.5" /> {t("gestioneOneStep.btn_registra_ricezione")}
                         </button>
                       )}
                       {o.stato !== "annullato" && o.stato !== "ricevuto" && (
@@ -1117,7 +1135,7 @@ function TabOrdini() {
                           onClick={() => aggiornaStatoOrdine(o.id, "annullato")}
                           className="px-3 py-1.5 rounded-lg bg-red-900/50 hover:bg-red-900 text-red-400 text-xs font-medium"
                         >
-                          Annulla ordine
+                          {t("gestioneOneStep.btn_annulla_ordine")}
                         </button>
                       )}
                     </div>
@@ -1134,7 +1152,7 @@ function TabOrdini() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-zinc-800">
-              <h3 className="text-lg font-bold text-white">Nuovo ordine fornitore</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneOneStep.nuovo_ordine_titolo")}</h3>
               <button onClick={() => setShowNuovo(false)} className="text-zinc-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -1144,16 +1162,16 @@ function TabOrdini() {
               {/* Dati ordine */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Fornitore *</label>
+                  <label className="text-xs text-zinc-400 block mb-1">{t("gestioneOneStep.label_fornitore_required")}</label>
                   <input
                     value={fornitore}
                     onChange={e => setFornitore(e.target.value)}
-                    placeholder="Nome fornitore"
+                    placeholder={t("gestioneOneStep.placeholder_nome_fornitore")}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Data consegna prevista</label>
+                  <label className="text-xs text-zinc-400 block mb-1">{t("gestioneOneStep.label_data_consegna")}</label>
                   <input
                     type="date"
                     value={dataConsegna}
@@ -1162,11 +1180,11 @@ function TabOrdini() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-zinc-400 block mb-1">Note</label>
+                  <label className="text-xs text-zinc-400 block mb-1">{t("gestioneOneStep.label_note")}</label>
                   <input
                     value={noteOrdine}
                     onChange={e => setNoteOrdine(e.target.value)}
-                    placeholder="Note ordine…"
+                    placeholder={t("gestioneOneStep.placeholder_note_ordine")}
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
                   />
                 </div>
@@ -1178,10 +1196,10 @@ function TabOrdini() {
                 {/* COLONNA SX: griglia prodotti disponibili */}
                 <div className="flex flex-col gap-2">
                   <div className="text-xs text-zinc-400 font-medium">
-                    Prodotti disponibili ({prodottiInRiga.length})
+                    {t("gestioneOneStep.prodotti_disponibili_count", { count: prodottiInRiga.length })}
                   </div>
                   {prodottiInRiga.length === 0 ? (
-                    <p className="text-sm text-zinc-500 py-4">Tutti i prodotti sono già nell'ordine.</p>
+                    <p className="text-sm text-zinc-500 py-4">{t("gestioneOneStep.tutti_gia_nellordine")}</p>
                   ) : (
                     <div className="space-y-2 overflow-y-auto max-h-[60vh] pr-1">
                       {prodottiInRiga.map(p => (
@@ -1209,7 +1227,7 @@ function TabOrdini() {
                           <div className="flex-1 min-w-0 py-1">
                             <div className="text-sm text-zinc-100 leading-snug font-medium">{p.nome ?? p.asin}</div>
                             <div className="text-xs text-zinc-500 font-mono mt-1">{p.asin}</div>
-                            <div className="text-xs text-zinc-400 mt-1">Stock attuale: <span className="text-zinc-200 font-semibold">{p.quantita}</span></div>
+                            <div className="text-xs text-zinc-400 mt-1">{t("gestioneOneStep.stock_attuale_inline")}<span className="text-zinc-200 font-semibold">{p.quantita}</span></div>
                           </div>
                           <div className="p-2 rounded-full bg-blue-600/20 group-hover:bg-blue-600 transition-colors flex-shrink-0">
                             <Plus className="w-4 h-4 text-blue-400 group-hover:text-white" />
@@ -1223,11 +1241,11 @@ function TabOrdini() {
                 {/* COLONNA DX: carrello ordine */}
                 <div className="flex flex-col gap-2">
                   <div className="text-xs text-zinc-400 font-medium">
-                    Nell'ordine ({righeNuove.length} prodotti · {righeNuove.reduce((s, r) => s + r.quantita_ordinata, 0)} pz)
+                    {t("gestioneOneStep.carrello_count", { righe: righeNuove.length, pz: righeNuove.reduce((s, r) => s + r.quantita_ordinata, 0) })}
                   </div>
                   {righeNuove.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center text-zinc-600 text-sm border border-dashed border-zinc-700 rounded-xl">
-                      Clicca i prodotti a sinistra per aggiungerli
+                      {t("gestioneOneStep.carrello_empty")}
                     </div>
                   ) : (
                     <div className="space-y-2 overflow-y-auto max-h-[60vh] pr-1">
@@ -1272,10 +1290,10 @@ function TabOrdini() {
 
             <div className="p-5 border-t border-zinc-800 flex gap-3">
               <button onClick={() => setShowNuovo(false)} className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm">
-                Annulla
+                {t("gestioneOneStep.btn_annulla")}
               </button>
               <button onClick={creaOrdine} className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium">
-                Crea ordine ({righeNuove.length} prodotti)
+                {t("gestioneOneStep.btn_crea_ordine", { count: righeNuove.length })}
               </button>
             </div>
           </div>
@@ -1287,7 +1305,7 @@ function TabOrdini() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-zinc-800">
-              <h3 className="text-lg font-bold text-white">Registra ricezione</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneOneStep.registra_ricezione_titolo")}</h3>
               <button onClick={() => setRicezioneOrdine(null)} className="text-zinc-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -1304,7 +1322,7 @@ function TabOrdini() {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-zinc-200 truncate">{r.nome ?? r.asin}</div>
-                    <div className="text-xs text-zinc-500">Ordinato: {r.quantita_ordinata} · Ricevuto finora: {r.quantita_ricevuta ?? 0}</div>
+                    <div className="text-xs text-zinc-500">{t("gestioneOneStep.ordinato_ricevuto_finora", { ord: r.quantita_ordinata, ric: r.quantita_ricevuta ?? 0 })}</div>
                   </div>
                   <input
                     type="number"
@@ -1322,7 +1340,7 @@ function TabOrdini() {
                 disabled={confermandoRicezione}
                 className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-300 text-sm"
               >
-                Annulla
+                {t("gestioneOneStep.btn_annulla")}
               </button>
               <button
                 onClick={confermaRicezione}
@@ -1332,9 +1350,9 @@ function TabOrdini() {
                 {confermandoRicezione ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Registrazione in corso…
+                    {t("gestioneOneStep.btn_registrazione_in_corso")}
                   </>
-                ) : "Conferma ricezione"}
+                ) : t("gestioneOneStep.btn_conferma_ricezione")}
               </button>
             </div>
           </div>
@@ -1348,6 +1366,7 @@ function TabOrdini() {
 // TAB STORICO MOVIMENTI
 // ══════════════════════════════════════════════════════════
 function TabStorico() {
+  const { t } = useTranslation();
   const [movimenti, setMovimenti] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState("");
@@ -1363,7 +1382,7 @@ function TabStorico() {
       const res = await fetch(`/api/v2/onestep/movimenti?${params}`);
       const json = await res.json();
       setMovimenti(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento storico"); }
+    } catch { toast.error(t("gestioneOneStep.errore_caricamento_storico")); }
     finally { setLoading(false); }
   }, [filtroTipo, filtroAsin]);
 
@@ -1423,40 +1442,41 @@ function TabStorico() {
           onChange={e => setFiltroTipo(e.target.value)}
           className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-500"
         >
-          <option value="">Tutti i tipi</option>
-          <option value="CARICO_ORDINE">Carico ordine</option>
-          <option value="SCARICO_DDT">Scarico DDT</option>
-          <option value="RETTIFICA">Rettifica</option>
+          <option value="">{t("gestioneOneStep.filtro_tutti_tipi")}</option>
+          <option value="CARICO_ORDINE">{t("gestioneOneStep.tipo_carico_ordine")}</option>
+          <option value="SCARICO_DDT">{t("gestioneOneStep.tipo_scarico_ddt")}</option>
+          <option value="RETTIFICA">{t("gestioneOneStep.tipo_rettifica")}</option>
         </select>
         <input
           value={filtroAsin}
           onChange={e => setFiltroAsin(e.target.value)}
-          placeholder="Filtra per ASIN…"
+          placeholder={t("gestioneOneStep.placeholder_filtra_asin")}
           className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-500"
         />
         <button onClick={carica} className="p-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-white">
           <RefreshCw className="w-4 h-4" />
         </button>
-        <span className="text-xs text-zinc-500 self-center">{gruppi.length} eventi · {movimenti.length} movimenti totali</span>
+        <span className="text-xs text-zinc-500 self-center">{t("gestioneOneStep.eventi_movimenti_count", { eventi: gruppi.length, mov: movimenti.length })}</span>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-zinc-500">Caricamento…</div>
+        <div className="text-center py-16 text-zinc-500">{t("gestioneOneStep.loading_caricamento")}</div>
       ) : gruppi.length === 0 ? (
-        <div className="text-center py-16 text-zinc-500">Nessun movimento trovato.</div>
+        <div className="text-center py-16 text-zinc-500">{t("gestioneOneStep.empty_nessun_movimento")}</div>
       ) : (
         <div className="space-y-2">
           {gruppi.map(g => {
-            const tipo = TIPO_MOV[g.tipo] ?? { label: g.tipo, color: "text-zinc-400" };
+            const tipoColor = TIPO_MOV_COLORS[g.tipo] ?? "text-zinc-400";
+            const tipoLabel = TIPO_MOV_KEYS[g.tipo] ? t(TIPO_MOV_KEYS[g.tipo]) : g.tipo;
             const aperto = gruppiAperti.has(g.key);
             const standalone = g.righe.length === 1 && !g.riferimento_id;
             const segno = g.totale > 0 ? "+" : "";
 
             // Etichetta gruppo
             let etichetta;
-            if (g.riferimento_tipo === "ordine") etichetta = `Ordine #${String(g.riferimento_id).padStart(4, "0")}`;
-            else if (g.riferimento_tipo === "ddt") etichetta = `DDT #${g.riferimento_id}`;
-            else etichetta = tipo.label;
+            if (g.riferimento_tipo === "ordine") etichetta = t("gestioneOneStep.ordine_label", { id: String(g.riferimento_id).padStart(4, "0") });
+            else if (g.riferimento_tipo === "ddt") etichetta = t("gestioneOneStep.ddt_label", { id: g.riferimento_id });
+            else etichetta = tipoLabel;
 
             return (
               <div key={g.key} className="bg-zinc-800 border border-zinc-700/50 rounded-xl overflow-hidden">
@@ -1471,10 +1491,10 @@ function TabStorico() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-sm font-bold ${tipo.color}`}>{etichetta}</span>
-                      <span className="text-xs text-zinc-500">· {tipo.label}</span>
+                      <span className={`text-sm font-bold ${tipoColor}`}>{etichetta}</span>
+                      <span className="text-xs text-zinc-500">· {tipoLabel}</span>
                       {!standalone && (
-                        <span className="text-xs text-zinc-500">· {g.righe.length} prodotti</span>
+                        <span className="text-xs text-zinc-500">· {t("gestioneOneStep.gruppo_n_prodotti", { count: g.righe.length })}</span>
                       )}
                     </div>
                     <div className="text-xs text-zinc-600 mt-0.5">
@@ -1488,7 +1508,7 @@ function TabStorico() {
                     <div className={`text-lg font-bold ${g.totale > 0 ? "text-green-400" : g.totale < 0 ? "text-red-400" : "text-zinc-400"}`}>
                       {segno}{g.totale}
                     </div>
-                    <div className="text-xs text-zinc-600">{standalone ? "" : "totale"}</div>
+                    <div className="text-xs text-zinc-600">{standalone ? "" : t("gestioneOneStep.totale_label")}</div>
                   </div>
                   {!standalone && (
                     aperto ? <ChevronUp className="w-4 h-4 text-zinc-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-zinc-400 flex-shrink-0" />
@@ -1548,15 +1568,16 @@ function TabStorico() {
 // ══════════════════════════════════════════════════════════
 // PAGINA PRINCIPALE
 // ══════════════════════════════════════════════════════════
-const TABS = [
-  { id: "inventario", label: "Inventario",       icon: Package },
-  { id: "ordini",     label: "Ordini fornitore", icon: ShoppingCart },
-  { id: "storico",    label: "Storico movimenti", icon: History },
-];
-
 export default function GestioneOneStep() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [tab, setTab] = useState("inventario");
+
+  const TABS = [
+    { id: "inventario", label: t("gestioneOneStep.tab_inventario"), icon: Package },
+    { id: "ordini",     label: t("gestioneOneStep.tab_ordini"), icon: ShoppingCart },
+    { id: "storico",    label: t("gestioneOneStep.tab_storico"), icon: History },
+  ];
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -1577,7 +1598,7 @@ export default function GestioneOneStep() {
             <button
               onClick={() => navigate("/uffici/inventario")}
               className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
-              title="Indietro"
+              title={t("gestioneOneStep.title_indietro")}
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -1585,23 +1606,23 @@ export default function GestioneOneStep() {
               <Sparkles className="w-[18px] h-[18px] text-pink-400" />
             </div>
             <div className="flex flex-col leading-none">
-              <span className="text-[15px] font-semibold tracking-tight text-white">One Step</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Smalti pre-confezionati</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white">{t("gestioneOneStep.header_titolo")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("gestioneOneStep.header_sottotitolo")}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 sm:gap-5">
             <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-pink-500/10 border border-pink-500/30">
               <div className="w-1.5 h-1.5 rounded-full bg-pink-400 animate-pulse" />
-              <span className="text-[11px] uppercase tracking-[0.12em] text-pink-400 font-medium">Modulo attivo</span>
+              <span className="text-[11px] uppercase tracking-[0.12em] text-pink-400 font-medium">{t("gestioneOneStep.modulo_attivo")}</span>
             </div>
             <button
               onClick={() => navigate("/uffici/inventario")}
               className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
-              title="Torna indietro"
+              title={t("gestioneOneStep.title_torna_indietro")}
             >
               <LogOut className="w-3.5 h-3.5" />
-              Esci
+              {t("gestioneOneStep.btn_esci")}
             </button>
           </div>
         </div>
@@ -1611,13 +1632,13 @@ export default function GestioneOneStep() {
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
           <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">
-            Modulo
+            {t("gestioneOneStep.hero_modulo")}
           </div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            One Step <span className="text-slate-500">— inventario smalti.</span>
+            {t("gestioneOneStep.hero_titolo_pre")}<span className="text-slate-500">{t("gestioneOneStep.hero_titolo_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Catalogo, ordini fornitore e storico movimenti per la linea di smalti pre-confezionati.
+            {t("gestioneOneStep.hero_descrizione")}
           </p>
         </div>
       </section>
@@ -1658,7 +1679,7 @@ export default function GestioneOneStep() {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>© {new Date().getFullYear()} Nexus · One Step</span>
+          <span>{t("gestioneOneStep.footer_copyright", { year: new Date().getFullYear() })}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from 'sonner';
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
     ArrowLeft,
     History,
@@ -98,19 +99,21 @@ function StatTile({ icon: Icon, label, value, accent = "violet" }) {
 }
 
 function PriorityBadge({ priorita }) {
+    const { t } = useTranslation();
     const p = (priorita || "").toLowerCase();
     const map = {
-        alta:  { cls: "bg-rose-500/10 border-rose-500/30 text-rose-400", label: "Alta" },
-        media: { cls: "bg-amber-500/10 border-amber-500/30 text-amber-400", label: "Media" },
-        bassa: { cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", label: "Bassa" },
+        alta:  { cls: "bg-rose-500/10 border-rose-500/30 text-rose-400", label: t("gestioneProduzioneUfficio.priority_alta") },
+        media: { cls: "bg-amber-500/10 border-amber-500/30 text-amber-400", label: t("gestioneProduzioneUfficio.priority_media") },
+        bassa: { cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", label: t("gestioneProduzioneUfficio.priority_bassa") },
     };
-    const b = map[p] || { cls: "bg-slate-500/10 border-slate-500/30 text-slate-400", label: "N/A" };
+    const b = map[p] || { cls: "bg-slate-500/10 border-slate-500/30 text-slate-400", label: t("gestioneProduzioneUfficio.priority_na") };
     return <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-medium ${b.cls}`}>{b.label}</span>;
 }
 
 /* ── Componente principale ───────────────────────────────── */
 
 const GestioneProduzione = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const location = useLocation();
     const isUffici = location.pathname.startsWith('/uffici');
@@ -264,7 +267,7 @@ const GestioneProduzione = () => {
             await ricaricaDati();
         } catch (err) {
             console.error("Errore aggiornamento stato:", err);
-            toast.error("Errore durante l'aggiornamento dello stato");
+            toast.error(t("gestioneProduzioneUfficio.toast_err_stato"));
         }
     };
 
@@ -273,7 +276,7 @@ const GestioneProduzione = () => {
         try {
             const quantitaNumerica = Number(nuovaQuantita);
             if (isNaN(quantitaNumerica) || quantitaNumerica <= 0) {
-                toast.warning("Quantita non valida");
+                toast.warning(t("gestioneProduzioneUfficio.toast_err_quantita_non_valida"));
                 return;
             }
 
@@ -281,7 +284,7 @@ const GestioneProduzione = () => {
             const oldData = await oldRes.json();
 
             if (!oldData || !oldData.data) {
-                toast.error("Errore: impossibile recuperare la prenotazione iniziale");
+                toast.error(t("gestioneProduzioneUfficio.toast_err_recupero_prenotazione"));
                 return;
             }
 
@@ -302,7 +305,7 @@ const GestioneProduzione = () => {
             const prenAgg = await resPren.json();
 
             if (!prenAgg || !prenAgg.data) {
-                toast.error("Errore recupero prenotazione aggiornata");
+                toast.error(t("gestioneProduzioneUfficio.toast_err_recupero_aggiornata"));
                 return;
             }
 
@@ -319,10 +322,10 @@ const GestioneProduzione = () => {
             );
 
             await ricaricaDati();
-            toast.success("Quantita aggiornata e registrata nello storico");
+            toast.success(t("gestioneProduzioneUfficio.toast_quantita_aggiornata"));
         } catch (err) {
             console.error("Errore modifica quantita:", err);
-            toast.error("Errore durante la modifica della quantita");
+            toast.error(t("gestioneProduzioneUfficio.toast_err_modifica_quantita"));
         }
     };
 
@@ -333,7 +336,7 @@ const GestioneProduzione = () => {
             const prenAgg = await resPren.json();
 
             if (!prenAgg || !prenAgg.data) {
-                toast.error("Errore recupero prenotazione aggiornata");
+                toast.error(t("gestioneProduzioneUfficio.toast_err_recupero_aggiornata"));
                 return;
             }
 
@@ -347,7 +350,7 @@ const GestioneProduzione = () => {
 
             if (!resCrea.ok) {
                 const text = await resCrea.text();
-                toast.info("Errore creazione produzione:\n" + text);
+                toast.info(t("gestioneProduzioneUfficio.toast_err_creazione_produzione") + text);
                 return;
             }
 
@@ -355,7 +358,7 @@ const GestioneProduzione = () => {
             const idProduzione = dataCrea?.id_produzione || dataCrea?.data?.id_produzione;
 
             if (!idProduzione) {
-                toast.error("Errore: ID produzione mancante.");
+                toast.error(t("gestioneProduzioneUfficio.toast_err_id_produzione"));
                 return;
             }
 
@@ -370,7 +373,7 @@ const GestioneProduzione = () => {
 
             if (!resCompleta.ok) {
                 const errText = await resCompleta.text();
-                toast.info("Errore completamento produzione:\n" + errText);
+                toast.info(t("gestioneProduzioneUfficio.toast_err_completamento") + errText);
                 return;
             }
 
@@ -379,7 +382,7 @@ const GestioneProduzione = () => {
             const prenUpdated = prenAggUpdated.data;
 
             if (!prenAggUpdated || !prenAggUpdated.data) {
-                toast.error("Errore nel ricaricare la prenotazione aggiornata");
+                toast.error(t("gestioneProduzioneUfficio.toast_err_ricarica_prenotazione"));
                 return;
             }
 
@@ -396,10 +399,10 @@ const GestioneProduzione = () => {
             await ricaricaDati();
 
             setPrenotazioni(prev => prev.filter(p => p.id !== prenotazione.id));
-            toast.success("Produzione completata");
+            toast.success(t("gestioneProduzioneUfficio.toast_produzione_completata"));
         } catch (err) {
             console.error("Errore generale handleConfermaProduzione:", err);
-            toast.error("Errore durante la conferma produzione");
+            toast.error(t("gestioneProduzioneUfficio.toast_err_conferma"));
         }
     };
 
@@ -441,12 +444,12 @@ const GestioneProduzione = () => {
             await ricaricaDati();
         } catch (err) {
             console.error("Errore handlePrenota:", err);
-            toast.error("Errore durante la creazione della prenotazione");
+            toast.error(t("gestioneProduzioneUfficio.toast_err_creazione_prenotazione"));
         }
     };
 
     const handleResetProduzioneCounter = async () => {
-        if (!window.confirm("Questo resettera TUTTO: prenotazioni, produzioni, storico, contatore.\nProcedere?"))
+        if (!window.confirm(t("gestioneProduzioneUfficio.confirm_reset_totale")))
             return;
 
         try {
@@ -457,11 +460,11 @@ const GestioneProduzione = () => {
             const data = await res.json();
             if (!data.ok) throw new Error(data.error);
 
-            toast.success("Reset completato");
+            toast.success(t("gestioneProduzioneUfficio.toast_reset_ok"));
             window.location.reload();
         } catch (err) {
             console.error("Errore reset:", err);
-            toast.error("Errore durante il reset totale");
+            toast.error(t("gestioneProduzioneUfficio.toast_reset_err"));
         }
     };
 
@@ -475,10 +478,10 @@ const GestioneProduzione = () => {
             });
             if (!res.ok) throw new Error("Errore salvataggio nota");
             await fetchPrenotazioni();
-            toast.success("Nota salvata");
+            toast.success(t("gestioneProduzioneUfficio.toast_nota_salvata"));
         } catch (err) {
             console.error("Errore salvataggio nota:", err);
-            toast.error("Errore salvataggio nota");
+            toast.error(t("gestioneProduzioneUfficio.toast_err_salvataggio_nota"));
         }
     };
 
@@ -511,21 +514,21 @@ const GestioneProduzione = () => {
             <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
                 <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
-                        <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+                        <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" title={t("gestioneProduzioneUfficio.title_indietro")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
                             <ArrowLeft className="w-4 h-4" />
                         </button>
                         <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center flex-shrink-0">
                             <Factory className="w-[18px] h-[18px] text-violet-400" />
                         </div>
                         <div className="flex flex-col leading-none min-w-0">
-                            <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Produzione</span>
-                            <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Prenotazioni e lavorazioni</span>
+                            <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("gestioneProduzioneUfficio.topbar_title")}</span>
+                            <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("gestioneProduzioneUfficio.topbar_eyebrow")}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                         <button onClick={() => navigate(isUffici ? "/uffici/storici/movimenti" : "/magazzino/storici/sfuso")} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-[12px] font-medium transition-all">
                             <History className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Storico Produzioni</span>
+                            <span className="hidden sm:inline">{t("gestioneProduzioneUfficio.btn_storico_produzioni")}</span>
                         </button>
                     </div>
                 </div>
@@ -534,12 +537,12 @@ const GestioneProduzione = () => {
             {/* === Hero === */}
             <section className="relative">
                 <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-                    <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Uffici</div>
+                    <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("gestioneProduzioneUfficio.page_eyebrow")}</div>
                     <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-                        Gestione Produzione <span className="text-slate-500">— prenotazioni e lavorazioni.</span>
+                        {t("gestioneProduzioneUfficio.hero_title_main")} <span className="text-slate-500">{t("gestioneProduzioneUfficio.hero_title_suffix")}</span>
                     </h1>
                     <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-                        Gestisci prenotazioni e produzioni. Prenota lavorazioni, monitora lo stato e conferma le produzioni completate.
+                        {t("gestioneProduzioneUfficio.intro")}
                     </p>
                 </div>
             </section>
@@ -549,16 +552,16 @@ const GestioneProduzione = () => {
 
                 {/* Statistiche */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <StatTile icon={BarChart3} label="Totali" value={prenotazioni.length} accent="violet" />
-                    <StatTile icon={AlertCircle} label="Prenotazioni" value={prenotazioni.filter((p) => normalizeState(p.stato) === "pending").length} accent="blue" />
-                    <StatTile icon={Clock} label="In lavorazione" value={prenotazioni.filter((p) => normalizeState(p.stato) === "in_corso").length} accent="amber" />
-                    <StatTile icon={CheckCircle} label="Completate" value={prenotazioni.filter((p) => normalizeState(p.stato) === "completato").length} accent="emerald" />
+                    <StatTile icon={BarChart3} label={t("gestioneProduzioneUfficio.stat_totali")} value={prenotazioni.length} accent="violet" />
+                    <StatTile icon={AlertCircle} label={t("gestioneProduzioneUfficio.stat_prenotazioni")} value={prenotazioni.filter((p) => normalizeState(p.stato) === "pending").length} accent="blue" />
+                    <StatTile icon={Clock} label={t("gestioneProduzioneUfficio.stat_in_lavorazione")} value={prenotazioni.filter((p) => normalizeState(p.stato) === "in_corso").length} accent="amber" />
+                    <StatTile icon={CheckCircle} label={t("gestioneProduzioneUfficio.stat_completate")} value={prenotazioni.filter((p) => normalizeState(p.stato) === "completato").length} accent="emerald" />
                 </div>
 
                 {/* Ricerca */}
-                <SectionCard accent="violet" eyebrow="Ricerca" title="Filtra prenotazioni" icon={Search}>
+                <SectionCard accent="violet" eyebrow={t("gestioneProduzioneUfficio.section_ricerca_eyebrow")} title={t("gestioneProduzioneUfficio.section_ricerca_title")} icon={Search}>
                     <div className="relative">
-                        <input type="text" placeholder="Cerca per nome prodotto o ASIN..." value={filterSearchTerm} onChange={(e) => setFilterSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+                        <input type="text" placeholder={t("gestioneProduzioneUfficio.ph_cerca_prodotto_asin")} value={filterSearchTerm} onChange={(e) => setFilterSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
                         <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         {filterSearchTerm && (
                             <button onClick={() => setFilterSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
@@ -568,7 +571,7 @@ const GestioneProduzione = () => {
                     </div>
                     {filterSearchTerm && (
                         <div className="mt-3 px-3 py-2 bg-violet-500/5 border border-violet-500/30 rounded-md">
-                            <p className="text-xs text-violet-300">Filtrando per: <strong>{filterSearchTerm}</strong></p>
+                            <p className="text-xs text-violet-300">{t("gestioneProduzioneUfficio.filtrando_per")} <strong>{filterSearchTerm}</strong></p>
                         </div>
                     )}
                 </SectionCard>
@@ -576,9 +579,9 @@ const GestioneProduzione = () => {
                 {/* Selettore prodotto (solo ufficio) */}
                 {localStorage.getItem("role") === "ufficio" && (
                     <>
-                        <SectionCard accent="emerald" eyebrow="Nuova prenotazione" title="Seleziona prodotto da produrre" icon={Target}>
+                        <SectionCard accent="emerald" eyebrow={t("gestioneProduzioneUfficio.section_nuova_eyebrow")} title={t("gestioneProduzioneUfficio.section_seleziona_title")} icon={Target}>
                             <div className="relative mb-3">
-                                <input type="text" placeholder="Cerca per nome, ASIN o SKU..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+                                <input type="text" placeholder={t("gestioneProduzioneUfficio.ph_cerca_nome_asin_sku")} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
                                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                                 {searchTerm && (
                                     <button onClick={() => setSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
@@ -601,7 +604,7 @@ const GestioneProduzione = () => {
                                         if (filtered.length === 0) {
                                             return (
                                                 <div className="p-4 text-center text-slate-500 text-sm">
-                                                    Nessun prodotto trovato per "{searchTerm}"
+                                                    {t("gestioneProduzioneUfficio.empty_no_prodotto", { term: searchTerm })}
                                                 </div>
                                             );
                                         }
@@ -635,7 +638,7 @@ const GestioneProduzione = () => {
                                     </div>
                                     <button onClick={() => setSelectedProdotto(null)} className="flex items-center gap-1 px-3 py-2 rounded-md bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-all flex-shrink-0">
                                         <X className="w-3.5 h-3.5" />
-                                        Rimuovi
+                                        {t("gestioneProduzioneUfficio.btn_rimuovi")}
                                     </button>
                                 </div>
                             )}
@@ -660,8 +663,8 @@ const GestioneProduzione = () => {
                                     <RotateCcw className="w-[18px] h-[18px] text-rose-400" />
                                 </div>
                                 <div>
-                                    <p className="text-sm font-medium text-white">Reset Totale Sistema</p>
-                                    <p className="text-xs text-slate-500 mt-0.5">Elimina tutte le prenotazioni, produzioni e storico</p>
+                                    <p className="text-sm font-medium text-white">{t("gestioneProduzioneUfficio.reset_title")}</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">{t("gestioneProduzioneUfficio.reset_desc")}</p>
                                 </div>
                             </div>
                             <button
@@ -674,7 +677,7 @@ const GestioneProduzione = () => {
                                 disabled={prenotazioniAttive.length > 0 || prenotazioniInLavorazione.length > 0}
                             >
                                 <RotateCcw className="w-3.5 h-3.5" />
-                                Reset Contatore
+                                {t("gestioneProduzioneUfficio.btn_reset_contatore")}
                             </button>
                         </div>
                     </div>
@@ -690,8 +693,8 @@ const GestioneProduzione = () => {
                                 <Clock className="w-[18px] h-[18px] text-amber-400" />
                             </div>
                             <div>
-                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Produzione</div>
-                                <h2 className="text-base font-semibold text-white">In Lavorazione</h2>
+                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{t("gestioneProduzioneUfficio.col_produzione_eyebrow")}</div>
+                                <h2 className="text-base font-semibold text-white">{t("gestioneProduzioneUfficio.col_in_lavorazione_title")}</h2>
                             </div>
                             <span className="ml-auto px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-medium tabular-nums">{prenotazioniInLavorazione.length}</span>
                         </div>
@@ -699,7 +702,7 @@ const GestioneProduzione = () => {
                         {prenotazioniInLavorazione.length === 0 ? (
                             <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
                                 <Clock className="w-7 h-7 text-slate-700 mx-auto mb-2" />
-                                <p className="text-sm text-slate-500">Nessuna lavorazione in corso</p>
+                                <p className="text-sm text-slate-500">{t("gestioneProduzioneUfficio.empty_no_lavorazione")}</p>
                             </div>
                         ) : (
                             prenotazioniInLavorazione.map((p) => {
@@ -711,7 +714,7 @@ const GestioneProduzione = () => {
                                             <div className="flex items-start justify-between gap-3">
                                                 <div className="min-w-0">
                                                     <h3 className="text-sm font-semibold text-white truncate">{cleanName}</h3>
-                                                    <p className="text-xs text-slate-500 mt-1">Formato: {p.formato} · Lotto: {p.lotto || "-"}</p>
+                                                    <p className="text-xs text-slate-500 mt-1">{t("gestioneProduzioneUfficio.lbl_formato_lotto", { formato: p.formato, lotto: p.lotto || "-" })}</p>
                                                 </div>
                                                 <span className="text-2xl font-semibold text-white tabular-nums flex-shrink-0">{p.prodotti}</span>
                                             </div>
@@ -732,7 +735,7 @@ const GestioneProduzione = () => {
                                             {p.note && (
                                                 <div className="bg-amber-500/5 border border-amber-500/20 rounded-md px-4 py-2.5">
                                                     <p className="text-[10px] uppercase tracking-[0.14em] text-amber-400 mb-1 flex items-center gap-1">
-                                                        <FileText className="w-3 h-3" /> Note precedenti
+                                                        <FileText className="w-3 h-3" /> {t("gestioneProduzioneUfficio.note_precedenti")}
                                                     </p>
                                                     <p className="text-[13px] text-amber-200/80">{p.note}</p>
                                                 </div>
@@ -740,7 +743,7 @@ const GestioneProduzione = () => {
 
                                             {/* Nota input */}
                                             <div className="flex gap-2">
-                                                <input type="text" defaultValue="" placeholder="Aggiungi nota..." onChange={(e) => setPrenotazioni((prev) => prev.map((row) => row.id === p.id ? { ...row, nuovaNota: e.target.value } : row))} className={inputCls} />
+                                                <input type="text" defaultValue="" placeholder={t("gestioneProduzioneUfficio.ph_aggiungi_nota")} onChange={(e) => setPrenotazioni((prev) => prev.map((row) => row.id === p.id ? { ...row, nuovaNota: e.target.value } : row))} className={inputCls} />
                                                 <button onClick={() => handleSalvaNota(p.id, p.nuovaNota)} type="button" className="px-3 py-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 text-blue-400 transition-all flex-shrink-0">
                                                     <Save className="w-4 h-4" />
                                                 </button>
@@ -749,10 +752,10 @@ const GestioneProduzione = () => {
                                             {/* Azioni */}
                                             <div className="flex gap-2">
                                                 <button onClick={() => handleConfermaProduzione(p)} type="button" className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all">
-                                                    <CheckCircle className="w-4 h-4" /> Conferma
+                                                    <CheckCircle className="w-4 h-4" /> {t("gestioneProduzioneUfficio.btn_conferma")}
                                                 </button>
                                                 <button onClick={() => handleAggiornaStato(p.id, "annullato")} type="button" className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-sm font-medium transition-all">
-                                                    <XCircle className="w-4 h-4" /> Annulla
+                                                    <XCircle className="w-4 h-4" /> {t("gestioneProduzioneUfficio.btn_annulla")}
                                                 </button>
                                             </div>
                                         </div>
@@ -769,8 +772,8 @@ const GestioneProduzione = () => {
                                 <Package className="w-[18px] h-[18px] text-emerald-400" />
                             </div>
                             <div>
-                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Prenotazioni</div>
-                                <h2 className="text-base font-semibold text-white">Attive</h2>
+                                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{t("gestioneProduzioneUfficio.col_prenotazioni_eyebrow")}</div>
+                                <h2 className="text-base font-semibold text-white">{t("gestioneProduzioneUfficio.col_attive_title")}</h2>
                             </div>
                             <span className="ml-auto px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">{prenotazioniAttive.length}</span>
                         </div>
@@ -778,7 +781,7 @@ const GestioneProduzione = () => {
                         {prenotazioniAttive.length === 0 ? (
                             <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
                                 <Package className="w-7 h-7 text-slate-700 mx-auto mb-2" />
-                                <p className="text-sm text-slate-500">Nessuna prenotazione attiva</p>
+                                <p className="text-sm text-slate-500">{t("gestioneProduzioneUfficio.empty_no_attive")}</p>
                             </div>
                         ) : (
                             prenotazioniAttive.map((p, idx) => {
@@ -801,10 +804,10 @@ const GestioneProduzione = () => {
                                             {/* Info grid */}
                                             <div className="grid grid-cols-2 gap-2">
                                                 {[
-                                                    { label: "Formato", value: p.formato },
-                                                    { label: "Litri", value: p.litriImpegnati?.toFixed(1) },
-                                                    { label: "Lotto", value: p.lotto || "-" },
-                                                    { label: "Data", value: p.dataRichiesta || "-" },
+                                                    { label: t("gestioneProduzioneUfficio.info_formato"), value: p.formato },
+                                                    { label: t("gestioneProduzioneUfficio.info_litri"), value: p.litriImpegnati?.toFixed(1) },
+                                                    { label: t("gestioneProduzioneUfficio.info_lotto"), value: p.lotto || "-" },
+                                                    { label: t("gestioneProduzioneUfficio.info_data"), value: p.dataRichiesta || "-" },
                                                 ].map((item) => (
                                                     <div key={item.label} className="bg-slate-800/40 border border-slate-700/60 rounded-md px-3 py-2">
                                                         <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{item.label}</p>
@@ -815,7 +818,7 @@ const GestioneProduzione = () => {
 
                                             {/* Nota input */}
                                             <div className="flex gap-2">
-                                                <input type="text" value={p.note ?? ""} placeholder="Aggiungi nota..." onChange={(e) => setPrenotazioni((prev) => prev.map((row) => row.id === p.id ? { ...row, note: e.target.value } : row))} className={inputCls} />
+                                                <input type="text" value={p.note ?? ""} placeholder={t("gestioneProduzioneUfficio.ph_aggiungi_nota")} onChange={(e) => setPrenotazioni((prev) => prev.map((row) => row.id === p.id ? { ...row, note: e.target.value } : row))} className={inputCls} />
                                                 <button onClick={() => handleSalvaNota(p.id, p.note)} type="button" className="px-3 py-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 text-blue-400 transition-all flex-shrink-0">
                                                     <Save className="w-4 h-4" />
                                                 </button>
@@ -828,7 +831,7 @@ const GestioneProduzione = () => {
                                                 type="button"
                                                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                             >
-                                                <Play className="w-4 h-4" /> In Lavorazione
+                                                <Play className="w-4 h-4" /> {t("gestioneProduzioneUfficio.btn_in_lavorazione")}
                                             </button>
                                         </div>
                                     </div>
@@ -842,7 +845,7 @@ const GestioneProduzione = () => {
             {/* === Footer === */}
             <footer className="relative border-t border-slate-800 bg-slate-900/40">
                 <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-                    <span>© {new Date().getFullYear()} Nexus · Gestione Produzione</span>
+                    <span>© {new Date().getFullYear()} {t("gestioneProduzioneUfficio.footer_section")}</span>
                     <span className="font-mono">v2.0</span>
                 </div>
             </footer>

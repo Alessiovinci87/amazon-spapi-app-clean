@@ -6,26 +6,42 @@ import {
   Search, RefreshCw, ChevronDown, ChevronUp, Truck, ImageOff, Upload, Settings
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 // ─── helpers ──────────────────────────────────────────────
-const STATO_ORDINE = {
-  bozza:             { label: "Bozza",            color: "bg-slate-500/10 text-slate-300 border border-slate-500/30" },
-  confermato:        { label: "Confermato",        color: "bg-blue-500/10 text-blue-300 border border-blue-500/30" },
-  in_attesa:         { label: "In attesa",         color: "bg-amber-500/10 text-amber-300 border border-amber-500/30" },
-  ricevuto_parziale: { label: "Parz. ricevuto",    color: "bg-orange-500/10 text-orange-300 border border-orange-500/30" },
-  ricevuto:          { label: "Ricevuto",          color: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" },
-  annullato:         { label: "Annullato",         color: "bg-red-500/10 text-red-300 border border-red-500/30" },
+const STATO_ORDINE_COLOR = {
+  bozza:             "bg-slate-500/10 text-slate-300 border border-slate-500/30",
+  confermato:        "bg-blue-500/10 text-blue-300 border border-blue-500/30",
+  in_attesa:         "bg-amber-500/10 text-amber-300 border border-amber-500/30",
+  ricevuto_parziale: "bg-orange-500/10 text-orange-300 border border-orange-500/30",
+  ricevuto:          "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30",
+  annullato:         "bg-red-500/10 text-red-300 border border-red-500/30",
+};
+const STATO_ORDINE_LABEL_KEY = {
+  bozza: "stato_bozza",
+  confermato: "stato_confermato",
+  in_attesa: "stato_in_attesa",
+  ricevuto_parziale: "stato_ricevuto_parziale",
+  ricevuto: "stato_ricevuto",
+  annullato: "stato_annullato",
 };
 
-const TIPO_MOV = {
-  CARICO_ORDINE: { label: "Carico ordine", color: "text-green-400" },
-  SCARICO_DDT:   { label: "Scarico DDT",   color: "text-red-400" },
-  RETTIFICA:     { label: "Rettifica",     color: "text-amber-400" },
+const TIPO_MOV_COLOR = {
+  CARICO_ORDINE: "text-green-400",
+  SCARICO_DDT:   "text-red-400",
+  RETTIFICA:     "text-amber-400",
+};
+const TIPO_MOV_LABEL_KEY = {
+  CARICO_ORDINE: "tipo_carico_ordine",
+  SCARICO_DDT:   "tipo_scarico_ddt",
+  RETTIFICA:     "tipo_rettifica",
 };
 
 function StatoChip({ stato }) {
-  const s = STATO_ORDINE[stato] ?? { label: stato, color: "bg-slate-700 text-slate-300" };
-  return <span className={`px-2 py-0.5 rounded text-xs font-medium ${s.color}`}>{s.label}</span>;
+  const { t } = useTranslation();
+  const color = STATO_ORDINE_COLOR[stato] ?? "bg-slate-700 text-slate-300";
+  const label = STATO_ORDINE_LABEL_KEY[stato] ? t(`gestioneModuloCustom.${STATO_ORDINE_LABEL_KEY[stato]}`) : stato;
+  return <span className={`px-2 py-0.5 rounded text-xs font-medium ${color}`}>{label}</span>;
 }
 
 function fmt(dateStr) {
@@ -81,6 +97,7 @@ function CodiceLabel({ codice, stile, className = "" }) {
 // TAB INVENTARIO
 // ══════════════════════════════════════════════════════════
 function TabInventario({ slug, stile }) {
+  const { t } = useTranslation();
   const [prodotti, setProdotti] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -125,7 +142,7 @@ function TabInventario({ slug, stile }) {
       const res = await fetch(`/api/v2/moduli/${slug}/prodotti`);
       const json = await res.json();
       setProdotti(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento prodotti"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_caricamento_prodotti")); }
     finally { setLoading(false); }
   }
 
@@ -141,7 +158,7 @@ function TabInventario({ slug, stile }) {
       const res = await fetch(`/api/v2/moduli/${slug}/prodotti/disponibili`);
       const json = await res.json();
       setDisponibili(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento disponibili"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_caricamento_disponibili")); }
     finally { setLoadingDisp(false); }
   }
 
@@ -170,7 +187,7 @@ function TabInventario({ slug, stile }) {
 
   async function importaMassivo() {
     const selezionati = Object.keys(selezione);
-    if (selezionati.length === 0) { toast.error("Seleziona almeno un prodotto"); return; }
+    if (selezionati.length === 0) { toast.error(t("gestioneModuloCustom.seleziona_almeno_un_prodotto")); return; }
     setImporting(true);
     let ok = 0;
     for (const asin of selezionati) {
@@ -193,18 +210,18 @@ function TabInventario({ slug, stile }) {
       } catch { /* continua con gli altri */ }
     }
     setImporting(false);
-    toast.success(`${ok} colori aggiunti al catalogo`);
+    toast.success(t("gestioneModuloCustom.colori_aggiunti", { count: ok }));
     setShowAggiungi(false);
     carica();
   }
 
   async function eliminaProdotto(asin) {
-    if (!confirm("Eliminare questo prodotto dal catalogo?")) return;
+    if (!confirm(t("gestioneModuloCustom.conferma_eliminazione_prodotto"))) return;
     try {
       await fetch(`/api/v2/moduli/${slug}/prodotti/${asin}`, { method: "DELETE" });
-      toast.success("Prodotto rimosso");
+      toast.success(t("gestioneModuloCustom.prodotto_rimosso"));
       carica();
-    } catch { toast.error("Errore eliminazione"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_eliminazione")); }
   }
 
   async function eseguiReset() {
@@ -218,11 +235,11 @@ function TabInventario({ slug, stile }) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success(`Reset completato — ${json.eliminati.ordini} ordini, ${json.eliminati.movimenti} movimenti eliminati. Stock di ${json.eliminati.stockAzzerato} prodotti azzerato.`);
+      toast.success(t("gestioneModuloCustom.reset_completato", { ordini: json.eliminati.ordini, movimenti: json.eliminati.movimenti, stockAzzerato: json.eliminati.stockAzzerato }));
       setShowReset(false);
       setResetConferma("");
       carica();
-    } catch (e) { toast.error("Errore reset: " + e.message); }
+    } catch (e) { toast.error(t("gestioneModuloCustom.errore_reset", { msg: e.message })); }
     finally { setResetting(false); }
   }
 
@@ -234,9 +251,9 @@ function TabInventario({ slug, stile }) {
       const res = await fetch(`/api/v2/moduli/${slug}/prodotti/${asin}/immagine`, { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success("Immagine caricata");
+      toast.success(t("gestioneModuloCustom.immagine_caricata"));
       carica();
-    } catch (e) { toast.error("Errore upload: " + e.message); }
+    } catch (e) { toast.error(t("gestioneModuloCustom.errore_upload", { msg: e.message })); }
     finally { setUploadingAsin(null); }
   }
 
@@ -246,9 +263,9 @@ function TabInventario({ slug, stile }) {
       const res = await fetch(`/api/v2/moduli/${slug}/sync-images`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
-      toast.success(`Immagini aggiornate: ${json.aggiornati} / ${json.totale}`);
+      toast.success(t("gestioneModuloCustom.immagini_aggiornate", { aggiornati: json.aggiornati, totale: json.totale }));
       carica();
-    } catch (e) { toast.error("Errore sync immagini: " + e.message); }
+    } catch (e) { toast.error(t("gestioneModuloCustom.errore_sync_immagini", { msg: e.message })); }
     finally { setSyncing(false); }
   }
 
@@ -259,10 +276,10 @@ function TabInventario({ slug, stile }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ codice_colore: editColoreVal.trim() || null }),
       });
-      toast.success("Codice colore aggiornato");
+      toast.success(t("gestioneModuloCustom.codice_colore_aggiornato"));
       setEditingColore(null);
       carica();
-    } catch { toast.error("Errore salvataggio"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_salvataggio")); }
   }
 
   async function confermaRettifica() {
@@ -279,10 +296,10 @@ function TabInventario({ slug, stile }) {
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Rettifica registrata");
+      toast.success(t("gestioneModuloCustom.rettifica_registrata"));
       setRettificaProd(null);
       carica();
-    } catch { toast.error("Errore rettifica"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_rettifica")); }
   }
 
   async function aggiornaSoglia() {
@@ -293,10 +310,10 @@ function TabInventario({ slug, stile }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ soglia_minima: Number(nuovaSoglia) }),
       });
-      toast.success("Soglia aggiornata");
+      toast.success(t("gestioneModuloCustom.soglia_aggiornata"));
       setSogliaProd(null);
       carica();
-    } catch { toast.error("Errore aggiornamento soglia"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_aggiornamento_soglia")); }
   }
 
   const searchQ = stile === "numerico" ? search.trim().replace(/^#/, "") : search.trim();
@@ -351,27 +368,27 @@ function TabInventario({ slug, stile }) {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={stile === "numerico" ? "Cerca per nome, n° colore, ASIN…" : "Cerca per nome, ASIN…"}
+            placeholder={stile === "numerico" ? t("gestioneModuloCustom.placeholder_search_numerico") : t("gestioneModuloCustom.placeholder_search_testuale")}
             className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
           />
         </div>
-        <button onClick={carica} className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white" title="Ricarica">
+        <button onClick={carica} className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white" title={t("gestioneModuloCustom.title_ricarica")}>
           <RefreshCw className="w-4 h-4" />
         </button>
         <button
           onClick={syncImmagini}
           disabled={syncing || prodotti.length === 0}
           className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 text-sm font-medium transition-colors"
-          title="Scarica le immagini corrette per ogni colore dalla SP-API Amazon"
+          title={t("gestioneModuloCustom.title_sync_img")}
         >
           <ImageOff className="w-4 h-4" />
-          {syncing ? "Sync…" : "Sync img"}
+          {syncing ? t("gestioneModuloCustom.sync") : t("gestioneModuloCustom.sync_img")}
         </button>
         <button
           onClick={apriAggiungi}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-white text-sm font-medium transition-colors"
         >
-          <Plus className="w-4 h-4" /> Aggiungi colori
+          <Plus className="w-4 h-4" /> {t("gestioneModuloCustom.aggiungi_colori")}
         </button>
       </div>
 
@@ -379,25 +396,25 @@ function TabInventario({ slug, stile }) {
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-white">{prodotti.length}</div>
-          <div className="text-xs text-slate-400 mt-0.5">Colori in catalogo</div>
+          <div className="text-xs text-slate-400 mt-0.5">{t("gestioneModuloCustom.colori_in_catalogo")}</div>
         </div>
         <div className="bg-amber-900/20 border border-amber-700/40 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-amber-400">
             {prodotti.filter(p => p.quantita < p.soglia_minima).length}
           </div>
-          <div className="text-xs text-slate-400 mt-0.5">Sotto soglia</div>
+          <div className="text-xs text-slate-400 mt-0.5">{t("gestioneModuloCustom.sotto_soglia")}</div>
         </div>
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-white">{prodotti.reduce((s, p) => s + p.quantita, 0)}</div>
-          <div className="text-xs text-slate-400 mt-0.5">Unità totali</div>
+          <div className="text-xs text-slate-400 mt-0.5">{t("gestioneModuloCustom.unita_totali")}</div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-500">Caricamento…</div>
+        <div className="text-center py-16 text-slate-500">{t("gestioneModuloCustom.caricamento")}</div>
       ) : filtrati.length === 0 ? (
         <div className="text-center py-16 text-slate-500">
-          {prodotti.length === 0 ? "Nessun colore nel catalogo. Clicca \"Aggiungi colori\" per iniziare." : "Nessun risultato."}
+          {prodotti.length === 0 ? t("gestioneModuloCustom.nessun_colore_in_catalogo") : t("gestioneModuloCustom.nessun_risultato")}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
@@ -427,7 +444,7 @@ function TabInventario({ slug, stile }) {
                   {/* Upload immagine — appare al hover */}
                   <label
                     className="absolute bottom-1 right-1 p-1.5 rounded-lg bg-black/60 text-slate-300 hover:text-white cursor-pointer opacity-0 group-hover/img:opacity-100 transition-opacity z-10"
-                    title="Carica immagine manualmente"
+                    title={t("gestioneModuloCustom.title_carica_immagine")}
                   >
                     {uploadingAsin === p.asin
                       ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -452,7 +469,7 @@ function TabInventario({ slug, stile }) {
                         value={editColoreVal}
                         onChange={e => setEditColoreVal(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") salvaColore(p.asin); if (e.key === "Escape") setEditingColore(null); }}
-                        placeholder={stile === "numerico" ? "es. 001" : "es. Trasparente"}
+                        placeholder={stile === "numerico" ? t("gestioneModuloCustom.placeholder_codice_numerico") : t("gestioneModuloCustom.placeholder_codice_testuale")}
                         className={`flex-1 min-w-0 bg-slate-700 border border-pink-500 rounded px-1.5 py-0.5 text-xs text-white focus:outline-none ${stile === "numerico" ? "font-mono" : ""}`}
                       />
                       <button onClick={() => salvaColore(p.asin)} className="text-green-400 hover:text-green-300">
@@ -466,12 +483,12 @@ function TabInventario({ slug, stile }) {
                     <button
                       onClick={() => { setEditingColore(p.asin); setEditColoreVal(p.codice_colore ?? ""); }}
                       className="text-left group flex items-center gap-1"
-                      title={stile === "numerico" ? "Clicca per modificare il numero" : "Clicca per modificare il nome"}
+                      title={stile === "numerico" ? t("gestioneModuloCustom.title_modifica_numero") : t("gestioneModuloCustom.title_modifica_nome")}
                     >
                       {p.codice_colore ? (
                         <CodiceLabel codice={p.codice_colore} stile={stile} />
                       ) : (
-                        <span className="text-xs text-slate-600 italic">{stile === "numerico" ? "+ n°" : "+ nome"}</span>
+                        <span className="text-xs text-slate-600 italic">{stile === "numerico" ? t("gestioneModuloCustom.placeholder_aggiungi_numero") : t("gestioneModuloCustom.placeholder_aggiungi_nome")}</span>
                       )}
                       <Edit3 className="w-2.5 h-2.5 text-slate-600 group-hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </button>
@@ -481,9 +498,9 @@ function TabInventario({ slug, stile }) {
                     {p.nome ?? p.asin}
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.asin); toast.success(`ASIN ${p.asin} copiato`); }}
+                    onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.asin); toast.success(t("gestioneModuloCustom.asin_copiato", { asin: p.asin })); }}
                     className="text-xs text-slate-600 hover:text-pink-400 font-mono text-left transition-colors"
-                    title="Clicca per copiare l'ASIN"
+                    title={t("gestioneModuloCustom.title_copia_asin")}
                   >
                     {p.asin}
                   </button>
@@ -501,7 +518,7 @@ function TabInventario({ slug, stile }) {
                     <div className="mt-1 px-2 py-1 rounded-md bg-blue-900/30 border border-blue-700/40 flex items-center gap-1.5">
                       <Truck className="w-3 h-3 text-blue-400 flex-shrink-0" />
                       <div className="text-[10px] text-blue-200 leading-tight">
-                        <span className="font-bold">+{p.qta_in_arrivo}</span> in arrivo
+                        <span className="font-bold">+{p.qta_in_arrivo}</span> {t("gestioneModuloCustom.in_arrivo")}
                         {p.prima_consegna && <> · {new Date(p.prima_consegna).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })}</>}
                       </div>
                     </div>
@@ -513,19 +530,19 @@ function TabInventario({ slug, stile }) {
                       onClick={() => { setRettificaProd(p); setNuovaQta(p.quantita); setNoteRett(""); }}
                       className="flex-1 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs text-slate-300 font-medium transition-colors"
                     >
-                      Rettifica
+                      {t("gestioneModuloCustom.rettifica")}
                     </button>
                     <button
                       onClick={() => { setSogliaProd(p); setNuovaSoglia(p.soglia_minima); }}
                       className="p-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-amber-400 transition-colors"
-                      title="Modifica soglia alert"
+                      title={t("gestioneModuloCustom.title_modifica_soglia")}
                     >
                       <AlertTriangle className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => eliminaProdotto(p.asin)}
                       className="p-1 rounded bg-slate-700 hover:bg-red-900/50 text-slate-400 hover:text-red-400 transition-colors"
-                      title="Rimuovi dal catalogo"
+                      title={t("gestioneModuloCustom.title_rimuovi_dal_catalogo")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -543,9 +560,9 @@ function TabInventario({ slug, stile }) {
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
             <div>
-              <div className="text-sm font-bold text-red-300">Zona pericolosa</div>
+              <div className="text-sm font-bold text-red-300">{t("gestioneModuloCustom.zona_pericolosa")}</div>
               <div className="text-xs text-slate-400 mt-0.5">
-                Cancella ordini fornitori e storico movimenti, azzera lo stock. Il <span className="text-slate-200 font-semibold">catalogo colori resta invariato</span>. Da usare per ripartire da zero in produzione.
+                {t("gestioneModuloCustom.zona_pericolosa_desc_pre")}<span className="text-slate-200 font-semibold">{t("gestioneModuloCustom.catalogo_colori_resta_invariato")}</span>{t("gestioneModuloCustom.zona_pericolosa_desc_post")}
               </div>
             </div>
           </div>
@@ -554,7 +571,7 @@ function TabInventario({ slug, stile }) {
             className="px-4 py-2 rounded-lg bg-red-900/50 hover:bg-red-900 border border-red-700/50 text-red-300 hover:text-white text-sm font-medium transition-colors flex-shrink-0 flex items-center gap-2"
           >
             <Trash2 className="w-4 h-4" />
-            Reset ordini e stock
+            {t("gestioneModuloCustom.reset_ordini_e_stock")}
           </button>
         </div>
       </div>
@@ -567,28 +584,28 @@ function TabInventario({ slug, stile }) {
               <div className="p-2 rounded-xl bg-red-900/40">
                 <AlertTriangle className="w-6 h-6 text-red-400" />
               </div>
-              <h3 className="text-lg font-bold text-white">Conferma reset</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.conferma_reset")}</h3>
             </div>
             <p className="text-sm text-slate-300 mb-2">
-              Stai per eliminare:
+              {t("gestioneModuloCustom.stai_per_eliminare")}
             </p>
             <ul className="text-sm text-slate-400 mb-3 space-y-1 pl-4">
-              <li>• Tutti gli ordini fornitore (attivi, ricevuti, annullati)</li>
-              <li>• Tutto lo storico movimenti di stock</li>
-              <li>• Le quantità in stock dei {prodotti.length} colori (azzerate a 0)</li>
+              <li>• {t("gestioneModuloCustom.reset_lista_ordini")}</li>
+              <li>• {t("gestioneModuloCustom.reset_lista_storico")}</li>
+              <li>• {t("gestioneModuloCustom.reset_lista_stock", { count: prodotti.length })}</li>
             </ul>
             <div className="bg-emerald-950/30 border border-emerald-900/40 rounded-lg p-2.5 mb-3">
               <p className="text-xs text-emerald-300">
-                ✓ Il <span className="font-bold">catalogo colori</span> ({prodotti.length} prodotti) e i numeri colore assegnati restano <span className="font-bold">invariati</span>.
+                {t("gestioneModuloCustom.catalogo_resta_invariato_pre")}<span className="font-bold">{t("gestioneModuloCustom.catalogo_colori")}</span>{t("gestioneModuloCustom.catalogo_resta_invariato_mid", { count: prodotti.length })}<span className="font-bold">{t("gestioneModuloCustom.invariati")}</span>{t("gestioneModuloCustom.catalogo_resta_invariato_post")}
               </p>
             </div>
             <div className="bg-red-950/30 border border-red-900/40 rounded-lg p-3 mb-4">
               <p className="text-xs text-red-300 font-medium">
-                ⚠️ Questa operazione è <span className="underline">irreversibile</span>. I dati non potranno essere recuperati.
+                {t("gestioneModuloCustom.operazione_irreversibile_pre")}<span className="underline">{t("gestioneModuloCustom.irreversibile")}</span>{t("gestioneModuloCustom.operazione_irreversibile_post")}
               </p>
             </div>
             <label className="text-xs text-slate-400 block mb-1">
-              Per confermare scrivi <span className="font-mono font-bold text-red-300">RESET</span> qui sotto:
+              {t("gestioneModuloCustom.per_confermare_scrivi_pre")}<span className="font-mono font-bold text-red-300">RESET</span>{t("gestioneModuloCustom.per_confermare_scrivi_post")}
             </label>
             <input
               autoFocus
@@ -603,7 +620,7 @@ function TabInventario({ slug, stile }) {
                 disabled={resetting}
                 className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm font-medium"
               >
-                Annulla
+                {t("gestioneModuloCustom.annulla")}
               </button>
               <button
                 onClick={eseguiReset}
@@ -613,9 +630,9 @@ function TabInventario({ slug, stile }) {
                 {resetting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Cancellazione…
+                    {t("gestioneModuloCustom.cancellazione")}
                   </>
-                ) : "Cancella tutto"}
+                ) : t("gestioneModuloCustom.cancella_tutto")}
               </button>
             </div>
           </div>
@@ -628,9 +645,9 @@ function TabInventario({ slug, stile }) {
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-slate-800">
               <div>
-                <h3 className="text-lg font-bold text-white">Aggiungi colori al catalogo</h3>
+                <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.aggiungi_colori_al_catalogo")}</h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {disponibili.length} prodotti disponibili · {numSelezionati} selezionati
+                  {t("gestioneModuloCustom.prodotti_disponibili_selezionati", { disponibili: disponibili.length, selezionati: numSelezionati })}
                 </p>
               </div>
               <button onClick={() => setShowAggiungi(false)} className="text-slate-500 hover:text-white">
@@ -645,7 +662,7 @@ function TabInventario({ slug, stile }) {
                 <input
                   value={searchDisp}
                   onChange={e => setSearchDisp(e.target.value)}
-                  placeholder="Cerca per nome o ASIN…"
+                  placeholder={t("gestioneModuloCustom.placeholder_search_nome_asin")}
                   className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
                 />
               </div>
@@ -653,17 +670,17 @@ function TabInventario({ slug, stile }) {
                 onClick={tuttiSelezionati ? deselezionaTutti : selezionaTutti}
                 className="whitespace-nowrap px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs text-slate-300 font-medium"
               >
-                {tuttiSelezionati ? "Deseleziona tutti" : "Seleziona tutti"}
+                {tuttiSelezionati ? t("gestioneModuloCustom.deseleziona_tutti") : t("gestioneModuloCustom.seleziona_tutti")}
               </button>
             </div>
 
             {/* Lista prodotti */}
             <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {loadingDisp ? (
-                <div className="text-center py-8 text-slate-500">Caricamento…</div>
+                <div className="text-center py-8 text-slate-500">{t("gestioneModuloCustom.caricamento")}</div>
               ) : dispFiltrati.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">
-                  {disponibili.length === 0 ? "Tutti i prodotti sono già nel catalogo." : "Nessun risultato."}
+                  {disponibili.length === 0 ? t("gestioneModuloCustom.tutti_prodotti_gia_in_catalogo") : t("gestioneModuloCustom.nessun_risultato")}
                 </div>
               ) : (
                 dispFiltrati.map(p => {
@@ -698,7 +715,7 @@ function TabInventario({ slug, stile }) {
                           value={selezione[p.asin]?.codice_colore ?? ""}
                           onChange={e => setCodiceColore(p.asin, e.target.value)}
                           onClick={e => e.stopPropagation()}
-                          placeholder={stile === "numerico" ? "n° colore" : "nome"}
+                          placeholder={stile === "numerico" ? t("gestioneModuloCustom.placeholder_n_colore") : t("gestioneModuloCustom.placeholder_nome")}
                           className={`${stile === "numerico" ? "w-24 font-mono text-center" : "w-32"} bg-slate-700 border border-slate-600 rounded-lg px-2 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-pink-500 flex-shrink-0`}
                         />
                       )}
@@ -711,7 +728,7 @@ function TabInventario({ slug, stile }) {
             {/* Footer: soglia globale + pulsante import */}
             <div className="p-4 border-t border-slate-800 flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <label className="text-xs text-slate-400 whitespace-nowrap">Soglia minima</label>
+                <label className="text-xs text-slate-400 whitespace-nowrap">{t("gestioneModuloCustom.soglia_minima")}</label>
                 <input
                   type="number"
                   min={0}
@@ -725,7 +742,7 @@ function TabInventario({ slug, stile }) {
                 disabled={importing || numSelezionati === 0}
                 className="flex-1 py-2.5 rounded-xl bg-pink-600 hover:bg-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
               >
-                {importing ? "Importazione…" : `Aggiungi ${numSelezionati > 0 ? numSelezionati : ""} colori`}
+                {importing ? t("gestioneModuloCustom.importazione") : (numSelezionati > 0 ? t("gestioneModuloCustom.aggiungi_n_colori", { n: numSelezionati }) : t("gestioneModuloCustom.aggiungi_colori_btn"))}
               </button>
             </div>
           </div>
@@ -737,7 +754,7 @@ function TabInventario({ slug, stile }) {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Rettifica stock</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.rettifica_stock")}</h3>
               <button onClick={() => setRettificaProd(null)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -748,10 +765,10 @@ function TabInventario({ slug, stile }) {
               )}
               <div>
                 <div className="text-sm text-slate-200 font-medium">{rettificaProd.nome ?? rettificaProd.asin}</div>
-                <div className="text-xs text-slate-500">Stock attuale: {rettificaProd.quantita}</div>
+                <div className="text-xs text-slate-500">{t("gestioneModuloCustom.stock_attuale", { n: rettificaProd.quantita })}</div>
               </div>
             </div>
-            <label className="text-xs text-slate-400 block mb-1">Nuova quantità</label>
+            <label className="text-xs text-slate-400 block mb-1">{t("gestioneModuloCustom.nuova_quantita")}</label>
             <input
               type="number"
               min={0}
@@ -759,19 +776,19 @@ function TabInventario({ slug, stile }) {
               onChange={e => setNuovaQta(e.target.value)}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white mb-3 focus:outline-none focus:border-slate-500"
             />
-            <label className="text-xs text-slate-400 block mb-1">Note (opzionale)</label>
+            <label className="text-xs text-slate-400 block mb-1">{t("gestioneModuloCustom.note_opzionale")}</label>
             <input
               value={noteRett}
               onChange={e => setNoteRett(e.target.value)}
-              placeholder="Es: conteggio fisico"
+              placeholder={t("gestioneModuloCustom.placeholder_note_rettifica")}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 mb-4 focus:outline-none focus:border-slate-500"
             />
             <div className="flex gap-2">
               <button onClick={() => setRettificaProd(null)} className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">
-                Annulla
+                {t("gestioneModuloCustom.annulla")}
               </button>
               <button onClick={confermaRettifica} className="flex-1 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white text-sm font-medium">
-                Conferma
+                {t("gestioneModuloCustom.conferma")}
               </button>
             </div>
           </div>
@@ -783,13 +800,13 @@ function TabInventario({ slug, stile }) {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Soglia minima</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.soglia_minima_titolo")}</h3>
               <button onClick={() => setSogliaProd(null)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <p className="text-sm text-slate-400 mb-4">
-              Sotto questa quantità il prodotto viene evidenziato in arancione come "sotto soglia".
+              {t("gestioneModuloCustom.sotto_soglia_desc")}
             </p>
             <input
               type="number"
@@ -800,10 +817,10 @@ function TabInventario({ slug, stile }) {
             />
             <div className="flex gap-2">
               <button onClick={() => setSogliaProd(null)} className="flex-1 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">
-                Annulla
+                {t("gestioneModuloCustom.annulla")}
               </button>
               <button onClick={aggiornaSoglia} className="flex-1 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-sm font-medium">
-                Salva
+                {t("gestioneModuloCustom.salva")}
               </button>
             </div>
           </div>
@@ -817,6 +834,7 @@ function TabInventario({ slug, stile }) {
 // TAB ORDINI
 // ══════════════════════════════════════════════════════════
 function TabOrdini({ slug, stile }) {
+  const { t } = useTranslation();
   const [ordini, setOrdini] = useState([]);
   const [loading, setLoading] = useState(true);
   const [espanso, setEspanso] = useState(null);
@@ -842,7 +860,7 @@ function TabOrdini({ slug, stile }) {
       const res = await fetch(`/api/v2/moduli/${slug}/ordini`);
       const json = await res.json();
       setOrdini(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento ordini"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_caricamento_ordini")); }
     finally { setLoading(false); }
   }
 
@@ -877,8 +895,8 @@ function TabOrdini({ slug, stile }) {
   }
 
   async function creaOrdine() {
-    if (!fornitore.trim()) { toast.error("Inserisci il fornitore"); return; }
-    if (righeNuove.length === 0) { toast.error("Aggiungi almeno un prodotto"); return; }
+    if (!fornitore.trim()) { toast.error(t("gestioneModuloCustom.inserisci_fornitore")); return; }
+    if (righeNuove.length === 0) { toast.error(t("gestioneModuloCustom.aggiungi_almeno_un_prodotto")); return; }
     try {
       const res = await fetch(`/api/v2/moduli/${slug}/ordini`, {
         method: "POST",
@@ -892,10 +910,10 @@ function TabOrdini({ slug, stile }) {
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Ordine creato");
+      toast.success(t("gestioneModuloCustom.ordine_creato"));
       setShowNuovo(false);
       carica();
-    } catch { toast.error("Errore creazione ordine"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_creazione_ordine")); }
   }
 
   async function aggiornaStatoOrdine(id, stato) {
@@ -905,9 +923,9 @@ function TabOrdini({ slug, stile }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stato }),
       });
-      toast.success("Stato aggiornato");
+      toast.success(t("gestioneModuloCustom.stato_aggiornato"));
       carica();
-    } catch { toast.error("Errore aggiornamento stato"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_aggiornamento_stato")); }
   }
 
   function apriRicezione(ordine) {
@@ -933,10 +951,10 @@ function TabOrdini({ slug, stile }) {
         body: JSON.stringify({ operatore: "magazzino", righe }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Ricezione registrata — stock aggiornato");
+      toast.success(t("gestioneModuloCustom.ricezione_registrata"));
       setRicezioneOrdine(null);
       carica();
-    } catch { toast.error("Errore ricezione"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_ricezione")); }
     finally { setConfermandoRicezione(false); }
   }
 
@@ -968,20 +986,20 @@ function TabOrdini({ slug, stile }) {
   // Stati validi all'interno di ogni vista (per il dropdown contestuale)
   const STATI_PER_VISTA = {
     attivi:  [
-      { key: "bozza",             label: "Bozze" },
-      { key: "confermato",        label: "Confermati" },
-      { key: "ricevuto_parziale", label: "Parziali" },
+      { key: "bozza",             label: t("gestioneModuloCustom.stato_bozze") },
+      { key: "confermato",        label: t("gestioneModuloCustom.stato_confermati") },
+      { key: "ricevuto_parziale", label: t("gestioneModuloCustom.stato_parziali") },
     ],
     storico: [
-      { key: "ricevuto",  label: "Ricevuti" },
-      { key: "annullato", label: "Annullati" },
+      { key: "ricevuto",  label: t("gestioneModuloCustom.stato_ricevuti") },
+      { key: "annullato", label: t("gestioneModuloCustom.stato_annullati") },
     ],
     tutti: [
-      { key: "bozza",             label: "Bozze" },
-      { key: "confermato",        label: "Confermati" },
-      { key: "ricevuto_parziale", label: "Parziali" },
-      { key: "ricevuto",          label: "Ricevuti" },
-      { key: "annullato",         label: "Annullati" },
+      { key: "bozza",             label: t("gestioneModuloCustom.stato_bozze") },
+      { key: "confermato",        label: t("gestioneModuloCustom.stato_confermati") },
+      { key: "ricevuto_parziale", label: t("gestioneModuloCustom.stato_parziali") },
+      { key: "ricevuto",          label: t("gestioneModuloCustom.stato_ricevuti") },
+      { key: "annullato",         label: t("gestioneModuloCustom.stato_annullati") },
     ],
   };
 
@@ -998,9 +1016,9 @@ function TabOrdini({ slug, stile }) {
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   const VISTE = [
-    { key: "attivi",  label: "Attivi",  count: numAttivi  },
-    { key: "storico", label: "Storico", count: numStorico },
-    { key: "tutti",   label: "Tutti",   count: ordini.length },
+    { key: "attivi",  label: t("gestioneModuloCustom.vista_attivi"),  count: numAttivi  },
+    { key: "storico", label: t("gestioneModuloCustom.vista_storico"), count: numStorico },
+    { key: "tutti",   label: t("gestioneModuloCustom.vista_tutti"),   count: ordini.length },
   ];
 
   // Quando cambia vista resetta il filtro fine (evita combinazioni impossibili)
@@ -1016,13 +1034,13 @@ function TabOrdini({ slug, stile }) {
           <button onClick={carica} className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <span className="text-sm text-slate-500">{ordiniFiltrati.length} di {ordini.length} ordini</span>
+          <span className="text-sm text-slate-500">{t("gestioneModuloCustom.ordini_count", { filtrati: ordiniFiltrati.length, totale: ordini.length })}</span>
         </div>
         <button
           onClick={apriNuovoOrdine}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-white text-sm font-medium transition-colors"
         >
-          <Plus className="w-4 h-4" /> Nuovo ordine
+          <Plus className="w-4 h-4" /> {t("gestioneModuloCustom.nuovo_ordine")}
         </button>
       </div>
 
@@ -1055,7 +1073,7 @@ function TabOrdini({ slug, stile }) {
             onChange={e => setStatoFine(e.target.value)}
             className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-slate-500 cursor-pointer"
           >
-            <option value="">Filtra per stato…</option>
+            <option value="">{t("gestioneModuloCustom.filtra_per_stato")}</option>
             {STATI_PER_VISTA[vista].map(s => (
               <option key={s.key} value={s.key}>
                 {s.label} ({conteggi[s.key] ?? 0})
@@ -1066,7 +1084,7 @@ function TabOrdini({ slug, stile }) {
             <button
               onClick={() => setStatoFine("")}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-              title="Rimuovi filtro"
+              title={t("gestioneModuloCustom.title_rimuovi_filtro")}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -1075,10 +1093,10 @@ function TabOrdini({ slug, stile }) {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-500">Caricamento…</div>
+        <div className="text-center py-16 text-slate-500">{t("gestioneModuloCustom.caricamento")}</div>
       ) : ordiniFiltrati.length === 0 ? (
         <div className="text-center py-16 text-slate-500">
-          {ordini.length === 0 ? "Nessun ordine registrato." : "Nessun ordine corrisponde al filtro selezionato."}
+          {ordini.length === 0 ? t("gestioneModuloCustom.nessun_ordine_registrato") : t("gestioneModuloCustom.nessun_ordine_filtro")}
         </div>
       ) : (
         <div className="space-y-3">
@@ -1100,9 +1118,9 @@ function TabOrdini({ slug, stile }) {
                       <StatoChip stato={o.stato} />
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">
-                      Creato: {fmt(o.created_at)}
-                      {o.data_consegna_prevista && ` · Consegna prevista: ${fmt(o.data_consegna_prevista)}`}
-                      {o.num_righe > 0 && ` · ${o.num_righe} prodotti, ${o.tot_ordinato} pz`}
+                      {t("gestioneModuloCustom.creato", { data: fmt(o.created_at) })}
+                      {o.data_consegna_prevista && t("gestioneModuloCustom.consegna_prevista", { data: fmt(o.data_consegna_prevista) })}
+                      {o.num_righe > 0 && t("gestioneModuloCustom.righe_pz", { righe: o.num_righe, pz: o.tot_ordinato })}
                     </div>
                   </div>
                   {aperto ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -1138,7 +1156,7 @@ function TabOrdini({ slug, stile }) {
                               <CodiceLabel codice={r.codice_colore} stile={stile} />
                               <span className="text-sm text-slate-200 truncate">{r.nome ?? r.asin}</span>
                             </div>
-                            <div className="text-xs text-slate-500">Ord: {r.quantita_ordinata} · Ric: {r.quantita_ricevuta ?? 0}</div>
+                            <div className="text-xs text-slate-500">{t("gestioneModuloCustom.ord_ric", { ord: r.quantita_ordinata, ric: r.quantita_ricevuta ?? 0 })}</div>
                           </div>
                           <StatoChip stato={r.stato ?? "in_attesa"} />
                         </div>
@@ -1152,7 +1170,7 @@ function TabOrdini({ slug, stile }) {
                           onClick={() => aggiornaStatoOrdine(o.id, "confermato")}
                           className="px-3 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white text-xs font-medium"
                         >
-                          Conferma ordine
+                          {t("gestioneModuloCustom.conferma_ordine")}
                         </button>
                       )}
                       {puoRicevere && (
@@ -1160,7 +1178,7 @@ function TabOrdini({ slug, stile }) {
                           onClick={() => apriRicezione(o)}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-700 hover:bg-green-600 text-white text-xs font-medium"
                         >
-                          <Truck className="w-3.5 h-3.5" /> Registra ricezione
+                          <Truck className="w-3.5 h-3.5" /> {t("gestioneModuloCustom.registra_ricezione")}
                         </button>
                       )}
                       {o.stato !== "annullato" && o.stato !== "ricevuto" && (
@@ -1168,7 +1186,7 @@ function TabOrdini({ slug, stile }) {
                           onClick={() => aggiornaStatoOrdine(o.id, "annullato")}
                           className="px-3 py-1.5 rounded-lg bg-red-900/50 hover:bg-red-900 text-red-400 text-xs font-medium"
                         >
-                          Annulla ordine
+                          {t("gestioneModuloCustom.annulla_ordine")}
                         </button>
                       )}
                     </div>
@@ -1185,7 +1203,7 @@ function TabOrdini({ slug, stile }) {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[92vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white">Nuovo ordine fornitore</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.nuovo_ordine_fornitore")}</h3>
               <button onClick={() => setShowNuovo(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -1195,16 +1213,16 @@ function TabOrdini({ slug, stile }) {
               {/* Dati ordine */}
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Fornitore *</label>
+                  <label className="text-xs text-slate-400 block mb-1">{t("gestioneModuloCustom.fornitore_label")}</label>
                   <input
                     value={fornitore}
                     onChange={e => setFornitore(e.target.value)}
-                    placeholder="Nome fornitore"
+                    placeholder={t("gestioneModuloCustom.placeholder_nome_fornitore")}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500"
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Data consegna prevista</label>
+                  <label className="text-xs text-slate-400 block mb-1">{t("gestioneModuloCustom.data_consegna_prevista_label")}</label>
                   <input
                     type="date"
                     value={dataConsegna}
@@ -1213,11 +1231,11 @@ function TabOrdini({ slug, stile }) {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-slate-400 block mb-1">Note</label>
+                  <label className="text-xs text-slate-400 block mb-1">{t("gestioneModuloCustom.note_label")}</label>
                   <input
                     value={noteOrdine}
                     onChange={e => setNoteOrdine(e.target.value)}
-                    placeholder="Note ordine…"
+                    placeholder={t("gestioneModuloCustom.placeholder_note_ordine")}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-slate-500"
                   />
                 </div>
@@ -1229,10 +1247,10 @@ function TabOrdini({ slug, stile }) {
                 {/* COLONNA SX: griglia prodotti disponibili */}
                 <div className="flex flex-col gap-2">
                   <div className="text-xs text-slate-400 font-medium">
-                    Prodotti disponibili ({prodottiInRiga.length})
+                    {t("gestioneModuloCustom.prodotti_disponibili", { n: prodottiInRiga.length })}
                   </div>
                   {prodottiInRiga.length === 0 ? (
-                    <p className="text-sm text-slate-500 py-4">Tutti i prodotti sono già nell'ordine.</p>
+                    <p className="text-sm text-slate-500 py-4">{t("gestioneModuloCustom.tutti_prodotti_gia_in_ordine")}</p>
                   ) : (
                     <div className="space-y-2 overflow-y-auto max-h-[60vh] pr-1">
                       {prodottiInRiga.map(p => (
@@ -1254,7 +1272,7 @@ function TabOrdini({ slug, stile }) {
                           <div className="flex-1 min-w-0 py-1">
                             <div className="text-sm text-slate-100 leading-snug font-medium">{p.nome ?? p.asin}</div>
                             <div className="text-xs text-slate-500 font-mono mt-1">{p.asin}</div>
-                            <div className="text-xs text-slate-400 mt-1">Stock attuale: <span className="text-slate-200 font-semibold">{p.quantita}</span></div>
+                            <div className="text-xs text-slate-400 mt-1">{t("gestioneModuloCustom.stock_attuale_label")}<span className="text-slate-200 font-semibold">{p.quantita}</span></div>
                           </div>
                           <div className="p-2 rounded-full bg-blue-600/20 group-hover:bg-blue-600 transition-colors flex-shrink-0">
                             <Plus className="w-4 h-4 text-blue-400 group-hover:text-white" />
@@ -1268,11 +1286,11 @@ function TabOrdini({ slug, stile }) {
                 {/* COLONNA DX: carrello ordine */}
                 <div className="flex flex-col gap-2">
                   <div className="text-xs text-slate-400 font-medium">
-                    Nell'ordine ({righeNuove.length} prodotti · {righeNuove.reduce((s, r) => s + r.quantita_ordinata, 0)} pz)
+                    {t("gestioneModuloCustom.nell_ordine", { prodotti: righeNuove.length, pz: righeNuove.reduce((s, r) => s + r.quantita_ordinata, 0) })}
                   </div>
                   {righeNuove.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center text-slate-600 text-sm border border-dashed border-slate-700 rounded-xl">
-                      Clicca i prodotti a sinistra per aggiungerli
+                      {t("gestioneModuloCustom.clicca_prodotti_aggiungere")}
                     </div>
                   ) : (
                     <div className="space-y-2 overflow-y-auto max-h-[60vh] pr-1">
@@ -1311,10 +1329,10 @@ function TabOrdini({ slug, stile }) {
 
             <div className="p-5 border-t border-slate-800 flex gap-3">
               <button onClick={() => setShowNuovo(false)} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm">
-                Annulla
+                {t("gestioneModuloCustom.annulla")}
               </button>
               <button onClick={creaOrdine} className="flex-1 py-2.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 hover:text-blue-200 text-white text-sm font-medium">
-                Crea ordine ({righeNuove.length} prodotti)
+                {t("gestioneModuloCustom.crea_ordine_n", { n: righeNuove.length })}
               </button>
             </div>
           </div>
@@ -1326,7 +1344,7 @@ function TabOrdini({ slug, stile }) {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
             <div className="flex items-center justify-between p-5 border-b border-slate-800">
-              <h3 className="text-lg font-bold text-white">Registra ricezione</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.registra_ricezione")}</h3>
               <button onClick={() => setRicezioneOrdine(null)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -1343,7 +1361,7 @@ function TabOrdini({ slug, stile }) {
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-slate-200 truncate">{r.nome ?? r.asin}</div>
-                    <div className="text-xs text-slate-500">Ordinato: {r.quantita_ordinata} · Ricevuto finora: {r.quantita_ricevuta ?? 0}</div>
+                    <div className="text-xs text-slate-500">{t("gestioneModuloCustom.ordinato_ricevuto_finora", { ord: r.quantita_ordinata, ric: r.quantita_ricevuta ?? 0 })}</div>
                   </div>
                   <input
                     type="number"
@@ -1361,7 +1379,7 @@ function TabOrdini({ slug, stile }) {
                 disabled={confermandoRicezione}
                 className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 text-sm"
               >
-                Annulla
+                {t("gestioneModuloCustom.annulla")}
               </button>
               <button
                 onClick={confermaRicezione}
@@ -1371,9 +1389,9 @@ function TabOrdini({ slug, stile }) {
                 {confermandoRicezione ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Registrazione in corso…
+                    {t("gestioneModuloCustom.registrazione_in_corso")}
                   </>
-                ) : "Conferma ricezione"}
+                ) : t("gestioneModuloCustom.conferma_ricezione")}
               </button>
             </div>
           </div>
@@ -1387,6 +1405,7 @@ function TabOrdini({ slug, stile }) {
 // TAB STORICO MOVIMENTI
 // ══════════════════════════════════════════════════════════
 function TabStorico({ slug, stile }) {
+  const { t } = useTranslation();
   const [movimenti, setMovimenti] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState("");
@@ -1402,7 +1421,7 @@ function TabStorico({ slug, stile }) {
       const res = await fetch(`/api/v2/moduli/${slug}/movimenti?${params}`);
       const json = await res.json();
       setMovimenti(Array.isArray(json) ? json : []);
-    } catch { toast.error("Errore caricamento storico"); }
+    } catch { toast.error(t("gestioneModuloCustom.errore_caricamento_storico")); }
     finally { setLoading(false); }
   }, [filtroTipo, filtroAsin]);
 
@@ -1462,40 +1481,41 @@ function TabStorico({ slug, stile }) {
           onChange={e => setFiltroTipo(e.target.value)}
           className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-slate-500"
         >
-          <option value="">Tutti i tipi</option>
-          <option value="CARICO_ORDINE">Carico ordine</option>
-          <option value="SCARICO_DDT">Scarico DDT</option>
-          <option value="RETTIFICA">Rettifica</option>
+          <option value="">{t("gestioneModuloCustom.tutti_i_tipi")}</option>
+          <option value="CARICO_ORDINE">{t("gestioneModuloCustom.tipo_carico_ordine")}</option>
+          <option value="SCARICO_DDT">{t("gestioneModuloCustom.tipo_scarico_ddt")}</option>
+          <option value="RETTIFICA">{t("gestioneModuloCustom.tipo_rettifica")}</option>
         </select>
         <input
           value={filtroAsin}
           onChange={e => setFiltroAsin(e.target.value)}
-          placeholder="Filtra per ASIN…"
+          placeholder={t("gestioneModuloCustom.placeholder_filtra_asin")}
           className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-slate-500"
         />
         <button onClick={carica} className="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 hover:text-white">
           <RefreshCw className="w-4 h-4" />
         </button>
-        <span className="text-xs text-slate-500 self-center">{gruppi.length} eventi · {movimenti.length} movimenti totali</span>
+        <span className="text-xs text-slate-500 self-center">{t("gestioneModuloCustom.eventi_movimenti_totali", { eventi: gruppi.length, movimenti: movimenti.length })}</span>
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-slate-500">Caricamento…</div>
+        <div className="text-center py-16 text-slate-500">{t("gestioneModuloCustom.caricamento")}</div>
       ) : gruppi.length === 0 ? (
-        <div className="text-center py-16 text-slate-500">Nessun movimento trovato.</div>
+        <div className="text-center py-16 text-slate-500">{t("gestioneModuloCustom.nessun_movimento_trovato")}</div>
       ) : (
         <div className="space-y-2">
           {gruppi.map(g => {
-            const tipo = TIPO_MOV[g.tipo] ?? { label: g.tipo, color: "text-slate-400" };
+            const tipoColor = TIPO_MOV_COLOR[g.tipo] ?? "text-slate-400";
+            const tipoLabel = TIPO_MOV_LABEL_KEY[g.tipo] ? t(`gestioneModuloCustom.${TIPO_MOV_LABEL_KEY[g.tipo]}`) : g.tipo;
             const aperto = gruppiAperti.has(g.key);
             const standalone = g.righe.length === 1 && !g.riferimento_id;
             const segno = g.totale > 0 ? "+" : "";
 
             // Etichetta gruppo
             let etichetta;
-            if (g.riferimento_tipo === "ordine") etichetta = `Ordine #${String(g.riferimento_id).padStart(4, "0")}`;
-            else if (g.riferimento_tipo === "ddt") etichetta = `DDT #${g.riferimento_id}`;
-            else etichetta = tipo.label;
+            if (g.riferimento_tipo === "ordine") etichetta = t("gestioneModuloCustom.ordine_n", { n: String(g.riferimento_id).padStart(4, "0") });
+            else if (g.riferimento_tipo === "ddt") etichetta = t("gestioneModuloCustom.ddt_n", { n: g.riferimento_id });
+            else etichetta = tipoLabel;
 
             return (
               <div key={g.key} className="bg-slate-800 border border-slate-700/50 rounded-xl overflow-hidden">
@@ -1510,10 +1530,10 @@ function TabStorico({ slug, stile }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-sm font-bold ${tipo.color}`}>{etichetta}</span>
-                      <span className="text-xs text-slate-500">· {tipo.label}</span>
+                      <span className={`text-sm font-bold ${tipoColor}`}>{etichetta}</span>
+                      <span className="text-xs text-slate-500">· {tipoLabel}</span>
                       {!standalone && (
-                        <span className="text-xs text-slate-500">· {g.righe.length} prodotti</span>
+                        <span className="text-xs text-slate-500">{t("gestioneModuloCustom.n_prodotti", { n: g.righe.length })}</span>
                       )}
                     </div>
                     <div className="text-xs text-slate-600 mt-0.5">
@@ -1527,7 +1547,7 @@ function TabStorico({ slug, stile }) {
                     <div className={`text-lg font-bold ${g.totale > 0 ? "text-green-400" : g.totale < 0 ? "text-red-400" : "text-slate-400"}`}>
                       {segno}{g.totale}
                     </div>
-                    <div className="text-xs text-slate-600">{standalone ? "" : "totale"}</div>
+                    <div className="text-xs text-slate-600">{standalone ? "" : t("gestioneModuloCustom.totale")}</div>
                   </div>
                   {!standalone && (
                     aperto ? <ChevronUp className="w-4 h-4 text-slate-400 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
@@ -1577,13 +1597,14 @@ function TabStorico({ slug, stile }) {
 // ══════════════════════════════════════════════════════════
 // PAGINA PRINCIPALE
 // ══════════════════════════════════════════════════════════
-const TABS = [
-  { id: "inventario", label: "Inventario",       icon: Package },
-  { id: "ordini",     label: "Ordini fornitore", icon: ShoppingCart },
-  { id: "storico",    label: "Storico movimenti", icon: History },
+const TAB_DEFS = [
+  { id: "inventario", labelKey: "tab_inventario",        icon: Package },
+  { id: "ordini",     labelKey: "tab_ordini_fornitore",  icon: ShoppingCart },
+  { id: "storico",    labelKey: "tab_storico_movimenti", icon: History },
 ];
 
 export default function GestioneModuloCustom() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { slug } = useParams();
   const [tab, setTab] = useState("inventario");
@@ -1636,15 +1657,15 @@ export default function GestioneModuloCustom() {
         body: JSON.stringify({ icona: nuovaIcona || "📦" }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      toast.success("Emoji aggiornata");
+      toast.success(t("gestioneModuloCustom.emoji_aggiornata"));
       setShowEmojiPicker(false);
       caricaModulo();
-    } catch (e) { toast.error("Errore: " + e.message); }
+    } catch (e) { toast.error(t("gestioneModuloCustom.errore_generico", { msg: e.message })); }
     finally { setSavingIcona(false); }
   }
 
   async function salvaSettings() {
-    if (!editLabel.trim()) { toast.error("Il nome non può essere vuoto"); return; }
+    if (!editLabel.trim()) { toast.error(t("gestioneModuloCustom.nome_non_vuoto")); return; }
     setSavingSettings(true);
     try {
       const res = await fetch(`/api/v2/moduli/${slug}`, {
@@ -1653,10 +1674,10 @@ export default function GestioneModuloCustom() {
         body: JSON.stringify({ label: editLabel.trim() }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      toast.success("Nome aggiornato");
+      toast.success(t("gestioneModuloCustom.nome_aggiornato"));
       setShowSettings(false);
       caricaModulo();
-    } catch (e) { toast.error("Errore: " + e.message); }
+    } catch (e) { toast.error(t("gestioneModuloCustom.errore_generico", { msg: e.message })); }
     finally { setSavingSettings(false); }
   }
 
@@ -1670,21 +1691,21 @@ export default function GestioneModuloCustom() {
         body: JSON.stringify({ conferma: "DELETE" }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      toast.success("Modulo eliminato");
+      toast.success(t("gestioneModuloCustom.modulo_eliminato"));
       navigate("/uffici/inventario");
-    } catch (e) { toast.error("Errore eliminazione: " + e.message); setDeleting(false); }
+    } catch (e) { toast.error(t("gestioneModuloCustom.errore_eliminazione_modulo", { msg: e.message })); setDeleting(false); }
   }
 
   if (loadingModulo) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-500 flex items-center justify-center">Caricamento modulo…</div>
+      <div className="min-h-screen bg-slate-950 text-slate-500 flex items-center justify-center">{t("gestioneModuloCustom.caricamento_modulo")}</div>
     );
   }
   if (!modulo) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center gap-4">
-        <p className="text-slate-400">Modulo "{slug}" non trovato.</p>
-        <button onClick={() => navigate("/uffici/inventario")} className="px-4 py-2 bg-slate-800 rounded-lg hover:bg-slate-700">Torna all'inventario</button>
+        <p className="text-slate-400">{t("gestioneModuloCustom.modulo_non_trovato", { slug })}</p>
+        <button onClick={() => navigate("/uffici/inventario")} className="px-4 py-2 bg-slate-800 rounded-lg hover:bg-slate-700">{t("gestioneModuloCustom.torna_inventario")}</button>
       </div>
     );
   }
@@ -1704,31 +1725,31 @@ export default function GestioneModuloCustom() {
           <button
             onClick={apriEmojiPicker}
             className="text-3xl p-2 rounded-xl bg-slate-800 hover:bg-slate-700 border-2 border-transparent hover:border-purple-500 transition-all"
-            title="Clicca per cambiare emoji"
+            title={t("gestioneModuloCustom.title_cambia_emoji")}
           >
             {modulo.icona ?? "📦"}
           </button>
           <div className="flex-1">
             <h1 className="text-xl font-bold text-white">{modulo.label}</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Modulo personalizzato · stile {modulo.stile_codice === "numerico" ? "numerico" : "testuale"}
+              {t("gestioneModuloCustom.modulo_personalizzato", { stile: modulo.stile_codice === "numerico" ? t("gestioneModuloCustom.stile_numerico") : t("gestioneModuloCustom.stile_testuale") })}
             </p>
           </div>
           <button
             onClick={apriSettings}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-sm transition-colors"
-            title="Impostazioni modulo"
+            title={t("gestioneModuloCustom.title_impostazioni_modulo")}
           >
             <Settings className="w-4 h-4" />
-            <span className="hidden sm:inline">Impostazioni</span>
+            <span className="hidden sm:inline">{t("gestioneModuloCustom.impostazioni")}</span>
           </button>
           <button
             onClick={() => { setConfermaDelete(""); setShowDelete(true); }}
             className="flex items-center gap-2 px-3 py-2 rounded-xl bg-red-900/40 hover:bg-red-900/70 border border-red-800/50 text-red-300 hover:text-red-200 text-sm transition-colors"
-            title="Elimina questo modulo"
+            title={t("gestioneModuloCustom.title_elimina_modulo")}
           >
             <Trash2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Elimina</span>
+            <span className="hidden sm:inline">{t("gestioneModuloCustom.elimina")}</span>
           </button>
         </div>
       </div>
@@ -1741,22 +1762,22 @@ export default function GestioneModuloCustom() {
               <div className="p-2 rounded-xl bg-red-900/40">
                 <AlertTriangle className="w-6 h-6 text-red-400" />
               </div>
-              <h3 className="text-lg font-bold text-white">Elimina modulo "{modulo.label}"</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.elimina_modulo_titolo", { nome: modulo.label })}</h3>
             </div>
-            <p className="text-sm text-slate-300 mb-2">Stai per eliminare definitivamente il modulo e tutti i suoi dati:</p>
+            <p className="text-sm text-slate-300 mb-2">{t("gestioneModuloCustom.stai_per_eliminare_modulo")}</p>
             <ul className="text-sm text-slate-400 mb-4 space-y-1 pl-4">
-              <li>• Catalogo prodotti del modulo</li>
-              <li>• Tutti gli ordini fornitore (qualsiasi stato)</li>
-              <li>• Tutto lo storico movimenti</li>
-              <li>• Le immagini caricate per questo modulo</li>
+              <li>• {t("gestioneModuloCustom.del_lista_catalogo")}</li>
+              <li>• {t("gestioneModuloCustom.del_lista_ordini")}</li>
+              <li>• {t("gestioneModuloCustom.del_lista_storico")}</li>
+              <li>• {t("gestioneModuloCustom.del_lista_immagini")}</li>
             </ul>
             <div className="bg-red-950/30 border border-red-900/40 rounded-lg p-3 mb-4">
               <p className="text-xs text-red-300 font-medium">
-                ⚠️ Operazione <span className="underline">irreversibile</span>. I dati non potranno essere recuperati.
+                {t("gestioneModuloCustom.operazione_irreversibile_corta_pre")}<span className="underline">{t("gestioneModuloCustom.irreversibile")}</span>{t("gestioneModuloCustom.operazione_irreversibile_corta_post")}
               </p>
             </div>
             <label className="text-xs text-slate-400 block mb-1">
-              Per confermare scrivi <span className="font-mono font-bold text-red-300">DELETE</span> qui sotto:
+              {t("gestioneModuloCustom.per_confermare_scrivi_pre")}<span className="font-mono font-bold text-red-300">DELETE</span>{t("gestioneModuloCustom.per_confermare_scrivi_post")}
             </label>
             <input
               autoFocus
@@ -1771,7 +1792,7 @@ export default function GestioneModuloCustom() {
                 disabled={deleting}
                 className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm font-medium"
               >
-                Annulla
+                {t("gestioneModuloCustom.annulla")}
               </button>
               <button
                 onClick={eliminaModulo}
@@ -1781,9 +1802,9 @@ export default function GestioneModuloCustom() {
                 {deleting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    Eliminazione…
+                    {t("gestioneModuloCustom.eliminazione")}
                   </>
-                ) : "Elimina definitivamente"}
+                ) : t("gestioneModuloCustom.elimina_definitivamente")}
               </button>
             </div>
           </div>
@@ -1795,14 +1816,14 @@ export default function GestioneModuloCustom() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Scegli un'emoji</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.scegli_emoji")}</h3>
               <button onClick={() => setShowEmojiPicker(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Grid emoji beauty / cosmetica */}
-            <p className="text-xs text-slate-500 mb-2">Selezione rapida</p>
+            <p className="text-xs text-slate-500 mb-2">{t("gestioneModuloCustom.selezione_rapida")}</p>
             <div className="grid grid-cols-8 gap-1 mb-4 bg-slate-800/40 p-2 rounded-lg">
               {["💅","✨","💎","💖","🌟","🪄","🧴","💄","👑","🎀","🌸","🦋","🌺","💋","🎨","🌈"].map(emoji => (
                 <button
@@ -1818,12 +1839,12 @@ export default function GestioneModuloCustom() {
 
             {/* Inserimento manuale */}
             <div className="bg-slate-800/40 border border-dashed border-slate-700 rounded-lg p-3">
-              <label className="text-xs text-slate-400 block mb-1.5">Oppure incolla qui un'emoji personalizzata:</label>
+              <label className="text-xs text-slate-400 block mb-1.5">{t("gestioneModuloCustom.incolla_emoji_personalizzata")}</label>
               <div className="flex gap-2">
                 <input
                   value={editIcona}
                   onChange={(e) => setEditIcona(e.target.value)}
-                  placeholder="Incolla qui…"
+                  placeholder={t("gestioneModuloCustom.placeholder_incolla_qui")}
                   className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-2xl text-center text-white focus:outline-none focus:border-purple-500"
                 />
                 <button
@@ -1831,14 +1852,14 @@ export default function GestioneModuloCustom() {
                   disabled={savingIcona || !editIcona}
                   className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-medium"
                 >
-                  Usa
+                  {t("gestioneModuloCustom.usa")}
                 </button>
               </div>
               <div className="mt-2 text-[11px] text-slate-500 leading-relaxed">
-                <div className="font-semibold text-slate-400 mb-1">Come digitare un'emoji:</div>
-                • <span className="text-slate-300">Windows</span>: premi <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Win</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">.</kbd> (punto)<br />
-                • <span className="text-slate-300">Mac</span>: premi <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Cmd</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Spazio</kbd><br />
-                • Si aprirà il selettore emoji del sistema, scegli quella che vuoi e verrà inserita nel campo qui sopra
+                <div className="font-semibold text-slate-400 mb-1">{t("gestioneModuloCustom.come_digitare_emoji")}</div>
+                • <span className="text-slate-300">{t("gestioneModuloCustom.windows")}</span>: <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Win</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">.</kbd>{t("gestioneModuloCustom.tasto_punto")}<br />
+                • <span className="text-slate-300">{t("gestioneModuloCustom.mac")}</span>: <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">Cmd</kbd> + <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300 font-mono text-[10px]">{t("gestioneModuloCustom.spazio")}</kbd><br />
+                • {t("gestioneModuloCustom.emoji_helper_post")}
               </div>
             </div>
           </div>
@@ -1850,7 +1871,7 @@ export default function GestioneModuloCustom() {
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-bold text-white">Impostazioni modulo</h3>
+              <h3 className="text-lg font-bold text-white">{t("gestioneModuloCustom.impostazioni_modulo_titolo")}</h3>
               <button onClick={() => setShowSettings(false)} className="text-slate-500 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
@@ -1858,7 +1879,7 @@ export default function GestioneModuloCustom() {
 
             <div className="space-y-3">
               <div>
-                <label className="text-xs text-slate-400 block mb-1">Nome del modulo</label>
+                <label className="text-xs text-slate-400 block mb-1">{t("gestioneModuloCustom.nome_del_modulo")}</label>
                 <input
                   value={editLabel}
                   onChange={(e) => setEditLabel(e.target.value)}
@@ -1866,10 +1887,10 @@ export default function GestioneModuloCustom() {
                 />
               </div>
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-2 text-xs text-slate-500">
-                <span className="text-slate-400">Emoji:</span> {modulo.icona ?? "📦"} · <span className="italic">cliccala nell'header per cambiarla</span>
+                <span className="text-slate-400">{t("gestioneModuloCustom.emoji_label")}</span> {modulo.icona ?? "📦"} · <span className="italic">{t("gestioneModuloCustom.cliccala_header_cambiare")}</span>
               </div>
               <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-2 text-xs text-slate-500">
-                <span className="text-slate-400">Stile:</span> {modulo.stile_codice === "numerico" ? "Numerico (come One Step)" : "Testuale (come Top Coat)"} · <span className="italic">non modificabile dopo la creazione</span>
+                <span className="text-slate-400">{t("gestioneModuloCustom.stile_label")}</span> {modulo.stile_codice === "numerico" ? t("gestioneModuloCustom.stile_numerico_full") : t("gestioneModuloCustom.stile_testuale_full")} · <span className="italic">{t("gestioneModuloCustom.non_modificabile_creazione")}</span>
               </div>
             </div>
 
@@ -1879,14 +1900,14 @@ export default function GestioneModuloCustom() {
                 disabled={savingSettings}
                 className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 text-sm"
               >
-                Annulla
+                {t("gestioneModuloCustom.annulla")}
               </button>
               <button
                 onClick={salvaSettings}
                 disabled={savingSettings || !editLabel.trim()}
                 className="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white text-sm font-medium"
               >
-                {savingSettings ? "Salvataggio…" : "Salva"}
+                {savingSettings ? t("gestioneModuloCustom.salvataggio") : t("gestioneModuloCustom.salva")}
               </button>
             </div>
 
@@ -1896,16 +1917,16 @@ export default function GestioneModuloCustom() {
                 <div className="flex items-start gap-2 mb-3">
                   <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <div className="text-sm font-bold text-red-300">Elimina modulo</div>
+                    <div className="text-sm font-bold text-red-300">{t("gestioneModuloCustom.elimina_modulo")}</div>
                     <div className="text-xs text-slate-400 mt-0.5">
-                      Cancella il modulo e <span className="font-semibold">tutti i suoi dati</span> (catalogo, ordini, movimenti). Operazione irreversibile.
+                      {t("gestioneModuloCustom.elimina_modulo_desc_pre")}<span className="font-semibold">{t("gestioneModuloCustom.tutti_suoi_dati")}</span>{t("gestioneModuloCustom.elimina_modulo_desc_post")}
                     </div>
                   </div>
                 </div>
                 <input
                   value={confermaDelete}
                   onChange={(e) => setConfermaDelete(e.target.value)}
-                  placeholder='Scrivi "DELETE" per confermare'
+                  placeholder={t("gestioneModuloCustom.placeholder_scrivi_delete")}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono mb-2 focus:outline-none focus:border-red-500"
                 />
                 <button
@@ -1913,7 +1934,7 @@ export default function GestioneModuloCustom() {
                   disabled={confermaDelete !== "DELETE" || deleting}
                   className="w-full py-2 rounded-lg bg-red-700 hover:bg-red-600 disabled:bg-red-950 disabled:cursor-not-allowed disabled:text-slate-500 text-white text-sm font-bold transition-colors"
                 >
-                  {deleting ? "Eliminazione…" : "Elimina modulo definitivamente"}
+                  {deleting ? t("gestioneModuloCustom.eliminazione") : t("gestioneModuloCustom.elimina_modulo_definitivamente")}
                 </button>
               </div>
             </div>
@@ -1925,20 +1946,20 @@ export default function GestioneModuloCustom() {
       <div className="bg-slate-900/50 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex gap-1">
-            {TABS.map(t => {
-              const Icon = t.icon;
+            {TAB_DEFS.map(td => {
+              const Icon = td.icon;
               return (
                 <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
+                  key={td.id}
+                  onClick={() => setTab(td.id)}
                   className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors ${
-                    tab === t.id
+                    tab === td.id
                       ? "border-pink-500 text-pink-400"
                       : "border-transparent text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {t.label}
+                  {t(`gestioneModuloCustom.${td.labelKey}`)}
                 </button>
               );
             })}

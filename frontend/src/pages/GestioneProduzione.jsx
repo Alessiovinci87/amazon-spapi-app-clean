@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from 'sonner';
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SfusoCard from "../components/sfuso/SfusoCard";
 import ProduzioneCard from "../components/produzione/ProduzioneCard";
 import { triggerReloadInventario } from "../utils/globalEvents";
@@ -9,6 +10,7 @@ import { fetchJSON, buildUrl } from "../utils/api";
 import { normalizeState, getStateLabel } from "../utils/statoUtils";
 
 const GestioneProduzione = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [prenotazioni, setPrenotazioni] = useState([]);
   const [sfusoData, setSfusoData] = useState([]);
@@ -172,7 +174,7 @@ const GestioneProduzione = () => {
 
     } catch (err) {
       console.error("❌ Errore aggiornamento stato:", err);
-      toast.error("Errore durante l'aggiornamento dello stato");
+      toast.error(t("gestioneProduzione.toast_err_stato"));
     }
   };
 
@@ -181,7 +183,7 @@ const GestioneProduzione = () => {
     try {
       const quantitaNumerica = Number(nuovaQuantita);
       if (isNaN(quantitaNumerica) || quantitaNumerica <= 0) {
-        toast.warning("️ Quantità non valida");
+        toast.warning(t("gestioneProduzione.toast_quantita_non_valida"));
         return;
       }
 
@@ -190,7 +192,7 @@ const GestioneProduzione = () => {
       const oldData = await oldRes.json();
 
       if (!oldData || !oldData.data) {
-        toast.error("Errore: impossibile recuperare la prenotazione iniziale");
+        toast.error(t("gestioneProduzione.toast_err_recupero_iniziale"));
         return;
       }
 
@@ -213,7 +215,7 @@ const GestioneProduzione = () => {
       const prenAgg = await resPren.json();
 
       if (!prenAgg || !prenAgg.data) {
-        toast.error("Errore recupero prenotazione aggiornata");
+        toast.error(t("gestioneProduzione.toast_err_recupero_aggiornata"));
         return;
       }
 
@@ -231,11 +233,11 @@ const GestioneProduzione = () => {
       );
 
       await ricaricaDati();
-      toast.success("Quantità aggiornata e registrata nello storico");
+      toast.success(t("gestioneProduzione.toast_quantita_aggiornata"));
 
     } catch (err) {
       console.error("❌ Errore modifica quantità:", err);
-      toast.error("Errore durante la modifica della quantità");
+      toast.error(t("gestioneProduzione.toast_err_modifica_quantita"));
     }
   };
 
@@ -250,7 +252,7 @@ const GestioneProduzione = () => {
       const prenAgg = await resPren.json();
 
       if (!prenAgg || !prenAgg.data) {
-        toast.error("Errore recupero prenotazione aggiornata");
+        toast.error(t("gestioneProduzione.toast_err_recupero_aggiornata"));
         return;
       }
 
@@ -266,7 +268,7 @@ const GestioneProduzione = () => {
 
       if (!resCrea.ok) {
         const text = await resCrea.text();
-        toast.info("Errore creazione produzione:\n" + text);
+        toast.info(t("gestioneProduzione.toast_err_creazione_produzione") + "\n" + text);
         return;
       }
 
@@ -275,7 +277,7 @@ const GestioneProduzione = () => {
         dataCrea?.id_produzione || dataCrea?.data?.id_produzione;
 
       if (!idProduzione) {
-        toast.error("Errore: ID produzione mancante.");
+        toast.error(t("gestioneProduzione.toast_err_id_produzione"));
         return;
       }
 
@@ -292,7 +294,7 @@ const GestioneProduzione = () => {
 
       if (!resCompleta.ok) {
         const errText = await resCompleta.text();
-        toast.info("Errore completamento produzione:\n" + errText);
+        toast.info(t("gestioneProduzione.toast_err_completamento_produzione") + "\n" + errText);
         return;
       }
 
@@ -305,7 +307,7 @@ const GestioneProduzione = () => {
 
 
       if (!prenAggUpdated || !prenAggUpdated.data) {
-        toast.error("Errore nel ricaricare la prenotazione aggiornata");
+        toast.error(t("gestioneProduzione.toast_err_ricarica_prenotazione"));
         return;
       }
 
@@ -338,11 +340,11 @@ const GestioneProduzione = () => {
         prev.filter(p => p.id !== prenotazione.id)
       );
 
-      toast.success("Produzione completata");
+      toast.success(t("gestioneProduzione.toast_produzione_completata"));
 
     } catch (err) {
       console.error("❌ Errore generale handleConfermaProduzione:", err);
-      toast.error("Errore durante la conferma produzione");
+      toast.error(t("gestioneProduzione.toast_err_conferma"));
     }
   };
 
@@ -387,7 +389,7 @@ const GestioneProduzione = () => {
       await ricaricaDati();
     } catch (err) {
       console.error("❌ Errore handlePrenota:", err);
-      toast.error("Errore durante la creazione della prenotazione");
+      toast.error(t("gestioneProduzione.toast_err_creazione_prenotazione"));
     }
   };
 
@@ -401,10 +403,10 @@ const GestioneProduzione = () => {
       });
       if (!res.ok) throw new Error("Errore salvataggio nota");
       await fetchPrenotazioni();
-      toast.success("Nota salvata");
+      toast.success(t("gestioneProduzione.toast_nota_salvata"));
     } catch (err) {
       console.error("❌ Errore salvataggio nota:", err);
-      toast.error("Errore salvataggio nota");
+      toast.error(t("gestioneProduzione.toast_err_salvataggio_nota"));
     }
   };
 
@@ -441,27 +443,27 @@ const GestioneProduzione = () => {
         <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-white mb-2">📦 Gestione Produzione Sfuso</h1>
-              <p className="text-zinc-400">Gestisci prenotazioni e produzioni</p>
+              <h1 className="text-3xl font-bold text-white mb-2">📦 {t("gestioneProduzione.header_title")}</h1>
+              <p className="text-zinc-400">{t("gestioneProduzione.header_desc")}</p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => navigate("/magazzino/storici/sfuso")}
                 className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-white font-medium transition-colors"
               >
-                📜 Storico Produzioni
+                📜 {t("gestioneProduzione.btn_storico_produzioni")}
               </button>
               <button
                 onClick={() => navigate("/magazzino/storici/sfuso")}
                 className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-white font-medium transition-colors"
               >
-                📊 Storico Sfuso
+                📊 {t("gestioneProduzione.btn_storico_sfuso")}
               </button>
               <button
                 onClick={() => navigate("/magazzino")}
                 className="bg-zinc-700 hover:bg-zinc-600 px-4 py-2 rounded-lg text-white font-medium transition-colors"
               >
-                ⬅️ Magazzino
+                ⬅️ {t("gestioneProduzione.btn_magazzino")}
               </button>
             </div>
           </div>
@@ -470,12 +472,12 @@ const GestioneProduzione = () => {
         {/* ========== FILTRO RICERCA GLOBALE ========== */}
         <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
           <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-            🔍 Filtra Prenotazioni
+            🔍 {t("gestioneProduzione.filtro_title")}
           </h2>
           <div className="relative">
             <input
               type="text"
-              placeholder="Cerca per nome prodotto o ASIN..."
+              placeholder={t("gestioneProduzione.ph_cerca_prodotto_asin")}
               value={filterSearchTerm}
               onChange={(e) => setFilterSearchTerm(e.target.value)}
               className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-lg pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
@@ -484,7 +486,7 @@ const GestioneProduzione = () => {
               <button
                 onClick={() => setFilterSearchTerm("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-                title="Cancella filtro"
+                title={t("gestioneProduzione.title_cancella_filtro")}
               >
                 ✖
               </button>
@@ -492,7 +494,7 @@ const GestioneProduzione = () => {
           </div>
           {filterSearchTerm && (
             <p className="mt-2 text-sm text-zinc-400">
-              Filtrando per: <strong className="text-emerald-400">{filterSearchTerm}</strong>
+              {t("gestioneProduzione.filtrando_per")} <strong className="text-emerald-400">{filterSearchTerm}</strong>
             </p>
           )}
         </div>
@@ -501,12 +503,12 @@ const GestioneProduzione = () => {
             {/* ========== SELETTORE PRODOTTO ========== */}
             <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
               <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                🎯 Seleziona Prodotto da Produrre
+                🎯 {t("gestioneProduzione.sel_title")}
               </h2>
               <div className="relative mb-3">
                 <input
                   type="text"
-                  placeholder="Cerca per nome, ASIN o SKU..."
+                  placeholder={t("gestioneProduzione.ph_cerca_nome_asin_sku")}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3 rounded-lg pr-10 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
@@ -515,7 +517,7 @@ const GestioneProduzione = () => {
                   <button
                     onClick={() => setSearchTerm("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
-                    title="Cancella"
+                    title={t("gestioneProduzione.title_cancella")}
                   >
                     ✖
                   </button>
@@ -538,7 +540,7 @@ const GestioneProduzione = () => {
                     if (filtered.length === 0) {
                       return (
                         <div className="p-4 text-center text-zinc-400">
-                          Nessun prodotto trovato per "{searchTerm}"
+                          {t("gestioneProduzione.empty_no_prodotto", { term: searchTerm })}
                         </div>
                       );
                     }
@@ -567,7 +569,7 @@ const GestioneProduzione = () => {
                 <div className="mt-3 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center justify-between">
                   <div>
                     <p className="text-emerald-400 text-sm">
-                      ✅ Prodotto selezionato: <strong>{selectedProdotto.nome}</strong>
+                      ✅ {t("gestioneProduzione.sel_prodotto_selezionato")} <strong>{selectedProdotto.nome}</strong>
                     </p>
                     <p className="text-emerald-300/70 text-xs mt-1">
                       ASIN: {selectedProdotto.asin} {selectedProdotto.sku ? `• SKU: ${selectedProdotto.sku}` : ""}
@@ -576,9 +578,9 @@ const GestioneProduzione = () => {
                   <button
                     onClick={() => setSelectedProdotto(null)}
                     className="bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1 rounded text-sm transition-colors"
-                    title="Deseleziona prodotto"
+                    title={t("gestioneProduzione.title_deseleziona")}
                   >
-                    ✖ Rimuovi
+                    ✖ {t("gestioneProduzione.btn_rimuovi")}
                   </button>
                 </div>
               )}
@@ -612,7 +614,7 @@ const GestioneProduzione = () => {
         <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
           <div className="bg-yellow-600 px-6 py-4">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              ⚙️ In Lavorazione
+              ⚙️ {t("gestioneProduzione.section_in_lavorazione")}
               <span className="text-sm font-normal opacity-90">
                 ({prenotazioniInLavorazione.length})
               </span>
@@ -621,18 +623,18 @@ const GestioneProduzione = () => {
 
           <div className="p-6">
             {prenotazioniInLavorazione.length === 0 ? (
-              <p className="text-zinc-400 text-center py-8">Nessuna prenotazione in lavorazione</p>
+              <p className="text-zinc-400 text-center py-8">{t("gestioneProduzione.empty_no_lavorazione")}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-zinc-800 text-white">
-                      <th className="p-3 border border-zinc-700 text-left">Nome Prodotto</th>
-                      <th className="p-3 border border-zinc-700 text-left">Formato</th>
-                      <th className="p-3 border border-zinc-700 text-left">Quantità</th>
-                      <th className="p-3 border border-zinc-700 text-left">Lotto</th>
-                      <th className="p-3 border border-zinc-700 text-left">Note</th>
-                      <th className="p-3 border border-zinc-700 text-left">Azioni</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_nome_prodotto")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_formato")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_quantita")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_lotto")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_note")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_azioni")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -661,7 +663,7 @@ const GestioneProduzione = () => {
                               <button
                                 onClick={() => handleModificaQuantita(p.id, p.nuovaQuantita || p.prodotti)}
                                 className="bg-emerald-600 hover:bg-emerald-700 px-3 py-1 rounded text-white transition-colors"
-                                title="Aggiorna quantità"
+                                title={t("gestioneProduzione.title_aggiorna_quantita")}
                               >
                                 ✅
                               </button>
@@ -672,8 +674,8 @@ const GestioneProduzione = () => {
                             {(() => {
                               const sfuso = sfusoData.find((s) => s.id === p.id_sfuso);
                               if (!sfuso) return "";
-                              if (p.lotto === sfuso.lotto_old) return "(VECCHIO)";
-                              if (p.lotto === sfuso.lotto) return "(NUOVO)";
+                              if (p.lotto === sfuso.lotto_old) return `(${t("gestioneProduzione.lbl_vecchio")})`;
+                              if (p.lotto === sfuso.lotto) return `(${t("gestioneProduzione.lbl_nuovo")})`;
                               return "";
                             })()}
                           </td>
@@ -682,7 +684,7 @@ const GestioneProduzione = () => {
                               <input
                                 type="text"
                                 defaultValue=""
-                                placeholder="Aggiungi nota..."
+                                placeholder={t("gestioneProduzione.ph_aggiungi_nota")}
                                 onChange={(e) =>
                                   setPrenotazioni((prev) =>
                                     prev.map((row) =>
@@ -695,7 +697,7 @@ const GestioneProduzione = () => {
                               <button
                                 onClick={() => handleSalvaNota(p.id, p.nuovaNota)}
                                 className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white transition-colors"
-                                title="Salva nota"
+                                title={t("gestioneProduzione.title_salva_nota")}
                               >
                                 💾
                               </button>
@@ -707,13 +709,13 @@ const GestioneProduzione = () => {
                                 onClick={() => handleConfermaProduzione(p)}
                                 className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-white transition-colors font-medium"
                               >
-                                ✅ Conferma
+                                ✅ {t("gestioneProduzione.btn_conferma")}
                               </button>
                               <button
                                 onClick={() => handleAggiornaStato(p.id, "annullato")}
                                 className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-white transition-colors font-medium"
                               >
-                                ❌ Annulla
+                                ❌ {t("gestioneProduzione.btn_annulla")}
                               </button>
                             </div>
                           </td>
@@ -721,7 +723,7 @@ const GestioneProduzione = () => {
                         {p.note && (
                           <tr className="bg-yellow-900/10">
                             <td colSpan="6" className="p-3 border border-zinc-700 text-zinc-300 text-xs whitespace-pre-wrap">
-                              <strong className="text-yellow-400">Note precedenti:</strong> {p.note}
+                              <strong className="text-yellow-400">{t("gestioneProduzione.note_precedenti")}</strong> {p.note}
                             </td>
                           </tr>
                         )}
@@ -738,7 +740,7 @@ const GestioneProduzione = () => {
         <div className="bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
           <div className="bg-emerald-600 px-6 py-4">
             <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-              📦 Prenotazioni Attive
+              📦 {t("gestioneProduzione.section_prenotazioni_attive")}
               <span className="text-sm font-normal opacity-90">
                 ({prenotazioniAttive.length})
               </span>
@@ -747,21 +749,21 @@ const GestioneProduzione = () => {
 
           <div className="p-6">
             {prenotazioniAttive.length === 0 ? (
-              <p className="text-zinc-400 text-center py-8">Nessuna prenotazione attiva</p>
+              <p className="text-zinc-400 text-center py-8">{t("gestioneProduzione.empty_no_attive")}</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
                     <tr className="bg-zinc-800 text-white">
-                      <th className="p-3 border border-zinc-700 text-left">Nome Prodotto</th>
-                      <th className="p-3 border border-zinc-700 text-left">Formato</th>
-                      <th className="p-3 border border-zinc-700 text-left">Litri</th>
-                      <th className="p-3 border border-zinc-700 text-left">Lotto</th>
-                      <th className="p-3 border border-zinc-700 text-left">Prodotti</th>
-                      <th className="p-3 border border-zinc-700 text-left">Priorità</th>
-                      <th className="p-3 border border-zinc-700 text-left">Data</th>
-                      <th className="p-3 border border-zinc-700 text-left">Note</th>
-                      <th className="p-3 border border-zinc-700 text-left">Azioni</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_nome_prodotto")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_formato")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_litri")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_lotto")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_prodotti")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_priorita")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_data")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_note")}</th>
+                      <th className="p-3 border border-zinc-700 text-left">{t("gestioneProduzione.th_azioni")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -787,7 +789,7 @@ const GestioneProduzione = () => {
                               <input
                                 type="text"
                                 value={p.note ?? ""}
-                                placeholder="Aggiungi nota..."
+                                placeholder={t("gestioneProduzione.ph_aggiungi_nota")}
                                 onChange={(e) =>
                                   setPrenotazioni((prev) =>
                                     prev.map((row) =>
@@ -800,7 +802,7 @@ const GestioneProduzione = () => {
                               <button
                                 onClick={() => handleSalvaNota(p.id, p.note)}
                                 className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white transition-colors"
-                                title="Salva nota"
+                                title={t("gestioneProduzione.title_salva_nota")}
                               >
                                 💾
                               </button>
@@ -809,14 +811,14 @@ const GestioneProduzione = () => {
                           <td className="p-3 border border-zinc-700">
                             <button
                               disabled={!hasId}
-                              title={hasId ? "Metti in lavorazione" : "ID mancante — attendi salvataggio"}
+                              title={hasId ? t("gestioneProduzione.title_metti_lavorazione") : t("gestioneProduzione.title_id_mancante")}
                               onClick={() => hasId && handleAggiornaStato(p.id, "in_corso")}
                               className={`px-3 py-1 rounded font-medium transition-colors ${hasId
                                 ? "bg-yellow-600 hover:bg-yellow-700 text-white"
                                 : "bg-zinc-700 cursor-not-allowed text-zinc-500"
                                 }`}
                             >
-                              ▶️ In lavorazione
+                              ▶️ {t("gestioneProduzione.btn_in_lavorazione")}
                             </button>
                           </td>
                         </tr>
@@ -833,25 +835,25 @@ const GestioneProduzione = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
             <p className="text-3xl font-bold text-emerald-500">{prenotazioni.length}</p>
-            <p className="text-sm text-zinc-400 mt-1">Totali</p>
+            <p className="text-sm text-zinc-400 mt-1">{t("gestioneProduzione.stat_totali")}</p>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
             <p className="text-3xl font-bold text-blue-500">
               {prenotazioni.filter((p) => normalizeState(p.stato) === "pending").length}
             </p>
-            <p className="text-sm text-zinc-400 mt-1">Prenotazioni</p>
+            <p className="text-sm text-zinc-400 mt-1">{t("gestioneProduzione.stat_prenotazioni")}</p>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
             <p className="text-3xl font-bold text-yellow-500">
               {prenotazioni.filter((p) => normalizeState(p.stato) === "in_corso").length}
             </p>
-            <p className="text-sm text-zinc-400 mt-1">In Lavorazione</p>
+            <p className="text-sm text-zinc-400 mt-1">{t("gestioneProduzione.stat_in_lavorazione")}</p>
           </div>
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-center">
             <p className="text-3xl font-bold text-green-500">
               {prenotazioni.filter((p) => normalizeState(p.stato) === "completato").length}
             </p>
-            <p className="text-sm text-zinc-400 mt-1">Completate</p>
+            <p className="text-sm text-zinc-400 mt-1">{t("gestioneProduzione.stat_completate")}</p>
           </div>
         </div>
       </div>
