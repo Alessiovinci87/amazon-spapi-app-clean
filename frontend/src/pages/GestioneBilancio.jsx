@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
   DollarSign,
@@ -14,6 +15,7 @@ import MovimentiTable from "../components/bilancio/MovimentiTable";
 
 const GestioneBilancio = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [costiOpen, setCostiOpen] = useState(false);
 
   return (
@@ -24,15 +26,15 @@ const GestioneBilancio = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(-1)} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate(-1)} type="button" title={t("gestioneBilancio.title_indietro")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-[18px] h-[18px] text-emerald-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Nexus</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Gestione Bilancio</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("gestioneBilancio.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("gestioneBilancio.topbar_eyebrow")}</span>
             </div>
           </div>
         </div>
@@ -41,9 +43,9 @@ const GestioneBilancio = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Bilancio</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("gestioneBilancio.page_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Valore magazzino <span className="text-slate-500">— costi e movimenti.</span>
+            {t("gestioneBilancio.hero_title_main")} <span className="text-slate-500">{t("gestioneBilancio.hero_title_suffix")}</span>
           </h1>
         </div>
       </section>
@@ -60,8 +62,8 @@ const GestioneBilancio = () => {
                 <DollarSign className="w-4 h-4 text-emerald-400" />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Dashboard</div>
-                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Valore Magazzino</h2>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">{t("gestioneBilancio.section_dashboard_eyebrow")}</div>
+                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">{t("gestioneBilancio.section_valore_title")}</h2>
               </div>
             </div>
             <RiepilogoValori />
@@ -77,8 +79,8 @@ const GestioneBilancio = () => {
                 <Receipt className="w-4 h-4 text-cyan-400" />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Registro</div>
-                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Movimenti Economici</h2>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">{t("gestioneBilancio.section_registro_eyebrow")}</div>
+                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">{t("gestioneBilancio.section_movimenti_title")}</h2>
               </div>
             </div>
             <MovimentiTable />
@@ -98,8 +100,8 @@ const GestioneBilancio = () => {
               <Calculator className="w-4 h-4 text-violet-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Catalogo</div>
-              <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Costi Unitari</h2>
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">{t("gestioneBilancio.section_catalogo_eyebrow")}</div>
+              <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">{t("gestioneBilancio.section_costi_title")}</h2>
             </div>
             <ChevronDown
               className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${costiOpen ? "rotate-180" : ""}`}
@@ -116,7 +118,7 @@ const GestioneBilancio = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>&copy; {new Date().getFullYear()} Nexus &middot; Bilancio</span>
+          <span>&copy; {new Date().getFullYear()} {t("gestioneBilancio.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SpedizioneCard from "../components/spedizioni/SpedizioneCard";
 import ExportCSVButton from "../components/ui/ExportCSVButton";
 import { PAESI, cleanText } from "../utils/gestioneSpedizioni";
@@ -80,6 +81,7 @@ const labelCls = "text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 
 
 const GestioneSpedizioni = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const location = useLocation();
   const isUffici = location.pathname.startsWith("/uffici");
   const [inventario, setInventario] = useState([]);
@@ -123,10 +125,10 @@ const GestioneSpedizioni = () => {
   };
 
   const aggiungiRiga = () => {
-    if (!prodottoSelezionato) { setErrore("Seleziona un prodotto valido."); return; }
+    if (!prodottoSelezionato) { setErrore(t("gestioneSpedizioni.err_seleziona_prodotto")); return; }
     const quantita = parseInt(quantitaInput, 10);
-    if (isNaN(quantita) || quantita <= 0) { setErrore("Inserisci una quantità valida."); return; }
-    if (quantita > prodottoSelezionato.pronto) { setErrore(`Quantità richiesta (${quantita}) superiore alla giacenza (${prodottoSelezionato.pronto}).`); return; }
+    if (isNaN(quantita) || quantita <= 0) { setErrore(t("gestioneSpedizioni.err_quantita_valida")); return; }
+    if (quantita > prodottoSelezionato.pronto) { setErrore(t("gestioneSpedizioni.err_quantita_superiore", { q: quantita, g: prodottoSelezionato.pronto })); return; }
     setRighe((p) => [...p, { asin: prodottoSelezionato.asin, prodotto_nome: prodottoSelezionato.nome, quantita }]);
     setProdottoSelezionato(null);
     setQuantitaInput("");
@@ -138,7 +140,7 @@ const GestioneSpedizioni = () => {
 
   const salvaSpedizione = async () => {
     if (salvando) return;
-    if (!spedizioneInfo.data || righe.length === 0) { setErrore("Inserisci data e almeno un prodotto."); return; }
+    if (!spedizioneInfo.data || righe.length === 0) { setErrore(t("gestioneSpedizioni.err_data_prodotto")); return; }
     setSalvando(true);
     try {
       const bozza = spedizioni.find((s) => s.stato === "BOZZA" && s.paese === spedizioneInfo.paese);
@@ -154,7 +156,7 @@ const GestioneSpedizioni = () => {
       fetch("/api/v2/magazzino").then((r) => r.json()).then((d) => setInventario(d.data || []));
       setRighe([]);
       setErrore("");
-    } catch { setErrore("Errore durante il salvataggio."); } finally { setSalvando(false); }
+    } catch { setErrore(t("gestioneSpedizioni.err_salvataggio")); } finally { setSalvando(false); }
   };
 
   const handleExportCSV = (spedizione) => {
@@ -217,26 +219,26 @@ const GestioneSpedizioni = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" title={t("gestioneSpedizioni.title_indietro")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
               <Truck className="w-[18px] h-[18px] text-blue-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Spedizioni</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · {isUffici ? "Uffici" : "Magazzino"}</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("gestioneSpedizioni.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{isUffici ? t("gestioneSpedizioni.topbar_eyebrow_uffici") : t("gestioneSpedizioni.topbar_eyebrow_magazzino")}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
             <button onClick={() => navigate("/uffici/spedizioni/storico")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all">
               <FileText className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Storico</span>
+              <span className="hidden sm:inline">{t("gestioneSpedizioni.btn_storico")}</span>
             </button>
             <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
               <LogOut className="w-3.5 h-3.5" />
-              {isUffici ? "Dashboard" : "Magazzino"}
+              {isUffici ? t("gestioneSpedizioni.btn_dashboard") : t("gestioneSpedizioni.btn_magazzino")}
             </button>
           </div>
         </div>
@@ -245,12 +247,12 @@ const GestioneSpedizioni = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Spedizioni · Logistica</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("gestioneSpedizioni.page_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Crea e gestisci spedizioni <span className="text-slate-500">— per paese.</span>
+            {t("gestioneSpedizioni.hero_title_main")} <span className="text-slate-500">{t("gestioneSpedizioni.hero_title_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Componi le spedizioni selezionando prodotti e quantità, poi conferma e esporta in CSV.
+            {t("gestioneSpedizioni.intro")}
           </p>
         </div>
       </section>
@@ -269,17 +271,17 @@ const GestioneSpedizioni = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatTile icon={BarChart3} label="Totali" value={spedizioni.length} accent="blue" />
-          <StatTile icon={FileText} label="Bozze" value={nBozze} accent="amber" />
-          <StatTile icon={CheckCircle} label="Confermate" value={nConfermate} accent="emerald" />
-          <StatTile icon={Package} label="Prodotti" value={inventario.length} accent="cyan" />
+          <StatTile icon={BarChart3} label={t("gestioneSpedizioni.stat_totali")} value={spedizioni.length} accent="blue" />
+          <StatTile icon={FileText} label={t("gestioneSpedizioni.stat_bozze")} value={nBozze} accent="amber" />
+          <StatTile icon={CheckCircle} label={t("gestioneSpedizioni.stat_confermate")} value={nConfermate} accent="emerald" />
+          <StatTile icon={Package} label={t("gestioneSpedizioni.stat_prodotti")} value={inventario.length} accent="cyan" />
         </div>
 
         {/* Info spedizione */}
-        <SectionCard accent="blue" icon={ClipboardList} eyebrow="Step 1" title="Informazioni Spedizione">
+        <SectionCard accent="blue" icon={ClipboardList} eyebrow={t("gestioneSpedizioni.section_info_eyebrow")} title={t("gestioneSpedizioni.section_info_title")}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className={labelCls}><MapPin className="w-3 h-3" /> Paese</label>
+              <label className={labelCls}><MapPin className="w-3 h-3" /> {t("gestioneSpedizioni.lbl_paese")}</label>
               <div className="relative">
                 <select className={`${inputCls} pl-10 appearance-none cursor-pointer`} value={spedizioneInfo.paese} onChange={(e) => handleInfoChange("paese", e.target.value)}>
                   {PAESI.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -290,22 +292,22 @@ const GestioneSpedizioni = () => {
               </div>
             </div>
             <div>
-              <label className={labelCls}><Calendar className="w-3 h-3" /> Data <span className="text-rose-400">*</span></label>
+              <label className={labelCls}><Calendar className="w-3 h-3" /> {t("gestioneSpedizioni.lbl_data")} <span className="text-rose-400">*</span></label>
               <input type="date" required className={inputCls} value={spedizioneInfo.data} onChange={(e) => handleInfoChange("data", e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}><User className="w-3 h-3" /> Operatore</label>
-              <input type="text" placeholder="Nome operatore" className={inputCls} value={spedizioneInfo.operatore} onChange={(e) => handleInfoChange("operatore", e.target.value)} />
+              <label className={labelCls}><User className="w-3 h-3" /> {t("gestioneSpedizioni.lbl_operatore")}</label>
+              <input type="text" placeholder={t("gestioneSpedizioni.ph_operatore")} className={inputCls} value={spedizioneInfo.operatore} onChange={(e) => handleInfoChange("operatore", e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}><FileText className="w-3 h-3" /> Note</label>
-              <input type="text" placeholder="Note aggiuntive" className={inputCls} value={spedizioneInfo.note} onChange={(e) => handleInfoChange("note", e.target.value)} />
+              <label className={labelCls}><FileText className="w-3 h-3" /> {t("gestioneSpedizioni.lbl_note")}</label>
+              <input type="text" placeholder={t("gestioneSpedizioni.ph_note")} className={inputCls} value={spedizioneInfo.note} onChange={(e) => handleInfoChange("note", e.target.value)} />
             </div>
           </div>
         </SectionCard>
 
         {/* Aggiungi prodotti */}
-        <SectionCard accent="emerald" icon={Package} eyebrow="Step 2" title="Aggiungi Prodotti">
+        <SectionCard accent="emerald" icon={Package} eyebrow={t("gestioneSpedizioni.section_prodotti_eyebrow")} title={t("gestioneSpedizioni.section_prodotti_title")}>
 
           {/* Prodotto selezionato → quantità + aggiungi */}
           {prodottoSelezionato ? (
@@ -332,12 +334,12 @@ const GestioneSpedizioni = () => {
                     </div>
                     <div className="flex items-center gap-2 mt-2">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded border ${prodottoSelezionato.pronto > 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
-                        Giacenza: {prodottoSelezionato.pronto}
+                        {t("gestioneSpedizioni.lbl_giacenza", { n: prodottoSelezionato.pronto })}
                       </span>
                     </div>
                     <div className="flex items-center gap-3 mt-4">
                       <div className="flex-1 max-w-[160px]">
-                        <label className={labelCls}>Quantità</label>
+                        <label className={labelCls}>{t("gestioneSpedizioni.lbl_quantita")}</label>
                         <input
                           type="number"
                           placeholder="0"
@@ -353,7 +355,7 @@ const GestioneSpedizioni = () => {
                       <div className="flex items-end pt-5">
                         <button onClick={aggiungiRiga} type="button" className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all">
                           <Plus className="w-4 h-4" />
-                          Aggiungi
+                          {t("gestioneSpedizioni.btn_aggiungi")}
                         </button>
                       </div>
                     </div>
@@ -365,9 +367,9 @@ const GestioneSpedizioni = () => {
 
           {/* Barra di ricerca */}
           <div className="mb-4">
-            <label className={labelCls}><Search className="w-3 h-3" /> {prodottoSelezionato ? "Cambia prodotto" : "Cerca prodotto per nome, ASIN o SKU"}</label>
+            <label className={labelCls}><Search className="w-3 h-3" /> {prodottoSelezionato ? t("gestioneSpedizioni.lbl_cambia_prodotto") : t("gestioneSpedizioni.lbl_cerca_prodotto")}</label>
             <div className="relative">
-              <input type="text" placeholder="Digita per cercare..." value={filtro} onChange={(e) => setFiltro(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+              <input type="text" placeholder={t("gestioneSpedizioni.ph_digita_cercare")} value={filtro} onChange={(e) => setFiltro(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
               <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               {filtro && (
                 <button onClick={() => setFiltro("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
@@ -380,7 +382,7 @@ const GestioneSpedizioni = () => {
           {/* Griglia risultati ricerca */}
           {filtro.length >= 2 ? (
             prodottiFiltrati.length === 0 ? (
-              <p className="text-sm text-slate-500 text-center py-6">Nessun prodotto trovato per "{filtro}"</p>
+              <p className="text-sm text-slate-500 text-center py-6">{t("gestioneSpedizioni.empty_no_prodotto", { term: filtro })}</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-h-[420px] overflow-y-auto pr-1">
                 {prodottiFiltrati.slice(0, 30).map((p) => {
@@ -406,7 +408,7 @@ const GestioneSpedizioni = () => {
                       <p className="text-[12px] font-medium text-slate-200 leading-snug line-clamp-2 min-h-[2.4em]">{p.nome}</p>
                       <p className="text-[10px] text-slate-500 font-mono mt-1 truncate">{p.asin}</p>
                       <span className={`inline-block mt-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded border ${p.pronto > 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
-                        {p.pronto} pz
+                        {p.pronto} {t("gestioneSpedizioni.lbl_pezzi")}
                       </span>
                     </button>
                   );
@@ -414,9 +416,9 @@ const GestioneSpedizioni = () => {
               </div>
             )
           ) : filtro.length > 0 ? (
-            <p className="text-sm text-slate-600 text-center py-4">Digita almeno 2 caratteri per cercare...</p>
+            <p className="text-sm text-slate-600 text-center py-4">{t("gestioneSpedizioni.hint_min_caratteri")}</p>
           ) : !prodottoSelezionato ? (
-            <p className="text-sm text-slate-600 text-center py-4">Inizia a digitare per trovare un prodotto</p>
+            <p className="text-sm text-slate-600 text-center py-4">{t("gestioneSpedizioni.hint_inizia_digitare")}</p>
           ) : null}
 
           {/* Carrello */}
@@ -425,13 +427,13 @@ const GestioneSpedizioni = () => {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm font-semibold text-white">Carrello</span>
+                  <span className="text-sm font-semibold text-white">{t("gestioneSpedizioni.lbl_carrello")}</span>
                   <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">
-                    {righe.length} {righe.length === 1 ? "prodotto" : "prodotti"}
+                    {righe.length} {righe.length === 1 ? t("gestioneSpedizioni.lbl_prodotti_count_one") : t("gestioneSpedizioni.lbl_prodotti_count_other")}
                   </span>
                 </div>
                 <button onClick={() => setRighe([])} type="button" className="text-[11px] uppercase tracking-wider text-rose-400 hover:text-rose-300 transition-colors font-medium flex items-center gap-1">
-                  <X className="w-3 h-3" /> Svuota
+                  <X className="w-3 h-3" /> {t("gestioneSpedizioni.btn_svuota")}
                 </button>
               </div>
 
@@ -462,7 +464,7 @@ const GestioneSpedizioni = () => {
 
               {/* Totale */}
               <div className="mt-4 flex items-center justify-between bg-slate-800/40 border border-slate-700/60 rounded-md px-5 py-3">
-                <span className="text-sm text-slate-400">Totale pezzi</span>
+                <span className="text-sm text-slate-400">{t("gestioneSpedizioni.lbl_totale_pezzi")}</span>
                 <span className="text-2xl font-semibold text-emerald-400 tabular-nums">
                   {righe.reduce((s, r) => s + r.quantita, 0)}
                 </span>
@@ -480,20 +482,20 @@ const GestioneSpedizioni = () => {
         >
           <Save className="w-4 h-4" />
           {salvando
-            ? "Salvataggio in corso..."
+            ? t("gestioneSpedizioni.btn_salvataggio")
             : righe.length === 0
-              ? "Aggiungi prodotti per salvare"
+              ? t("gestioneSpedizioni.btn_aggiungi_per_salvare")
               : !spedizioneInfo.data
-                ? "Inserisci data per salvare"
-                : `Salva Spedizione (${righe.length} ${righe.length === 1 ? "prodotto" : "prodotti"})`}
+                ? t("gestioneSpedizioni.btn_data_per_salvare")
+                : t("gestioneSpedizioni.btn_salva", { n: righe.length, label: righe.length === 1 ? t("gestioneSpedizioni.lbl_prodotti_count_one") : t("gestioneSpedizioni.lbl_prodotti_count_other") })}
         </button>
 
         {/* Lista spedizioni */}
         <SectionCard
           accent="blue"
           icon={Truck}
-          eyebrow="Spedizioni attive"
-          title="Spedizioni Create"
+          eyebrow={t("gestioneSpedizioni.section_attive_eyebrow")}
+          title={t("gestioneSpedizioni.section_create_title")}
           badge={
             <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-medium tabular-nums">
               {spedizioni.length}
@@ -512,7 +514,7 @@ const GestioneSpedizioni = () => {
 
         {/* Export CSV */}
         {spedizioni.length > 0 && (
-          <SectionCard accent="violet" icon={FileText} eyebrow="Esporta" title="Export CSV">
+          <SectionCard accent="violet" icon={FileText} eyebrow={t("gestioneSpedizioni.section_esporta_eyebrow")} title={t("gestioneSpedizioni.section_export_title")}>
             <ExportCSVButton spedizioni={spedizioni} cleanText={cleanText} />
           </SectionCard>
         )}
@@ -521,7 +523,7 @@ const GestioneSpedizioni = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/30">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>Nexus · Gestione Spedizioni</span>
+          <span>{t("gestioneSpedizioni.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

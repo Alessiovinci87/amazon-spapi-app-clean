@@ -15,6 +15,7 @@ import {
   FolderTree,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 /* ── Shared UI ──────────────────────────────────────────── */
 
@@ -34,17 +35,18 @@ const ACTIVE_ACCENTS = {
   orange:  { border: "border-orange-500/40 bg-orange-500/5",  iconBorder: "border-orange-500/40", iconText: "text-orange-400" },
 };
 
-const sections = [
-  { id: "fornitore", title: "Aggiungi Fornitore", desc: "Registra un nuovo fornitore",       icon: Users,        accent: "amber",   code: "01" },
-  { id: "ordine",    title: "Crea Ordine",        desc: "Nuovo ordine fornitore",             icon: ShoppingCart, accent: "emerald", code: "02" },
-  { id: "lista",     title: "Elenco Fornitori",   desc: "Visualizza tutti i fornitori",       icon: List,         accent: "blue",    code: "03" },
-  { id: "storico",   title: "Storico Ordini",     desc: "Consulta ordini passati",            icon: Archive,      accent: "violet",  code: "04" },
-  { id: "gestione",  title: "Gestione Prodotti",  desc: "Collega prodotti ai fornitori",      icon: Link2,        accent: "orange",  code: "05" },
-];
-
 const Fornitori = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [formAperto, setFormAperto] = useState(null);
+
+  const sections = [
+    { id: "fornitore", title: t("fornitori.card_fornitore_title"), desc: t("fornitori.card_fornitore_desc"), icon: Users,        accent: "amber",   code: "01" },
+    { id: "ordine",    title: t("fornitori.card_ordine_title"),    desc: t("fornitori.card_ordine_desc"),    icon: ShoppingCart, accent: "emerald", code: "02" },
+    { id: "lista",     title: t("fornitori.card_lista_title"),     desc: t("fornitori.card_lista_desc"),     icon: List,         accent: "blue",    code: "03" },
+    { id: "storico",   title: t("fornitori.card_storico_title"),   desc: t("fornitori.card_storico_desc"),   icon: Archive,      accent: "violet",  code: "04" },
+    { id: "gestione",  title: t("fornitori.card_gestione_title"),  desc: t("fornitori.card_gestione_desc"),  icon: Link2,        accent: "orange",  code: "05" },
+  ];
 
   const toggleForm = (formName) => {
     setFormAperto(formAperto === formName ? null : formName);
@@ -61,15 +63,15 @@ const Fornitori = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/dashboard")} type="button" title="Dashboard" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/dashboard")} type="button" title={t("fornitori.title_dashboard")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-amber-500/10 border border-amber-500/40 flex items-center justify-center flex-shrink-0">
               <Users className="w-[18px] h-[18px] text-amber-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Fornitori</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Fornitori, ordini e prodotti</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("fornitori.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("fornitori.topbar_eyebrow")}</span>
             </div>
           </div>
         </div>
@@ -78,12 +80,12 @@ const Fornitori = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Uffici</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("fornitori.page_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Gestione Fornitori <span className="text-slate-500">— ordini e prodotti.</span>
+            {t("fornitori.hero_title_main")} <span className="text-slate-500">{t("fornitori.hero_title_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Gestisci fornitori, ordini e prodotti. Seleziona una delle sezioni sottostanti per iniziare.
+            {t("fornitori.intro")}
           </p>
         </div>
       </section>
@@ -95,12 +97,12 @@ const Fornitori = () => {
         <div>
           <div className="flex items-end justify-between mb-5 gap-4 flex-wrap">
             <div>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-1.5">Sezioni</div>
-              <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">Moduli disponibili</h2>
-              <p className="text-sm text-slate-500 mt-1">Seleziona una sezione per visualizzarne il contenuto.</p>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-1.5">{t("fornitori.sez_eyebrow")}</div>
+              <h2 className="text-lg sm:text-xl font-semibold text-white tracking-tight">{t("fornitori.sez_title")}</h2>
+              <p className="text-sm text-slate-500 mt-1">{t("fornitori.sez_desc")}</p>
             </div>
             <div className="text-[11px] font-mono text-slate-600">
-              {String(sections.length).padStart(2, "0")} moduli
+              {String(sections.length).padStart(2, "0")} {t("fornitori.moduli_count")}
             </div>
           </div>
 
@@ -139,7 +141,7 @@ const Fornitori = () => {
                   <div className={`mt-5 flex items-center gap-1 text-[11px] uppercase tracking-wider transition-colors ${
                     isActive ? `${acc.icon}` : "text-slate-600 group-hover:text-slate-300"
                   }`}>
-                    {isActive ? "Attivo" : "Apri"}
+                    {isActive ? t("fornitori.cta_attivo") : t("fornitori.cta_apri")}
                     <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
                   </div>
 
@@ -170,7 +172,7 @@ const Fornitori = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">
-                          Sezione attiva
+                          {t("fornitori.sezione_attiva")}
                         </div>
                         <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight leading-tight truncate">
                           {activeSection.title}
@@ -197,10 +199,10 @@ const Fornitori = () => {
             <div className="px-5 sm:px-6 py-12 text-center">
               <Users className="w-10 h-10 text-slate-700 mx-auto mb-3" />
               <h3 className="text-base font-semibold text-white mb-2">
-                Seleziona una sezione per iniziare
+                {t("fornitori.empty_title")}
               </h3>
               <p className="text-sm text-slate-500 max-w-md mx-auto">
-                Clicca su una delle card sopra per gestire fornitori, creare ordini o visualizzare lo storico.
+                {t("fornitori.empty_desc")}
               </p>
             </div>
           </div>
@@ -210,7 +212,7 @@ const Fornitori = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>© {new Date().getFullYear()} Nexus · Gestione Fornitori</span>
+          <span>© {new Date().getFullYear()} {t("fornitori.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

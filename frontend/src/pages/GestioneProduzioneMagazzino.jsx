@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -35,13 +36,14 @@ function getAccessoryList(formato) {
 }
 
 function PriorityBadge({ priorita }) {
+  const { t } = useTranslation();
   const p = (priorita || "").toLowerCase();
   const map = {
-    alta: { cls: "bg-rose-500/10 border-rose-500/30 text-rose-400", label: "Alta" },
-    media: { cls: "bg-amber-500/10 border-amber-500/30 text-amber-400", label: "Media" },
-    bassa: { cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", label: "Bassa" },
+    alta: { cls: "bg-rose-500/10 border-rose-500/30 text-rose-400", label: t("gestioneProduzioneMagazzino.priority_alta") },
+    media: { cls: "bg-amber-500/10 border-amber-500/30 text-amber-400", label: t("gestioneProduzioneMagazzino.priority_media") },
+    bassa: { cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400", label: t("gestioneProduzioneMagazzino.priority_bassa") },
   };
-  const b = map[p] || { cls: "bg-slate-500/10 border-slate-500/30 text-slate-400", label: "N/A" };
+  const b = map[p] || { cls: "bg-slate-500/10 border-slate-500/30 text-slate-400", label: t("gestioneProduzioneMagazzino.priority_na") };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[11px] font-medium ${b.cls}`}>{b.label}</span>;
 }
 
@@ -87,6 +89,7 @@ function StatButton({ icon: Icon, label, value, accent, onClick }) {
 /* ── Card prenotazione (riusata per entrambe le colonne) ── */
 
 function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, onConfermaProduzione, onUpdateLocal }) {
+  const { t } = useTranslation();
   const isAttiva = variant === "attiva";
   const accent = isAttiva ? "emerald" : "amber";
   const barCls = isAttiva ? "bg-emerald-400/60" : "bg-amber-400/60";
@@ -116,10 +119,10 @@ function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, 
             {/* Info grid */}
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "Formato", value: p.formato },
-                { label: "Litri", value: p.litriImpegnati?.toFixed(1) },
-                { label: "Lotto", value: p.lotto || "-" },
-                { label: "Data", value: formatDate(p.dataRichiesta) },
+                { label: t("gestioneProduzioneMagazzino.info_formato"), value: p.formato },
+                { label: t("gestioneProduzioneMagazzino.info_litri"), value: p.litriImpegnati?.toFixed(1) },
+                { label: t("gestioneProduzioneMagazzino.info_lotto"), value: p.lotto || "-" },
+                { label: t("gestioneProduzioneMagazzino.info_data"), value: formatDate(p.dataRichiesta) },
               ].map((item) => (
                 <div key={item.label} className="bg-slate-800/40 border border-slate-700/60 rounded-md px-3 py-2">
                   <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-0.5">{item.label}</p>
@@ -131,7 +134,7 @@ function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, 
             {/* Accessori */}
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-md px-4 py-2.5">
               <p className="text-[10px] uppercase tracking-[0.14em] text-blue-400 mb-1 flex items-center gap-1">
-                <Wrench className="w-3 h-3" /> Accessori
+                <Wrench className="w-3 h-3" /> {t("gestioneProduzioneMagazzino.accessori_label")}
               </p>
               <p className="text-[13px] text-blue-200">{getAccessoryList(p.formato)}</p>
             </div>
@@ -140,7 +143,7 @@ function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, 
             {!isAttiva && p.note && (
               <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-2.5">
                 <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1 flex items-center gap-1">
-                  <FileText className="w-3 h-3" /> Note
+                  <FileText className="w-3 h-3" /> {t("gestioneProduzioneMagazzino.note_label")}
                 </p>
                 <p className="text-[13px] text-slate-300">{p.note}</p>
               </div>
@@ -152,7 +155,7 @@ function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, 
                 type="text"
                 value={isAttiva ? (p.note ?? "") : ""}
                 defaultValue={isAttiva ? undefined : ""}
-                placeholder="Aggiungi nota..."
+                placeholder={t("gestioneProduzioneMagazzino.ph_aggiungi_nota")}
                 onChange={(e) => onUpdateLocal(p.id, isAttiva ? { note: e.target.value } : { nuovaNota: e.target.value })}
                 className={inputCls}
               />
@@ -175,7 +178,7 @@ function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, 
               <>
                 {/* Quantità prodotta + data + conferma */}
                 <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-2">Quantità prodotta</p>
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("gestioneProduzioneMagazzino.lbl_quantita_prodotta")}</p>
                   <div className="flex gap-2 items-stretch">
                     <input
                       type="number" min="1" max={p.prodotti} defaultValue={p.prodotti}
@@ -188,12 +191,12 @@ function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, 
                       onChange={(e) => onUpdateLocal(p.id, { dataProduzione: e.target.value })}
                       className={`flex-1 ${inputCls}`}
                     />
-                    <button onClick={() => onConfermaProduzione(p)} type="button" className="px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 transition-all flex-shrink-0" title="Conferma">
+                    <button onClick={() => onConfermaProduzione(p)} type="button" className="px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 transition-all flex-shrink-0" title={t("gestioneProduzioneMagazzino.title_conferma")}>
                       <CheckCircle className="w-5 h-5" />
                     </button>
                   </div>
                   {p.quantitaProdotta != null && p.quantitaProdotta < p.prodotti && (
-                    <p className="text-[11px] text-amber-400 mt-2">{p.prodotti - p.quantitaProdotta} unità resteranno pendenti</p>
+                    <p className="text-[11px] text-amber-400 mt-2">{t("gestioneProduzioneMagazzino.msg_unita_pendenti", { n: p.prodotti - p.quantitaProdotta })}</p>
                   )}
                 </div>
 
@@ -213,6 +216,7 @@ function PrenotazioneCard({ p, variant, onToggle, onSalvaNota, onAggiornaStato, 
 
 const GestioneProduzioneMagazzino = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [prenotazioni, setPrenotazioni] = useState([]);
   const [sfusoData, setSfusoData] = useState([]);
   const [filterSearchTerm, setFilterSearchTerm] = useState("");
@@ -248,7 +252,7 @@ const GestioneProduzioneMagazzino = () => {
       });
       if (!res.ok) throw new Error();
       await ricaricaDati();
-    } catch { toast.error("Errore durante aggiornamento stato"); }
+    } catch { toast.error(t("gestioneProduzioneMagazzino.toast_err_aggiornamento_stato")); }
   };
 
   const handleConfermaProduzione = async (p) => {
@@ -258,7 +262,7 @@ const GestioneProduzioneMagazzino = () => {
       const resCrea = await fetch(buildUrl("produzioni-sfuso/crea-da-prenotazione"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...p, prodotti: qtaProdotta }) });
       const dataCrea = await resCrea.json();
       const idProduzione = dataCrea?.id_produzione;
-      if (!idProduzione) { toast.error("ID produzione mancante"); return; }
+      if (!idProduzione) { toast.error(t("gestioneProduzioneMagazzino.toast_err_id_produzione")); return; }
       const res = await fetch(buildUrl(`produzioni-sfuso/${idProduzione}/completa`), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ operatore: "magazzino" }) });
       if (!res.ok) throw new Error();
       await registraStoricoProduzione({ ...p, id_produzione: idProduzione, quantita: qtaProdotta, data_evento: dataProd }, "COMPLETATA");
@@ -267,7 +271,7 @@ const GestioneProduzioneMagazzino = () => {
       if (dataPatch.parziale) toast.success(dataPatch.message);
       await ricaricaDati();
       triggerReloadInventario();
-    } catch { toast.error("Errore conferma produzione"); }
+    } catch { toast.error(t("gestioneProduzioneMagazzino.toast_err_conferma")); }
   };
 
   const handleSalvaNota = async (id, nota) => {
@@ -312,24 +316,24 @@ const GestioneProduzioneMagazzino = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/magazzino")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/magazzino")} type="button" title={t("gestioneProduzioneMagazzino.title_indietro")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center flex-shrink-0">
               <Factory className="w-[18px] h-[18px] text-violet-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Gestione Produzione</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Nexus · Magazzino</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("gestioneProduzioneMagazzino.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("gestioneProduzioneMagazzino.topbar_eyebrow")}</span>
             </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
             <button onClick={() => navigate("/magazzino/storici/sfuso")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-xs font-medium transition-all">
               <History className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Storico</span>
+              <span className="hidden sm:inline">{t("gestioneProduzioneMagazzino.btn_storico")}</span>
             </button>
             <button onClick={() => navigate("/magazzino")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
-              <LogOut className="w-3.5 h-3.5" /> Magazzino
+              <LogOut className="w-3.5 h-3.5" /> {t("gestioneProduzioneMagazzino.btn_magazzino")}
             </button>
           </div>
         </div>
@@ -338,12 +342,12 @@ const GestioneProduzioneMagazzino = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Magazzino</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("gestioneProduzioneMagazzino.page_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            Gestione Produzione <span className="text-slate-500">— prenotazioni e lavorazioni.</span>
+            {t("gestioneProduzioneMagazzino.hero_title_main")} <span className="text-slate-500">{t("gestioneProduzioneMagazzino.hero_title_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Gestisci prenotazioni e produzioni ricevute dagli uffici.
+            {t("gestioneProduzioneMagazzino.intro")}
           </p>
         </div>
       </section>
@@ -353,11 +357,11 @@ const GestioneProduzioneMagazzino = () => {
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <StatTile icon={Package} label="Prenotazioni" value={attive.length} accent="emerald" />
-          <StatTile icon={Clock} label="In lavorazione" value={inLavorazione.length} accent="amber" />
+          <StatTile icon={Package} label={t("gestioneProduzioneMagazzino.stat_prenotazioni")} value={attive.length} accent="emerald" />
+          <StatTile icon={Clock} label={t("gestioneProduzioneMagazzino.stat_in_lavorazione")} value={inLavorazione.length} accent="amber" />
           <div className="contents sm:contents">
-            <StatButton icon={CheckCircle} label="Completate" value={nCompletate} accent="emerald" onClick={() => navigate("/magazzino/storici/sfuso?stato=completato")} />
-            <StatButton icon={XCircle} label="Annullate" value={nAnnullate} accent="rose" onClick={() => navigate("/magazzino/storici/sfuso?stato=annullato")} />
+            <StatButton icon={CheckCircle} label={t("gestioneProduzioneMagazzino.stat_completate")} value={nCompletate} accent="emerald" onClick={() => navigate("/magazzino/storici/sfuso?stato=completato")} />
+            <StatButton icon={XCircle} label={t("gestioneProduzioneMagazzino.stat_annullate")} value={nAnnullate} accent="rose" onClick={() => navigate("/magazzino/storici/sfuso?stato=annullato")} />
           </div>
         </div>
 
@@ -366,7 +370,7 @@ const GestioneProduzioneMagazzino = () => {
           <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-400/60" />
           <div className="px-6 py-4 sm:px-8">
             <div className="relative">
-              <input type="text" placeholder="Cerca per nome prodotto o ASIN..." value={filterSearchTerm} onChange={(e) => setFilterSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
+              <input type="text" placeholder={t("gestioneProduzioneMagazzino.ph_cerca_prodotto_asin")} value={filterSearchTerm} onChange={(e) => setFilterSearchTerm(e.target.value)} className={`${inputCls} pl-9 pr-9`} />
               <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               {filterSearchTerm && (
                 <button onClick={() => setFilterSearchTerm("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
@@ -387,8 +391,8 @@ const GestioneProduzioneMagazzino = () => {
                 <Package className="w-[18px] h-[18px] text-emerald-400" />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Prenotazioni</div>
-                <h2 className="text-base font-semibold text-white">Attive</h2>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{t("gestioneProduzioneMagazzino.col_prenotazioni_eyebrow")}</div>
+                <h2 className="text-base font-semibold text-white">{t("gestioneProduzioneMagazzino.col_attive_title")}</h2>
               </div>
               <span className="ml-auto px-2.5 py-1 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[11px] font-medium tabular-nums">{attive.length}</span>
             </div>
@@ -396,7 +400,7 @@ const GestioneProduzioneMagazzino = () => {
             {attive.length === 0 ? (
               <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
                 <Package className="w-7 h-7 text-slate-700 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Nessuna prenotazione attiva</p>
+                <p className="text-sm text-slate-500">{t("gestioneProduzioneMagazzino.empty_no_attive")}</p>
               </div>
             ) : (
               attive.map((p, idx) => (
@@ -420,8 +424,8 @@ const GestioneProduzioneMagazzino = () => {
                 <Clock className="w-[18px] h-[18px] text-amber-400" />
               </div>
               <div>
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Produzione</div>
-                <h2 className="text-base font-semibold text-white">In Lavorazione</h2>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{t("gestioneProduzioneMagazzino.col_produzione_eyebrow")}</div>
+                <h2 className="text-base font-semibold text-white">{t("gestioneProduzioneMagazzino.col_in_lavorazione_title")}</h2>
               </div>
               <span className="ml-auto px-2.5 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[11px] font-medium tabular-nums">{inLavorazione.length}</span>
             </div>
@@ -429,7 +433,7 @@ const GestioneProduzioneMagazzino = () => {
             {inLavorazione.length === 0 ? (
               <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center">
                 <Clock className="w-7 h-7 text-slate-700 mx-auto mb-2" />
-                <p className="text-sm text-slate-500">Nessuna lavorazione in corso</p>
+                <p className="text-sm text-slate-500">{t("gestioneProduzioneMagazzino.empty_no_lavorazione")}</p>
               </div>
             ) : (
               inLavorazione.map((p) => (
@@ -451,7 +455,7 @@ const GestioneProduzioneMagazzino = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/30">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>Nexus · Gestione Produzione</span>
+          <span>{t("gestioneProduzioneMagazzino.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>

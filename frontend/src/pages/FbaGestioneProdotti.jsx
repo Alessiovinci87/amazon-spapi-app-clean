@@ -20,6 +20,7 @@ import {
   Package,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 /* ── Dati iniziali fornitori ─────────────────────────────── */
 
@@ -74,6 +75,7 @@ function InputField({ label, value, onChange, readOnly, highlight, icon: Icon })
 
 const FbaGestioneProdotti = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [rows, setRows] = useState(initialFornitoriRows);
 
   const [costoProdotto, setCostoProdotto] = useState({
@@ -135,21 +137,21 @@ const FbaGestioneProdotti = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/dashboard")} type="button" title="Dashboard" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/dashboard")} type="button" title={t("fbaGestioneProdotti.topbar_back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-rose-500/10 border border-rose-500/40 flex items-center justify-center flex-shrink-0">
               <Calculator className="w-[18px] h-[18px] text-rose-400" />
             </div>
             <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">FBA - Gestione Prodotti</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Calcolo margini e fornitori</span>
+              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("fbaGestioneProdotti.topbar_title")}</span>
+              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("fbaGestioneProdotti.topbar_eyebrow")}</span>
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <button onClick={handleReset} type="button" className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-[12px] font-medium transition-all">
               <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset</span>
+              <span className="hidden sm:inline">{t("fbaGestioneProdotti.btn_reset")}</span>
             </button>
           </div>
         </div>
@@ -158,12 +160,12 @@ const FbaGestioneProdotti = () => {
       {/* === Hero === */}
       <section className="relative">
         <div className="px-6 sm:px-10 lg:px-16 pt-10 sm:pt-12 pb-6">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">Uffici</div>
+          <div className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("fbaGestioneProdotti.page_eyebrow")}</div>
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white tracking-tight leading-[1.1]">
-            FBA - Gestione Prodotti <span className="text-slate-500">— margini e fornitori.</span>
+            {t("fbaGestioneProdotti.hero_title_main")} <span className="text-slate-500">{t("fbaGestioneProdotti.hero_title_suffix")}</span>
           </h1>
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
-            Calcolo margini e gestione fornitori. Inserisci i dati nelle righe fornitori e i campi verranno calcolati automaticamente.
+            {t("fbaGestioneProdotti.intro")}
           </p>
         </div>
       </section>
@@ -174,11 +176,11 @@ const FbaGestioneProdotti = () => {
         {/* ========== RIEPILOGO KPI ========== */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
           {[
-            { label: "Prezzo Vendita Ivato", value: costoProdotto.prezzoVenditaIvato, prefix: "€", color: "blue" },
-            { label: "Margine No IVA", value: margineNoIva, prefix: "€", color: "orange" },
-            { label: "Costo Pubblicitario", value: costoProdotto.costoPubblicitarioEffettivo, prefix: "€", color: "rose" },
-            { label: "% Utile Effettivo", value: percentualeUtile, suffix: "%", color: "amber" },
-            { label: "Utile Effettivo", value: utileEffettivo, prefix: "€", color: "emerald" },
+            { label: t("fbaGestioneProdotti.kpi_prezzo_ivato"), value: costoProdotto.prezzoVenditaIvato, prefix: "€", color: "blue" },
+            { label: t("fbaGestioneProdotti.kpi_margine_no_iva"), value: margineNoIva, prefix: "€", color: "orange" },
+            { label: t("fbaGestioneProdotti.kpi_costo_pubbl"), value: costoProdotto.costoPubblicitarioEffettivo, prefix: "€", color: "rose" },
+            { label: t("fbaGestioneProdotti.kpi_utile_perc"), value: percentualeUtile, suffix: "%", color: "amber" },
+            { label: t("fbaGestioneProdotti.kpi_utile"), value: utileEffettivo, prefix: "€", color: "emerald" },
           ].map((kpi) => {
             const colorMap = {
               blue: "border-blue-500/40 bg-blue-500/5",
@@ -219,38 +221,38 @@ const FbaGestioneProdotti = () => {
                   <Calculator className="w-4 h-4 text-blue-400" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Calcolo</div>
-                  <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Costo Prodotto</h2>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">{t("fbaGestioneProdotti.section_calcolo_eyebrow")}</div>
+                  <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">{t("fbaGestioneProdotti.section_costo_title")}</h2>
                 </div>
               </div>
 
               {/* Nome prodotto */}
               <div className="mb-4">
                 <label className="block text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-1.5 flex items-center gap-1.5">
-                  <Package className="w-3 h-3" /> Nome Prodotto
+                  <Package className="w-3 h-3" /> {t("fbaGestioneProdotti.lbl_nome_prodotto")}
                 </label>
                 <input
                   type="text"
                   className={inputCls}
                   value={costoProdotto.prodotto}
                   onChange={(e) => handleInputChange("prodotto", e.target.value)}
-                  placeholder="Inserisci nome prodotto"
+                  placeholder={t("fbaGestioneProdotti.ph_nome_prodotto")}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <InputField label="(A) Prodotto" value={costoBase} readOnly icon={DollarSign} />
-                <InputField label="(D) Altre Spese (€)" value={costoProdotto.altreSpese} onChange={(e) => handleInputChange("altreSpese", parseFloat(e.target.value) || 0)} icon={DollarSign} />
-                <InputField label="(B) Commissioni Amazon" value={commissioni} readOnly />
-                <InputField label="Prezzo Vendita Ivato (€)" value={costoProdotto.prezzoVenditaIvato} onChange={(e) => handleInputChange("prezzoVenditaIvato", parseFloat(e.target.value) || 0)} />
-                <InputField label="(C) Spese Spedizione" value={speseSpedizione} readOnly />
-                <InputField label="Margine No IVA (€)" value={margineNoIva} readOnly highlight="orange" />
-                <InputField label="IVA Prodotto (%)" value={costoProdotto.ivaProdotto} onChange={(e) => handleInputChange("ivaProdotto", parseFloat(e.target.value) || 0)} />
-                <InputField label="Costo Pubblicitario (€)" value={costoProdotto.costoPubblicitarioEffettivo} onChange={(e) => handleInputChange("costoPubblicitarioEffettivo", parseFloat(e.target.value) || 0)} />
-                <InputField label="Costo Totale (€)" value={costoTotale} readOnly />
-                <InputField label="% Utile Effettivo" value={percentualeUtile} readOnly icon={TrendingUp} />
-                <InputField label="Prezzo Minimo al Pubblico (€)" value={prezzoMinimoPubblico} readOnly />
-                <InputField label="Utile Effettivo (€)" value={utileEffettivo} readOnly highlight="green" />
+                <InputField label={t("fbaGestioneProdotti.lbl_prodotto_a")} value={costoBase} readOnly icon={DollarSign} />
+                <InputField label={t("fbaGestioneProdotti.lbl_altre_spese")} value={costoProdotto.altreSpese} onChange={(e) => handleInputChange("altreSpese", parseFloat(e.target.value) || 0)} icon={DollarSign} />
+                <InputField label={t("fbaGestioneProdotti.lbl_commissioni")} value={commissioni} readOnly />
+                <InputField label={t("fbaGestioneProdotti.lbl_prezzo_ivato")} value={costoProdotto.prezzoVenditaIvato} onChange={(e) => handleInputChange("prezzoVenditaIvato", parseFloat(e.target.value) || 0)} />
+                <InputField label={t("fbaGestioneProdotti.lbl_spese_spedizione")} value={speseSpedizione} readOnly />
+                <InputField label={t("fbaGestioneProdotti.lbl_margine_no_iva")} value={margineNoIva} readOnly highlight="orange" />
+                <InputField label={t("fbaGestioneProdotti.lbl_iva_prodotto")} value={costoProdotto.ivaProdotto} onChange={(e) => handleInputChange("ivaProdotto", parseFloat(e.target.value) || 0)} />
+                <InputField label={t("fbaGestioneProdotti.lbl_costo_pubbl")} value={costoProdotto.costoPubblicitarioEffettivo} onChange={(e) => handleInputChange("costoPubblicitarioEffettivo", parseFloat(e.target.value) || 0)} />
+                <InputField label={t("fbaGestioneProdotti.lbl_costo_totale")} value={costoTotale} readOnly />
+                <InputField label={t("fbaGestioneProdotti.lbl_utile_perc")} value={percentualeUtile} readOnly icon={TrendingUp} />
+                <InputField label={t("fbaGestioneProdotti.lbl_prezzo_minimo")} value={prezzoMinimoPubblico} readOnly />
+                <InputField label={t("fbaGestioneProdotti.lbl_utile_effettivo")} value={utileEffettivo} readOnly highlight="green" />
               </div>
             </div>
           </div>
@@ -264,8 +266,8 @@ const FbaGestioneProdotti = () => {
                   <TrendingUp className="w-4 h-4 text-amber-400" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Analisi</div>
-                  <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Margini e Pubblicita Massima</h2>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">{t("fbaGestioneProdotti.section_analisi_eyebrow")}</div>
+                  <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">{t("fbaGestioneProdotti.section_margini_title")}</h2>
                 </div>
               </div>
 
@@ -275,12 +277,12 @@ const FbaGestioneProdotti = () => {
                 <div className="text-center text-[11px] font-semibold text-amber-400 uppercase tracking-wider">3X</div>
                 <div className="text-center text-[11px] font-semibold text-amber-400 uppercase tracking-wider">4X</div>
 
-                <div className="text-[11px] font-semibold text-white uppercase tracking-wider flex items-center">Margine</div>
+                <div className="text-[11px] font-semibold text-white uppercase tracking-wider flex items-center">{t("fbaGestioneProdotti.row_margine")}</div>
                 <div className="px-3 py-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-white text-center text-sm font-semibold tabular-nums">{margineX2.toFixed(2)}</div>
                 <div className="px-3 py-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-white text-center text-sm font-semibold tabular-nums">{margineX3.toFixed(2)}</div>
                 <div className="px-3 py-2.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-white text-center text-sm font-semibold tabular-nums">{margineX4.toFixed(2)}</div>
 
-                <div className="text-[11px] font-semibold text-white uppercase tracking-wider flex items-center">Pubb. max</div>
+                <div className="text-[11px] font-semibold text-white uppercase tracking-wider flex items-center">{t("fbaGestioneProdotti.row_pubbl_max")}</div>
                 <div className={`px-3 py-2.5 rounded-md border text-center text-sm font-semibold tabular-nums ${pubblicitaMaxX2 >= 0 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-rose-500/10 border-rose-500/30 text-rose-400"}`}>
                   {pubblicitaMaxX2.toFixed(2)}
                 </div>
@@ -304,8 +306,8 @@ const FbaGestioneProdotti = () => {
                 <FileText className="w-4 h-4 text-emerald-400" />
               </div>
               <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">Fornitori</div>
-                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">Gestione Fornitori e Fatture</h2>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 leading-none mb-1">{t("fbaGestioneProdotti.section_fornitori_eyebrow")}</div>
+                <h2 className="text-sm sm:text-base font-semibold text-white tracking-tight">{t("fbaGestioneProdotti.section_fornitori_title")}</h2>
               </div>
             </div>
 
@@ -313,14 +315,14 @@ const FbaGestioneProdotti = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-800">
-                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Tipo</th>
-                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Fornitore</th>
-                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Codice</th>
-                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Data</th>
-                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Imponibile</th>
-                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">IVA Pagata</th>
-                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Tot Fattura</th>
-                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">Note</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_tipo")}</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_fornitore")}</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_codice")}</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_data")}</th>
+                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_imponibile")}</th>
+                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_iva_pagata")}</th>
+                    <th className="px-3 py-3 text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_tot_fattura")}</th>
+                    <th className="px-3 py-3 text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium">{t("fbaGestioneProdotti.th_note")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
@@ -362,7 +364,7 @@ const FbaGestioneProdotti = () => {
       {/* === Footer === */}
       <footer className="relative border-t border-slate-800 bg-slate-900/40">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between text-[11px] text-slate-600">
-          <span>© {new Date().getFullYear()} Nexus · FBA Gestione Prodotti</span>
+          <span>© {new Date().getFullYear()} {t("fbaGestioneProdotti.footer_section")}</span>
           <span className="font-mono">v2.0</span>
         </div>
       </footer>
