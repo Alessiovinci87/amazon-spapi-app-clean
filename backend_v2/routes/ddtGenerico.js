@@ -13,12 +13,12 @@ const rigaSchema = z.object({
   asin: z.string().max(20).default(""),
   sku: z.string().max(80).default(""),
   quantita: z.coerce.number().int().min(0).default(0),
-  cartone: z.string().max(40).default(""),
-  pacco: z.string().max(40).default(""),
+  cartone: z.coerce.string().max(40).default(""),
+  pacco: z.coerce.string().max(40).default(""),
   lotto: z.string().max(80).nullish(),
 });
 const ddtPdfSchema = z.object({
-  brand: z.enum(["lookink", "cside", "pics"]).optional(),
+  brand: z.preprocess((v) => (v === "" ? undefined : v), z.enum(["lookink", "cside", "pics"]).optional()),
   numeroDDT: z.string().max(80).nullish(),
   numeroAmazon: z.string().max(80).nullish(),
   data: z.string().max(40).nullish(),

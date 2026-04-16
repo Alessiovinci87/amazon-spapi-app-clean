@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -56,6 +56,9 @@ function SectionCard({ accent = "emerald", icon: Icon, eyebrow, title, badge, ch
 const DDTNuovo = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEdit = Boolean(editId);
 
   const [brand, setBrand] = useState("");
   const [numeroDDT, setNumeroDDT] = useState("");
@@ -71,8 +74,42 @@ const DDTNuovo = () => {
     { asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "", lotto: "" },
   ]);
 
+  useEffect(() => {
+    if (!editId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/v2/ddt/storico/${editId}`);
+        if (!res.ok) throw new Error("fetch");
+        const d = await res.json();
+        setBrand(d.brand || "");
+        setNumeroDDT(d.numeroDDT || "");
+        setNumeroAmazon(d.numeroAmazon || "");
+        setData(d.data || "");
+        setPaese(d.paese || "");
+        setCentro(d.centro || "");
+        const tr = d.trasportatore || "";
+        const predef = ["DHL", "UPS", "FEDEX", "GLS", "BRT", "SDA", "TNT", "POSTE"];
+        if (tr && !predef.includes(tr.toUpperCase())) {
+          setTrasportatore("ALTRO");
+          setTrasportatoreCustom(tr);
+        } else {
+          setTrasportatore(tr);
+        }
+        setTracking(d.tracking || "");
+        if (Array.isArray(d.righe) && d.righe.length) {
+          setRighe(d.righe.map((r) => ({
+            asin: r.asin || "", sku: r.sku || "", prodottoNome: r.prodottoNome || "",
+            quantita: r.quantita ?? "", cartone: r.cartone || "", pacco: r.pacco || "", lotto: r.lotto || "",
+          })));
+        }
+      } catch {
+        toast.error(t("ddtNuovo.toast_error_load", "Errore caricamento DDT"));
+      }
+    })();
+  }, [editId, t]);
+
   const aggiungiRiga = () => {
-    setRighe([...righe, { asin: "", sku: "", prodottoNome: "", quantita: 0, cartone: 0, pacco: 0, lotto: "" }]);
+    setRighe([...righe, { asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "", lotto: "" }]);
   };
 
   const rimuoviRiga = (index) => {
@@ -93,6 +130,27 @@ const DDTNuovo = () => {
       tracking, righe,
     };
 
+    if (isEdit) {
+      const up = await fetch(`/api/v2/ddt/storico/${editId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!up.ok) {
+        toast.error(t("ddtNuovo.toast_error_update", "Errore aggiornamento DDT"));
+        return;
+      }
+      toast.success(t("ddtNuovo.toast_updated", "DDT aggiornato"));
+      try {
+        const pdfRes = await fetch(`/api/v2/ddt/storico/${editId}/pdf`);
+        if (pdfRes.ok) {
+          const blob = await pdfRes.blob();
+          window.open(window.URL.createObjectURL(blob), "_blank");
+        }
+      } catch {}
+      return;
+    }
+
     const res = await fetch("/api/v2/ddt/generico/pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -104,7 +162,17 @@ const DDTNuovo = () => {
       const url = window.URL.createObjectURL(blob);
       window.open(url, "_blank");
     } else {
-      toast.error(t("ddtNuovo.toast_error_pdf"));
+      let detail = "";
+      try {
+        const j = await res.json();
+        if (Array.isArray(j?.errors)) {
+          detail = j.errors.map((e) => `${e.path}: ${e.message}`).join(" · ");
+        } else if (j?.message) {
+          detail = j.message;
+        }
+      } catch {}
+      toast.error(detail ? `${t("ddtNuovo.toast_error_pdf")} — ${detail}` : t("ddtNuovo.toast_error_pdf"));
+      console.error("DDT PDF 400:", detail);
     }
   };
 
@@ -188,7 +256,7 @@ const DDTNuovo = () => {
               </div>
               <div>
                 <label className={labelCls}><Calendar className="w-3 h-3" /> {t("ddtNuovo.lbl_data")} <span className="text-rose-400">*</span></label>
-                <input type="date" className={inputCls} value={data} onChange={(e) => setData(e.target.value)} onFocus={(e) => e.target.showPicker && e.target.showPicker()} required />
+                <input type="date" className={inputCls} value={data} onChange={(e) => setData(e.target.value)} onClick={(e) => { try { e.target.showPicker?.(); } catch {} }} required />
               </div>
               <div>
                 <label className={labelCls}><MapPin className="w-3 h-3" /> {t("ddtNuovo.lbl_paese")} <span className="text-rose-400">*</span></label>
@@ -270,7 +338,7 @@ const DDTNuovo = () => {
             className="w-full inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all"
           >
             <Download className="w-4 h-4" />
-            {t("ddtNuovo.btn_genera_pdf")}
+            {isEdit ? t("ddtNuovo.btn_aggiorna_pdf", "Aggiorna e rigenera PDF") : t("ddtNuovo.btn_genera_pdf")}
           </button>
         </form>
       </main>

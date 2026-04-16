@@ -46,6 +46,67 @@ router.get("/storico", (req, res) => {
   }
 });
 
+// 📄 GET singolo DDT (dati strutturati per editing)
+router.get("/storico/:id", (req, res) => {
+  try {
+    const db = getDb();
+    const ddt = db.prepare(`SELECT * FROM ddt_generici WHERE id = ?`).get(req.params.id);
+    if (!ddt) return res.status(404).json({ error: "DDT non trovato" });
+    const righe = db.prepare(`SELECT * FROM ddt_generici_righe WHERE ddt_id = ? ORDER BY id`).all(req.params.id);
+    res.json({ ...ddt, righe });
+  } catch (err) {
+    console.error("❌ Errore recupero DDT:", err);
+    res.status(500).json({ error: "Errore recupero DDT" });
+  }
+});
+
+// ✏️ PUT aggiorna DDT + righe
+router.put("/storico/:id", (req, res) => {
+  try {
+    const db = getDb();
+    const id = req.params.id;
+    const existing = db.prepare(`SELECT id FROM ddt_generici WHERE id = ?`).get(id);
+    if (!existing) return res.status(404).json({ error: "DDT non trovato" });
+
+    const { brand, numeroDDT, numeroAmazon, data, paese, centro, trasportatore, tracking, righe = [] } = req.body || {};
+
+    let totUnita = 0;
+    let totColli = 0;
+    for (const r of righe) {
+      totUnita += Number(r.quantita || 0);
+      const colli = String(r.cartone || "").split(";").filter((x) => x.trim() !== "");
+      totColli += colli.length;
+    }
+
+    const tx = db.transaction(() => {
+      db.prepare(
+        `UPDATE ddt_generici
+         SET brand = ?, numeroDDT = ?, numeroAmazon = ?, data = ?, paese = ?,
+             centro = ?, trasportatore = ?, tracking = ?, totUnita = ?, totColli = ?
+         WHERE id = ?`
+      ).run(brand || null, numeroDDT || null, numeroAmazon || null, data || null,
+        paese || null, centro || null, trasportatore || null, tracking || null,
+        totUnita, totColli, id);
+
+      db.prepare(`DELETE FROM ddt_generici_righe WHERE ddt_id = ?`).run(id);
+      const ins = db.prepare(
+        `INSERT INTO ddt_generici_righe
+         (ddt_id, prodottoNome, asin, sku, quantita, cartone, pacco, lotto)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const r of righe) {
+        ins.run(id, r.prodottoNome || "", r.asin || "", r.sku || "",
+          Number(r.quantita) || 0, String(r.cartone || ""), String(r.pacco || ""), r.lotto || null);
+      }
+    });
+    tx();
+    res.json({ ok: true, id: Number(id) });
+  } catch (err) {
+    console.error("❌ Errore aggiornamento DDT:", err);
+    res.status(500).json({ error: "Errore aggiornamento DDT", details: err.message });
+  }
+});
+
 // 📄 Rigenera PDF da storico
 router.get("/storico/:id/pdf", async (req, res) => {
   try {
@@ -65,7 +126,7 @@ router.get("/storico/:id/pdf", async (req, res) => {
       righeHtml = righe
         .map(r => {
           totUnita += Number(r.quantita || 0);
-          const colli = (r.cartoni || "").split(";").filter(x => x.trim() !== "");
+          const colli = String(r.cartone || "").split(";").filter(x => x.trim() !== "");
           totColli += colli.length;
 
           return `
@@ -73,8 +134,8 @@ router.get("/storico/:id/pdf", async (req, res) => {
               <td>${esc(r.quantita)}</td>
               <td>${esc(r.prodottoNome)}</td>
               <td>ASIN: ${esc(r.asin)}<br/>SKU: ${esc(r.sku)}</td>
-              <td>${esc(r.cartoni)}</td>
-              <td>${esc(r.pacchi)}</td>
+              <td>${esc(r.cartone)}</td>
+              <td>${esc(r.pacco)}</td>
             </tr>`;
         })
         .join("");
@@ -97,7 +158,7 @@ router.get("/storico/:id/pdf", async (req, res) => {
     template = replacePlaceholder(template, "NUMERO_DDT", esc(ddt.numeroDDT));
     template = replacePlaceholder(template, "NUMERO_AMAZON", esc(ddt.numeroAmazon));
     template = replacePlaceholder(template, "DATA", esc(ddt.data));
-    template = replacePlaceholder(template, "DESTINATARIO", brandData.intestazione.split("–")[0].trim());
+    template = replacePlaceholder(template, "IMPORTATORE_REGISTRATO", `${brandData.intestazione.split("–")[0].trim()} – ${esc(ddt.centro)}`);
     template = replacePlaceholder(template, "INDIRIZZO_DESTINATARIO", esc(ddt.paese));
     template = replacePlaceholder(template, "CENTRO_LOGISTICO", esc(ddt.centro));
     template = replacePlaceholder(template, "RIGHE", righeHtml);

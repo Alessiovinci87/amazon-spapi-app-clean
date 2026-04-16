@@ -7,10 +7,18 @@ import {
   FileText,
   ExternalLink,
   LogOut,
+  Pencil,
 } from "lucide-react";
+
+const BRAND_LOGOS = {
+  lookink: { nome: "Lookink", logo: "/images/LOOKINK-Logo.png" },
+  cside: { nome: "C-Side", logo: "/images/C-Side-logo.png" },
+  pics: { nome: "Pics Nails", logo: "/images/logo.png" },
+};
 
 const DDTStorico = () => {
   const [storico, setStorico] = useState([]);
+  const [filtroBrand, setFiltroBrand] = useState("");
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -82,9 +90,21 @@ const DDTStorico = () => {
                   <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">{t("ddtStorico.card_title")}</h2>
                 </div>
               </div>
-              <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-medium tabular-nums">
-                {storico.length}
-              </span>
+              <div className="flex items-center gap-3">
+                <select
+                  value={filtroBrand}
+                  onChange={(e) => setFiltroBrand(e.target.value)}
+                  className="bg-slate-800/60 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-blue-500/60 focus:border-blue-500/60"
+                >
+                  <option value="">{t("ddtStorico.filter_all", "Tutti i brand")}</option>
+                  {Object.entries(BRAND_LOGOS).map(([k, v]) => (
+                    <option key={k} value={k}>{v.nome}</option>
+                  ))}
+                </select>
+                <span className="px-2.5 py-1 rounded-md bg-blue-500/10 border border-blue-500/30 text-blue-400 text-[11px] font-medium tabular-nums">
+                  {storico.filter((d) => !filtroBrand || d.brand === filtroBrand).length}
+                </span>
+              </div>
             </div>
 
             {storico.length === 0 ? (
@@ -98,34 +118,66 @@ const DDTStorico = () => {
                   <thead>
                     <tr className="border-b border-slate-700/60">
                       <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_id")}</th>
+                      <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_brand", "Brand")}</th>
                       <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_numero")}</th>
                       <th className="text-left text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_data")}</th>
                       <th className="text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_unita")}</th>
                       <th className="text-right text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-4">{t("ddtStorico.th_colli")}</th>
-                      <th className="text-center text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3">{t("ddtStorico.th_pdf")}</th>
+                      <th className="text-center text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3 pr-3">{t("ddtStorico.th_pdf")}</th>
+                      <th className="text-center text-[10px] uppercase tracking-[0.14em] text-slate-500 font-medium pb-3">{t("ddtStorico.th_modifica", "Modifica")}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {storico.map((ddt) => (
+                    {storico.filter((d) => !filtroBrand || d.brand === filtroBrand).map((ddt) => {
+                      const b = BRAND_LOGOS[ddt.brand];
+                      return (
                       <tr key={ddt.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
                         <td className="py-3 pr-4 text-slate-500 font-mono text-xs tabular-nums">{ddt.id}</td>
+                        <td className="py-3 pr-4">
+                          {b ? (
+                            <div className="flex items-center gap-2">
+                              <img src={b.logo} alt={b.nome} className="h-10 w-auto object-contain" />
+                              <span className="text-xs text-slate-400">{b.nome}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-600">—</span>
+                          )}
+                        </td>
                         <td className="py-3 pr-4 text-white font-medium">{ddt.numeroDDT}</td>
                         <td className="py-3 pr-4 text-slate-400">{ddt.data}</td>
                         <td className="py-3 pr-4 text-right text-white font-semibold tabular-nums">{ddt.totUnita}</td>
                         <td className="py-3 pr-4 text-right text-white font-semibold tabular-nums">{ddt.totColli}</td>
-                        <td className="py-3 text-center">
-                          <a
-                            href={`/api/v2/ddt/storico/${ddt.id}/pdf`}
-                            target="_blank"
-                            rel="noreferrer"
+                        <td className="py-3 pr-3 text-center">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                const r = await fetch(`/api/v2/ddt/storico/${ddt.id}/pdf`);
+                                if (!r.ok) throw new Error("pdf");
+                                const blob = await r.blob();
+                                window.open(window.URL.createObjectURL(blob), "_blank");
+                              } catch {
+                                alert(t("ddtStorico.err_pdf", "Errore generazione PDF"));
+                              }
+                            }}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 hover:border-blue-400/60 text-blue-400 hover:text-blue-300 text-[11px] font-medium transition-all"
                           >
                             <ExternalLink className="w-3 h-3" />
                             {t("ddtStorico.link_pdf")}
-                          </a>
+                          </button>
+                        </td>
+                        <td className="py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/uffici/ddt/nuovo?edit=${ddt.id}`)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-400/60 text-amber-400 hover:text-amber-300 text-[11px] font-medium transition-all"
+                          >
+                            <Pencil className="w-3 h-3" />
+                            {t("ddtStorico.btn_modifica", "Modifica")}
+                          </button>
                         </td>
                       </tr>
-                    ))}
+                    );})}
                   </tbody>
                 </table>
               </div>
