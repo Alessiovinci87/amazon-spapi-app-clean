@@ -576,8 +576,8 @@ const GestioneProduzione = () => {
                     )}
                 </SectionCard>
 
-                {/* Selettore prodotto (solo ufficio) */}
-                {localStorage.getItem("role") === "ufficio" && (
+                {/* Selettore prodotto + creazione prenotazione — solo nella pagina Uffici */}
+                {isUffici && (
                     <>
                         <SectionCard accent="emerald" eyebrow={t("gestioneProduzioneUfficio.section_nuova_eyebrow")} title={t("gestioneProduzioneUfficio.section_seleziona_title")} icon={Target}>
                             <div className="relative mb-3">
@@ -653,8 +653,8 @@ const GestioneProduzione = () => {
                     </>
                 )}
 
-                {/* Reset contatore (solo ufficio) */}
-                {localStorage.getItem("role") === "ufficio" && (
+                {/* Reset contatore — solo nella pagina Uffici */}
+                {isUffici && (
                     <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-400/60" />
                         <div className="px-5 sm:px-6 py-4 flex items-center justify-between gap-4">
