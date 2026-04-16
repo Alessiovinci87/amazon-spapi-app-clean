@@ -243,7 +243,10 @@ const Sfuso = () => {
         id: s.id, nome: s.nome_prodotto || s.nome, formato: s.formato,
         quantita: Number(s.litri_disponibili || 0), quantita_old: Number(s.litri_disponibili_old || 0),
         lotto: s.lotto, lotto_old: s.lotto_old, fornitore: s.fornitore || "-",
-        asin_collegati: JSON.parse(s.asin_collegati || "[]"), immagine: s.immagine || "/images/no_image2.png",
+        asin_collegati: JSON.parse(s.asin_collegati || "[]"),
+        // Priorità: immagine Amazon dal catalog (se disponibile tramite ASIN collegato),
+        // poi immagine salvata sul record sfuso, poi placeholder.
+        immagine: s.image_url_amazon || s.immagine || "/images/no_image2.png",
         soglia_minima: Number(s.soglia_minima || 0),
         data_scadenza: s.data_scadenza || null, pao_mesi: s.pao_mesi || null,
       }));

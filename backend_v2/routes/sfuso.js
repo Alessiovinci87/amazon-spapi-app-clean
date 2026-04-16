@@ -75,13 +75,37 @@ router.get("/", (req, res) => {
     const db = getDb();
     const rows = db.prepare("SELECT * FROM sfuso").all();
 
-    // ✅ Conversione e normalizzazione
-    const normalized = rows.map((r) => ({
-      ...r,
-      litri_disponibili: Number(r.litri_disponibili) || 0,
-      litri_disponibili_old: Number(r.litri_disponibili_old) || 0,
-      formato: (r.formato || "").toLowerCase().replace(/\s/g, ""), // es. "12 ml" → "12ml"
-    }));
+    // Preparo query per image_url da product_catalog (preferendo IT)
+    const getImageByAsin = db.prepare(`
+      SELECT image_url FROM product_catalog
+      WHERE asin = ? AND image_url IS NOT NULL AND image_url != ''
+      ORDER BY CASE country WHEN 'IT' THEN 0 WHEN 'DE' THEN 1 WHEN 'FR' THEN 2 WHEN 'ES' THEN 3 ELSE 4 END
+      LIMIT 1
+    `);
+
+    const normalized = rows.map((r) => {
+      // Parse asin_collegati JSON per trovare il primo ASIN utile
+      let firstAsin = null;
+      try {
+        const list = JSON.parse(r.asin_collegati || "[]");
+        firstAsin = Array.isArray(list) && list.length > 0 ? String(list[0]).trim() : null;
+      } catch { firstAsin = null; }
+
+      // Immagine: priorità al catalogo Amazon (product_catalog), fallback a r.immagine
+      let image_url_amazon = null;
+      if (firstAsin) {
+        const hit = getImageByAsin.get(firstAsin);
+        image_url_amazon = hit?.image_url || null;
+      }
+
+      return {
+        ...r,
+        litri_disponibili: Number(r.litri_disponibili) || 0,
+        litri_disponibili_old: Number(r.litri_disponibili_old) || 0,
+        formato: (r.formato || "").toLowerCase().replace(/\s/g, ""), // es. "12 ml" → "12ml"
+        image_url_amazon, // nuova chiave, il frontend ha priorità su questa
+      };
+    });
 
     res.json(normalized);
   } catch (err) {
