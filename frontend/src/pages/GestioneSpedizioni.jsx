@@ -27,12 +27,6 @@ import {
 
 /* ── Componenti Nexus locali ─────────────────────────────── */
 
-// Bandierina paese via CDN pubblico flagcdn.com (accetta codice ISO)
-const Flag = ({ code, className = "h-3.5 w-auto inline-block" }) => {
-  const c = (code || "").toLowerCase();
-  return <img src={`https://flagcdn.com/24x18/${c}.png`} alt={code} className={className} />;
-};
-
 function SectionCard({ accent = "blue", icon: Icon, eyebrow, title, badge, children }) {
   const bar = { blue: "bg-blue-400/60", emerald: "bg-emerald-400/60", amber: "bg-amber-400/60", violet: "bg-violet-400/60", rose: "bg-rose-400/60" };
   const iBg = { blue: "bg-blue-500/10 border-blue-500/40 text-blue-400", emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-400", amber: "bg-amber-500/10 border-amber-500/40 text-amber-400", violet: "bg-violet-500/10 border-violet-500/40 text-violet-400", rose: "bg-rose-500/10 border-rose-500/40 text-rose-400" };
