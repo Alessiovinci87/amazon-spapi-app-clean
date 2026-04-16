@@ -54,7 +54,7 @@ const SECTIONS = [
     subtitle: "Gestione delle uscite e generazione DDT.",
     columns: "sm:grid-cols-2",
     items: [
-      { to: "/spedizioni", icon: Truck,    label: "Spedizioni", desc: "Tracking e gestione uscite",  accent: "blue", code: "06" },
+      { to: "/magazzino/spedizioni", icon: Truck, label: "Spedizioni", desc: "Tracking e gestione uscite", accent: "blue", code: "06" },
       { to: "/ddt-index",  icon: FileText, label: "Genera DDT", desc: "Documenti di trasporto",      accent: "blue", code: "07" },
     ],
   },
