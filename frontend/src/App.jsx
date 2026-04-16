@@ -32,7 +32,6 @@ import DDTScomposizione from "./pages/DDTScomposizione";
 
 // ==================== 🏭 FORNITORI E ORDINI ==================== //
 import Fornitori from "./pages/Fornitori";
-import Ordini from "./pages/Ordini";
 
 // ==================== 🏭 GESTIONE BILANCIO ==================== //
 import GestioneBilancio from "./pages/GestioneBilancio";
@@ -110,7 +109,9 @@ function App() {
         <Route path="/uffici/ddt/:idSpedizione/:ddtNumero" element={<DDTDettaglio />} />
 
         <Route path="/uffici/fornitori" element={<Fornitori />} />
-        <Route path="/uffici/ordini" element={<Ordini />} />
+        {/* /uffici/ordini era una pagina duplicata (form legacy, POST a endpoint inesistente).
+            La gestione ordini vera vive in /uffici/fornitori (tab Storico ordini). */}
+        <Route path="/uffici/ordini" element={<Navigate to="/uffici/fornitori" replace />} />
 
         <Route path="/uffici/listing" element={<Listing />} />
         <Route path="/uffici/listing/:asin" element={<DettaglioProdotto />} />
@@ -171,7 +172,7 @@ function App() {
         <Route path="/ddt/:idSpedizione" element={<Navigate to="/uffici/ddt/:idSpedizione" replace />} />
 
         <Route path="/fornitori" element={<Navigate to="/uffici/fornitori" replace />} />
-        <Route path="/ordini" element={<Navigate to="/uffici/ordini" replace />} />
+        <Route path="/ordini" element={<Navigate to="/uffici/fornitori" replace />} />
         <Route path="/bilancio" element={<Navigate to="/uffici/bilancio" replace />} />
 
         <Route path="/scatolette/storico" element={<Navigate to="/magazzino/storici/scatolette" replace />} />

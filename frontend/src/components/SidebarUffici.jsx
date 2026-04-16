@@ -40,8 +40,7 @@ const MENU = [
   { to: "/uffici/ddt",         label: "Genera DDT",           icon: FileText },
 
   { divider: true, label: "Fornitori e ordini" },
-  { to: "/uffici/fornitori",   label: "Fornitori",            icon: Users },
-  { to: "/uffici/ordini",      label: "Ordini",               icon: ClipboardList },
+  { to: "/uffici/fornitori",   label: "Fornitori e ordini",   icon: Users },
 
   { divider: true, label: "Strumenti" },
   { to: "/fba-gestione-prodotti", label: "Calcolo margini FBA", icon: Calculator },
