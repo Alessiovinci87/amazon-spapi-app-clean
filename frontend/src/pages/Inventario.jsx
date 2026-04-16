@@ -133,7 +133,13 @@ const Inventario = () => {
   const [storico, setStorico] = useState([]);
   const [modificheInCorso, setModificheInCorso] = useState(false);
   const [mostraStoricoAsin, setMostraStoricoAsin] = useState(null);
-  const [sezioneAttiva, setSezioneAttiva] = useState("12ml");
+  // Permette deep-link alla sezione tramite ?sezione=accessori (o 12ml, 100ml, kit, 5litri).
+  // Usato dalla sidebar per il link "Accessori" e dal redirect di /accessori.
+  const initialSezione = (() => {
+    const q = new URLSearchParams(location.search).get("sezione");
+    return q || "12ml";
+  })();
+  const [sezioneAttiva, setSezioneAttiva] = useState(initialSezione);
   const [categoriaAttiva, setCategoriaAttiva] = useState(null);
   const [showNuovoProdotto, setShowNuovoProdotto] = useState(false);
   const [showNuovoModulo, setShowNuovoModulo] = useState(false);

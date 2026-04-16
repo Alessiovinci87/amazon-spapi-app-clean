@@ -42,7 +42,7 @@ const SECTIONS = [
     columns: "sm:grid-cols-2 lg:grid-cols-5",
     items: [
       { to: "/inventario", icon: Package, label: "Prodotti",  desc: "Catalogo e giacenze",   accent: "emerald", code: "01" },
-      { to: "/accessori",  icon: Boxes,   label: "Accessori", desc: "Componenti e ricambi", accent: "emerald", code: "02" },
+      { to: "/uffici/inventario?sezione=accessori",  icon: Boxes,   label: "Accessori", desc: "Componenti e ricambi", accent: "emerald", code: "02" },
       { to: "/scatolette", icon: Tag,     label: "Scatolette", desc: "Imballaggi",           accent: "emerald", code: "03" },
       { to: "/etichette",  icon: Sticker, label: "Etichette", desc: "Label e marcatori",    accent: "emerald", code: "04" },
       { to: "/sfuso",      icon: Beaker,  label: "Sfuso",     desc: "Materie prime liquide", accent: "emerald", code: "05" },

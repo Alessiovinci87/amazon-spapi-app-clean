@@ -37,7 +37,6 @@ import Fornitori from "./pages/Fornitori";
 import GestioneBilancio from "./pages/GestioneBilancio";
 
 // ==================== 🧩 PRODOTTI E ACCESSORI ==================== //
-import Accessori from "./pages/Accessori";
 import StoricoAccessori from "./pages/StoricoAccessori";
 import Etichette from "./pages/Etichette";
 import Scatolette from "./pages/Scatolette";
@@ -128,7 +127,8 @@ function App() {
         <Route path="/uffici/storici/:asin" element={<StoricoProdotto />} />
 
         {/* ==================== ALTRE ROTTE ==================== */}
-        <Route path="/accessori" element={<Accessori />} />
+        {/* /accessori legacy -> confluito nell'inventario con deep link */}
+        <Route path="/accessori" element={<Navigate to="/uffici/inventario?sezione=accessori" replace />} />
         <Route path="/accessori/storico" element={<StoricoAccessori />} />
         <Route path="/etichette" element={<Etichette />} />
         <Route path="/scatolette" element={<Scatolette />} />

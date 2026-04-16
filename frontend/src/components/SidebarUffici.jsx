@@ -44,7 +44,7 @@ const MENU = [
 
   { divider: true, label: "Strumenti" },
   { to: "/fba-gestione-prodotti", label: "Calcolo margini FBA", icon: Calculator },
-  { to: "/accessori",             label: "Accessori",           icon: Wrench },
+  { to: "/uffici/inventario?sezione=accessori", label: "Accessori", icon: Wrench },
   { to: "/etichette",             label: "Etichette",           icon: Tag },
   { to: "/scatolette",            label: "Scatolette",          icon: BoxSelect },
   { to: "/recensioni",            label: "Seller Feedback",     icon: Star },
