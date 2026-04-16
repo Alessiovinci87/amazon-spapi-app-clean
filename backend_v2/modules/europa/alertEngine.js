@@ -53,22 +53,51 @@ async function getFBAStockForAsin(asin) {
   // Sequenziale con pausa 300ms tra marketplace per evitare 429
   for (const mp of MARKETPLACES) {
     try {
-      const query = `marketplaceIds=${mp.marketplaceId}&granularityType=Marketplace&granularityId=${mp.marketplaceId}&details=true&asinFilter=${asin}`;
-      const data = await spApiGet({
-        path: "/fba/inventory/v1/summaries",
-        query,
-        accessToken: access_token,
-        awsAccessKey: process.env.AWS_ACCESS_KEY_ID,
-        awsSecretKey: process.env.AWS_SECRET_ACCESS_KEY,
-      });
-      const summary = data?.payload?.inventorySummaries?.[0];
-      const det = summary?.inventoryDetails ?? {};
-      const fulfillable   = det.fulfillableQuantity ?? 0;
-      const reserved      = det.reservedQuantity?.totalReservedQuantity ?? 0;
-      const inboundRec    = det.inboundReceivingQuantity ?? 0;
-      const unfulfillable = det.unfulfillableQuantity?.totalUnfulfillableQuantity ?? 0;
-      const totale        = fulfillable + reserved + inboundRec + unfulfillable;
-      results[mp.marketplaceId] = { fulfillable, reserved, inboundReceiving: inboundRec, unfulfillable, totale };
+      // NOTA: l'API /fba/inventory/v1/summaries NON supporta un parametro
+      // "asinFilter" (lo ignora silenziosamente e torna tutto l'inventario).
+      // I filtri validi sono sellerSkus / sellerSku / startDateTime.
+      // Qui chiediamo l'intero inventario del marketplace (con paginazione)
+      // e filtriamo client-side per ASIN.
+      let nextToken = null;
+      let summary = null;
+      let pages = 0;
+      do {
+        const params = [
+          `marketplaceIds=${mp.marketplaceId}`,
+          `granularityType=Marketplace`,
+          `granularityId=${mp.marketplaceId}`,
+          `details=true`,
+        ];
+        if (nextToken) params.push(`nextToken=${encodeURIComponent(nextToken)}`);
+        const data = await spApiGet({
+          path: "/fba/inventory/v1/summaries",
+          query: params.join("&"),
+          accessToken: access_token,
+          awsAccessKey: process.env.AWS_ACCESS_KEY_ID,
+          awsSecretKey: process.env.AWS_SECRET_ACCESS_KEY,
+        });
+        const summaries = data?.payload?.inventorySummaries || [];
+        summary = summaries.find(s => s.asin === asin);
+        nextToken = data?.payload?.nextToken || data?.pagination?.nextToken || null;
+        pages++;
+        if (summary) break;
+        // limite di sicurezza: smetti dopo 20 pagine (~2000 SKU) per non bruciare quota
+        if (pages >= 20) break;
+        if (nextToken) await sleep(200);
+      } while (nextToken);
+
+      if (!summary) {
+        // ASIN non in inventario di questo marketplace → azzero
+        results[mp.marketplaceId] = { fulfillable: 0, reserved: 0, inboundReceiving: 0, unfulfillable: 0, totale: 0 };
+      } else {
+        const det = summary.inventoryDetails ?? {};
+        const fulfillable   = det.fulfillableQuantity ?? 0;
+        const reserved      = det.reservedQuantity?.totalReservedQuantity ?? 0;
+        const inboundRec    = det.inboundReceivingQuantity ?? 0;
+        const unfulfillable = det.unfulfillableQuantity?.totalUnfulfillableQuantity ?? 0;
+        const totale        = fulfillable + reserved + inboundRec + unfulfillable;
+        results[mp.marketplaceId] = { fulfillable, reserved, inboundReceiving: inboundRec, unfulfillable, totale };
+      }
     } catch (err) {
       const status = err?.response?.status;
       if (status === 429) await sleep(2000); // back-off su rate limit

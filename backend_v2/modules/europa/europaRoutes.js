@@ -18,6 +18,12 @@ router.use((req, res, next) => {
   if (!_imageCountColChecked) {
     _imageCountColChecked = true;
     try { getDb().exec("ALTER TABLE product_catalog ADD COLUMN image_count INTEGER DEFAULT 0"); } catch {}
+    try {
+      getDb().exec(`CREATE TABLE IF NOT EXISTS listing_hidden (
+        asin TEXT PRIMARY KEY,
+        hidden_at TEXT DEFAULT (datetime('now'))
+      )`);
+    } catch {}
   }
   next();
 });
@@ -294,14 +300,19 @@ router.get("/dashboard/:asin", async (req, res) => {
 router.get("/catalogo", (req, res) => {
   try {
     const db = getDb();
-    const { search } = req.query;
+    const { search, includeHidden } = req.query;
+    const showHidden = includeHidden === "1" || includeHidden === "true";
 
-    let whereClause = "";
+    const whereParts = [];
     let params = [];
     if (search) {
-      whereClause = "WHERE f.asin LIKE ? OR f.product_name LIKE ?";
-      params = [`%${search}%`, `%${search}%`];
+      whereParts.push("(f.asin LIKE ? OR f.product_name LIKE ?)");
+      params.push(`%${search}%`, `%${search}%`);
     }
+    if (!showHidden) {
+      whereParts.push("f.asin NOT IN (SELECT asin FROM listing_hidden)");
+    }
+    const whereClause = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
 
     const asins = db.prepare(`
       SELECT
@@ -368,10 +379,45 @@ router.get("/catalogo", (req, res) => {
         "SELECT marketplace_id, soglia FROM alert_rules WHERE asin = ? AND tipo = 'STOCK_LOW' AND abilitato = 1"
       ).all(row.asin);
 
-      return { ...row, countries, prezzi, stockRules, rulesCount, unreadAlerts };
+      const hidden = db.prepare("SELECT 1 FROM listing_hidden WHERE asin = ?").get(row.asin) ? true : false;
+      return { ...row, countries, prezzi, stockRules, rulesCount, unreadAlerts, hidden };
     });
 
     res.json(catalogo);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v2/europa/catalogo/hide  body: { asin }
+router.post("/catalogo/hide", (req, res) => {
+  try {
+    const asin = (req.body?.asin || "").trim();
+    if (!asin) return res.status(400).json({ error: "asin obbligatorio" });
+    getDb().prepare("INSERT OR IGNORE INTO listing_hidden (asin) VALUES (?)").run(asin);
+    res.json({ ok: true, asin });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/v2/europa/catalogo/unhide  body: { asin }
+router.post("/catalogo/unhide", (req, res) => {
+  try {
+    const asin = (req.body?.asin || "").trim();
+    if (!asin) return res.status(400).json({ error: "asin obbligatorio" });
+    getDb().prepare("DELETE FROM listing_hidden WHERE asin = ?").run(asin);
+    res.json({ ok: true, asin });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /api/v2/europa/catalogo/hidden
+router.get("/catalogo/hidden", (req, res) => {
+  try {
+    const rows = getDb().prepare("SELECT asin, hidden_at FROM listing_hidden ORDER BY hidden_at DESC").all();
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -381,15 +427,35 @@ router.get("/catalogo", (req, res) => {
 // Utile per popolare il DB velocemente senza fare catalog+pricing
 router.post("/sync-stock/:asin", async (req, res) => {
   const { asin } = req.params;
+  const log = req.log || console;
   try {
     const db = getDb();
+    log.info(`[sync-stock ${asin}] START — chiamata FBA Inventory per 8 marketplace`);
+
     const stockByMarketplace = await getFBAStockForAsin(asin);
+    const okMps = Object.entries(stockByMarketplace).filter(([, v]) => v !== null);
+    const nullMps = Object.entries(stockByMarketplace).filter(([, v]) => v === null);
+    log.info(`[sync-stock ${asin}] risposta Amazon: ${okMps.length} ok, ${nullMps.length} null`);
+
     salvaStockNelDB(db, asin, null, stockByMarketplace);
-    const saved = Object.entries(stockByMarketplace)
-      .filter(([, v]) => v !== null)
-      .map(([mid, v]) => ({ marketplaceId: mid, country: MP_TO_COUNTRY[mid], ...v }));
-    res.json({ asin, saved });
+
+    // Verifica cosa è effettivamente finito in DB (diagnostica bug "stock non mostra")
+    const dbRows = db.prepare(
+      "SELECT country, quantity, stock_totale FROM fba_stock WHERE asin = ? ORDER BY country"
+    ).all(asin);
+    log.info(`[sync-stock ${asin}] fba_stock righe dopo salvataggio: ${dbRows.length} — ${dbRows.map(r => `${r.country}:${r.quantity}`).join(", ")}`);
+
+    const saved = okMps.map(([mid, v]) => ({ marketplaceId: mid, country: MP_TO_COUNTRY[mid], ...v }));
+
+    // Restituisco anche lo snapshot DB così il frontend può aggiornarsi senza rifetch completo
+    res.json({
+      asin,
+      saved,
+      dbRows,
+      warning: dbRows.length === 0 ? "Amazon non ha restituito stock per questo ASIN in nessun marketplace (prodotto mai inviato a FBA? credenziali? 429?)" : undefined,
+    });
   } catch (err) {
+    log.error(`[sync-stock ${asin}] ERRORE: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });

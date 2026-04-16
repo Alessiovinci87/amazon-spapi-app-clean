@@ -430,11 +430,21 @@ async function getCatalogForSync(asin, marketplaceId) {
   }
 
   // Immagini (solo per il marketplace richiesto)
+  // Catalog API restituisce più risoluzioni per variante (75, 500, 2000 px):
+  // teniamo solo la risoluzione più alta per ciascuna variante.
   let images = [];
   const imagesArr = data?.images || [];
   for (const imgEntry of imagesArr) {
     if (imgEntry.marketplaceId && imgEntry.marketplaceId !== marketplaceId) continue;
-    images = (imgEntry.images || []).map((i) => i.link).filter(Boolean);
+    const all = imgEntry.images || [];
+    const byVariant = {};
+    for (const img of all) {
+      const key = img.variant || "MAIN";
+      if (!byVariant[key] || (img.width || 0) > (byVariant[key].width || 0)) {
+        byVariant[key] = img;
+      }
+    }
+    images = Object.values(byVariant).map((i) => i.link).filter(Boolean);
     if (images.length) break;
   }
 

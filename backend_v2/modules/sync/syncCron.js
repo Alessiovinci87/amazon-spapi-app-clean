@@ -31,17 +31,29 @@ async function syncStockFBA() {
 }
 
 // ─── Prezzi + BuyBox (Pricing API) ───────────────────────
+// Copre TUTTI gli ASIN presenti in fba_stock (= quelli mostrati nella pagina Listing),
+// non solo quelli con alert_rules. Gli ASIN con alert attivi vengono fatti per primi
+// (priorità) cosi se il cron viene interrotto i critici sono gia aggiornati.
 async function syncPrezzi() {
   const { getDb } = require("../../db/database");
   const { sincronizzaPrezziAsin } = require("../catalog/catalogAmazonService");
 
   const db = getDb();
-  const asinList = db.prepare(
+  const conAlert = db.prepare(
     "SELECT DISTINCT asin FROM alert_rules WHERE abilitato = 1"
   ).all().map(r => r.asin);
+  const tutti = db.prepare(
+    "SELECT DISTINCT asin FROM fba_stock ORDER BY asin"
+  ).all().map(r => r.asin);
+
+  const setAlert = new Set(conAlert);
+  const asinList = [
+    ...conAlert,
+    ...tutti.filter(a => !setAlert.has(a)),
+  ];
 
   if (asinList.length === 0) {
-    console.log("[SyncCron] prezzi — nessun ASIN con alert attivi, skip");
+    console.log("[SyncCron] prezzi — catalogo vuoto, skip");
     return;
   }
 
@@ -57,7 +69,7 @@ async function syncPrezzi() {
     // 2.5s tra un ASIN e l'altro (rate limit pricing API)
     await new Promise(r => setTimeout(r, 2500));
   }
-  console.log(`[SyncCron] prezzi — ${ok} ok, ${fail} errori su ${asinList.length} ASIN`);
+  console.log(`[SyncCron] prezzi — ${ok} ok, ${fail} errori su ${asinList.length} ASIN (${conAlert.length} con alert + ${asinList.length - conAlert.length} resto catalogo)`);
 }
 
 // ─── Alert check (dopo stock + prezzi aggiornati) ────────

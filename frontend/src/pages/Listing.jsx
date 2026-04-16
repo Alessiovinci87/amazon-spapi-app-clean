@@ -2,14 +2,28 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ListingHome from "../components/listing/ListingHome";
 import { PAESI as paesi } from "../utils/paesi";
-import { fetchProdotti, filtraProdotti, contaProdottiPerPaese } from "../utils/gestioneListing";
+import { filtraProdotti, contaProdottiPerPaese } from "../utils/gestioneListing";
+
+async function fetchProdottiWithHidden(setter, includeHidden) {
+  try {
+    const url = `/api/v2/europa/catalogo${includeHidden ? "?includeHidden=1" : ""}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (Array.isArray(d)) setter(d);
+  } catch (e) {
+    console.error("Errore catalogo:", e);
+  }
+}
 import {
   ArrowLeft,
   Search,
   Globe,
   Package,
   CheckCircle,
+  RefreshCw,
+  Loader,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const Listing = () => {
   const navigate = useNavigate();
@@ -17,12 +31,54 @@ const Listing = () => {
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState("");
   const [paese, setPaese] = useState("");
+  const [syncRunning, setSyncRunning] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const sectionRef = useRef(null);
+
+  const reload = () => fetchProdottiWithHidden(setProdotti, showHidden);
+
+  const pollSyncStatus = async () => {
+    try {
+      const r = await fetch(`/api/v2/europa/sync-prezzi/stato`);
+      const j = await r.json();
+      if (j?.running) {
+        setTimeout(pollSyncStatus, 5000);
+      } else {
+        setSyncRunning(false);
+        if (j?.error) toast.error(`Sync fallito: ${j.error}`);
+        else toast.success(`Sync completato · aggiornati ${j?.aggiornati ?? 0} ASIN`);
+        // Ricarica dati per refresh UI
+        reload();
+      }
+    } catch {
+      setSyncRunning(false);
+    }
+  };
+
+  const handleSync = async () => {
+    if (syncRunning) return;
+    setSyncRunning(true);
+    try {
+      const r = await fetch(`/api/v2/europa/sync-prezzi`, { method: "POST" });
+      const j = await r.json();
+      if (!j.avviato) {
+        toast.info(j?.messaggio || "Sync già in corso");
+        if (j?.stato?.running) setTimeout(pollSyncStatus, 3000);
+        else setSyncRunning(false);
+        return;
+      }
+      toast.success(`Aggiornamento prezzi/stock avviato · ${j.total} ASIN`);
+      setTimeout(pollSyncStatus, 5000);
+    } catch (e) {
+      toast.error(`Errore: ${e.message}`);
+      setSyncRunning(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
-    fetchProdotti(setProdotti).finally(() => setLoading(false));
-  }, []);
+    fetchProdottiWithHidden(setProdotti, showHidden).finally(() => setLoading(false));
+  }, [showHidden]);
 
   const handlePaeseClick = (codice) => {
     setPaese(codice === paese ? "" : codice);
@@ -150,7 +206,39 @@ const Listing = () => {
           <div ref={sectionRef} className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400/60" />
             <div className="px-5 sm:px-6 py-5">
-              <ListingHome prodotti={prodottiFiltrati} paese={paese} filtro={filtro} totaleProdotti={prodottiFiltrati.length} />
+              <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-slate-800/60">
+                <div className="flex items-center gap-2.5">
+                  <img src={`https://flagcdn.com/w40/${paesi.find(p => p.codice === paese)?.bandiera || paese.toLowerCase()}.png`} alt={paese} className="h-6 w-auto rounded-sm" />
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Marketplace</div>
+                    <div className="text-sm font-semibold text-white">{paesi.find(p => p.codice === paese)?.nome || paese}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowHidden((v) => !v)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-md border text-[11px] uppercase tracking-wider transition-colors ${
+                      showHidden
+                        ? "bg-slate-800 border-slate-600 text-slate-200"
+                        : "bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300"
+                    }`}
+                  >
+                    {showHidden ? "Nascondi archiviati" : "Mostra nascosti"}
+                  </button>
+                  <button
+                    onClick={handleSync}
+                    disabled={syncRunning}
+                    type="button"
+                    title="Aggiorna prezzi, stock e stato Buy Box per tutti gli ASIN"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/40 hover:border-blue-400/60 text-blue-300 text-[11px] uppercase tracking-wider transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {syncRunning ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                    {syncRunning ? "Aggiornamento…" : "Aggiorna stato"}
+                  </button>
+                </div>
+              </div>
+              <ListingHome prodotti={prodottiFiltrati} paese={paese} filtro={filtro} totaleProdotti={prodottiFiltrati.length} showHidden={showHidden} onChanged={reload} />
             </div>
           </div>
         ) : (
