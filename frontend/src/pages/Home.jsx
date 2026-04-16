@@ -38,11 +38,6 @@ const Home = () => {
 
   const [isMagazzino, setIsMagazzino] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  // Memorizza quale pulsante ha aperto il form di login, cosi' dopo
-  // l'autenticazione possiamo portare l'utente nella sezione corretta
-  // (un admin che clicca "Magazzino" vuole andare in /magazzino, non
-  // nella dashboard uffici).
-  const [loginTarget, setLoginTarget] = useState("uffici");
 
   // Se già autenticato, reindirizza in base al ruolo
   useEffect(() => {
@@ -53,34 +48,14 @@ const Home = () => {
     }
   }, []);
 
-  const openLogin = (target) => {
-    // Se sei gia' autenticato, salta il form e naviga direttamente.
-    // Cosi' un admin non deve rifare login ogni volta che passa tra
-    // area uffici e area magazzino.
-    if (isAuthenticated && user) {
-      if (user.ruolo === "magazzino") {
-        setIsMagazzino(true);
-      } else {
-        navigate(target === "magazzino" ? "/magazzino" : "/dashboard");
-      }
-      return;
-    }
-    setLoginTarget(target);
-    setShowLogin(true);
-  };
-
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     try {
       const loggedUser = await login(username, password);
-      // Se il ruolo e' "magazzino", la home mostra il suo menu dedicato.
-      // Altrimenti la destinazione dipende dal pulsante cliccato.
       if (loggedUser.ruolo === "magazzino") {
         setIsMagazzino(true);
         setShowLogin(false);
-      } else if (loginTarget === "magazzino") {
-        navigate("/magazzino");
       } else {
         navigate("/dashboard");
       }
@@ -208,7 +183,7 @@ const Home = () => {
 
               <div className="space-y-3">
                 <button
-                  onClick={() => openLogin("magazzino")}
+                  onClick={() => setShowLogin(true)}
                   className="group w-full flex items-center gap-4 px-5 py-4 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-lg transition-all text-left"
                 >
                   <div className="w-10 h-10 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5 transition-colors">
@@ -227,7 +202,7 @@ const Home = () => {
                 </button>
 
                 <button
-                  onClick={() => openLogin("uffici")}
+                  onClick={() => setShowLogin(true)}
                   className="group w-full flex items-center gap-4 px-5 py-4 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-lg transition-all text-left"
                 >
                   <div className="w-10 h-10 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 group-hover:border-indigo-500/40 group-hover:bg-indigo-500/5 transition-colors">
