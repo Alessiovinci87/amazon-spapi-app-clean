@@ -64,7 +64,7 @@ const SECTIONS = [
     subtitle: "Pianificazione e monitoraggio dei processi produttivi.",
     columns: "sm:grid-cols-2",
     items: [
-      { to: "/gestione-produzione", icon: Factory, label: "Gestione Produzione", desc: "Gestisci prenotazioni e produzioni", accent: "violet", code: "08" },
+      { to: "/magazzino/produzione", icon: Factory, label: "Gestione Produzione", desc: "Gestisci prenotazioni e produzioni", accent: "violet", code: "08" },
     ],
   },
 ];
