@@ -171,14 +171,32 @@ async function bootstrap() {
   // =========================================================
   app.use(pinoHttp({
     logger,
-    // Evita rumore sulle route di polling
     autoLogging: {
-      ignore: (req) => req.url.endsWith("/stato") || req.url === "/api/v2/health",
+      ignore: (req) => {
+        const u = req.url || "";
+        // Polling frequenti — tagliati dai log (restano visibili solo su errore)
+        if (u.endsWith("/stato")) return true;
+        if (u === "/api/v2/health") return true;
+        if (u.startsWith("/api/v2/notifications/unread")) return true;
+        if (u.startsWith("/api/v2/alerts/attivi")) return true;
+        return false;
+      },
     },
     customLogLevel: (_req, res, err) => {
       if (err || res.statusCode >= 500) return "error";
       if (res.statusCode >= 400) return "warn";
+      if (res.statusCode === 304) return "silent"; // cache-hit, niente rumore
       return "info";
+    },
+    // Log minimale — solo method, url, status, durata. Niente headers.
+    customSuccessMessage: (req, res, responseTime) =>
+      `${req.method} ${req.url} ${res.statusCode} ${Math.round(responseTime)}ms`,
+    customErrorMessage: (req, res, err) =>
+      `${req.method} ${req.url} ${res.statusCode} ${err?.message || "error"}`,
+    serializers: {
+      req: () => undefined, // custom message già contiene method+url
+      res: () => undefined, // custom message già contiene status
+      err: (err) => ({ type: err?.type, message: err?.message, stack: err?.stack }),
     },
   }));
 
