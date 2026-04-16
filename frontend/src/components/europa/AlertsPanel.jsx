@@ -1,17 +1,29 @@
 import { useState, useEffect } from "react";
-import { Bell, CheckCheck, Filter } from "lucide-react";
+import {
+  Bell, CheckCheck, Filter,
+  PackageX, AlertTriangle, Trophy, FileEdit, FlaskConical, CalendarX, CalendarClock,
+} from "lucide-react";
 import { toast } from "sonner";
 
-const TIPO_LABEL = {
-  STOCK_LOW:       "Stock basso",
-  BUYBOX_LOST:     "Buy Box persa",
-  LISTING_CHANGED: "Listing modificato",
+// Meta per ogni tipo di alert: label, accent color (slate palette), icona.
+// I colori sono un "sistema": rose=critico, amber=warning, sky=info, violet=neutro.
+const TIPO_META = {
+  STOCK_LOW:            { label: "Stock basso",            accent: "rose",   Icon: PackageX },
+  SFUSO_INSUFFICIENTE:  { label: "Sfuso insufficiente",    accent: "rose",   Icon: FlaskConical },
+  LOTTO_SCADUTO:        { label: "Lotto scaduto",          accent: "rose",   Icon: CalendarX },
+  LOTTO_IN_SCADENZA:    { label: "Lotto in scadenza",      accent: "amber",  Icon: CalendarClock },
+  BUYBOX_LOST:          { label: "Buy Box persa",          accent: "amber",  Icon: Trophy },
+  LISTING_CHANGED:      { label: "Listing modificato",     accent: "sky",    Icon: FileEdit },
 };
+const DEFAULT_META = { label: "Alert", accent: "slate", Icon: AlertTriangle };
 
-const TIPO_COLOR = {
-  STOCK_LOW:       "bg-red-500/10 border-red-500/20 text-red-300",
-  BUYBOX_LOST:     "bg-orange-500/10 border-orange-500/20 text-orange-300",
-  LISTING_CHANGED: "bg-blue-500/10 border-blue-500/20 text-blue-300",
+// Mappa accent -> classi Tailwind (statiche per evitare di perderle in purge)
+const ACCENT_CLASSES = {
+  rose:   { bar: "bg-rose-500",   badge: "bg-rose-500/10 border-rose-500/30 text-rose-300",   icon: "text-rose-400" },
+  amber:  { bar: "bg-amber-500",  badge: "bg-amber-500/10 border-amber-500/30 text-amber-300", icon: "text-amber-400" },
+  sky:    { bar: "bg-sky-500",    badge: "bg-sky-500/10 border-sky-500/30 text-sky-300",       icon: "text-sky-400" },
+  violet: { bar: "bg-violet-500", badge: "bg-violet-500/10 border-violet-500/30 text-violet-300", icon: "text-violet-400" },
+  slate:  { bar: "bg-slate-600",  badge: "bg-slate-800 border-slate-700 text-slate-300",       icon: "text-slate-400" },
 };
 
 export default function AlertsPanel({ asinList }) {
@@ -55,96 +67,122 @@ export default function AlertsPanel({ asinList }) {
 
   return (
     <div className="space-y-4">
-      {/* Filtri */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-wrap gap-3 items-center">
-        <Filter className="w-4 h-4 text-zinc-500" />
-        <select
-          value={filtroLetto}
-          onChange={e => setFiltroLetto(e.target.value)}
-          className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
-        >
-          <option value="0">Non letti</option>
-          <option value="1">Letti</option>
-          <option value="all">Tutti</option>
-        </select>
-
-        {asinList.length > 0 && (
+      {/* Filtri — card con barra accent violet */}
+      <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-500" />
+        <div className="pl-5 pr-4 py-3 flex flex-wrap gap-3 items-center">
+          <Filter className="w-4 h-4 text-slate-500" />
           <select
-            value={filtroAsin}
-            onChange={e => setFiltroAsin(e.target.value)}
-            className="bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
+            value={filtroLetto}
+            onChange={e => setFiltroLetto(e.target.value)}
+            className="bg-slate-800/60 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500/60"
           >
-            <option value="">Tutti gli ASIN</option>
-            {asinList.map(a => <option key={a} value={a}>{a}</option>)}
+            <option value="0">Non letti</option>
+            <option value="1">Letti</option>
+            <option value="all">Tutti</option>
           </select>
-        )}
 
-        {nonLetti > 0 && (
-          <button
-            onClick={marcaTuttiLetti}
-            className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-lg text-sm text-white transition-all"
-          >
-            <CheckCheck className="w-4 h-4" />
-            Segna tutti letti ({nonLetti})
-          </button>
-        )}
+          {asinList?.length > 0 && (
+            <select
+              value={filtroAsin}
+              onChange={e => setFiltroAsin(e.target.value)}
+              className="bg-slate-800/60 border border-slate-700 rounded-md px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-violet-500/60"
+            >
+              <option value="">Tutti gli ASIN</option>
+              {asinList.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          )}
+
+          <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 ml-2">
+            {total} totali · <span className="text-amber-400 tabular-nums">{nonLetti}</span> non letti
+          </span>
+
+          {nonLetti > 0 && (
+            <button
+              onClick={marcaTuttiLetti}
+              className="ml-auto flex items-center gap-2 px-3 py-1.5 rounded-md border border-emerald-500/40 hover:border-emerald-400/60 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 text-xs font-medium transition-colors"
+            >
+              <CheckCheck className="w-3.5 h-3.5" />
+              Segna tutti letti ({nonLetti})
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Lista eventi */}
       <div className="space-y-2">
         {loading ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center text-zinc-500 animate-pulse">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-8 text-center text-slate-500 animate-pulse">
             Caricamento…
           </div>
         ) : events.length === 0 ? (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
-            <Bell className="w-10 h-10 text-zinc-700 mx-auto mb-3" />
-            <p className="text-zinc-500">Nessun alert{filtroLetto === "0" ? " non letto" : ""}</p>
+          <div className="bg-slate-900/40 border border-dashed border-slate-800 rounded-lg p-12 text-center">
+            <Bell className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+            <p className="text-sm text-slate-500">
+              Nessun alert{filtroLetto === "0" ? " non letto" : ""}
+            </p>
           </div>
         ) : (
-          events.map(ev => (
-            <div
-              key={ev.id}
-              className={`border rounded-xl p-4 flex items-start gap-3 transition-all ${
-                ev.letto
-                  ? "bg-zinc-900 border-zinc-800 opacity-60"
-                  : `${TIPO_COLOR[ev.tipo] ?? "bg-zinc-800/50 border-zinc-700 text-zinc-200"} border`
-              }`}
-            >
-              <Bell className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-semibold uppercase tracking-wide opacity-80">
-                    {TIPO_LABEL[ev.tipo] ?? ev.tipo}
-                  </span>
-                  <span className="text-xs font-mono text-zinc-500">{ev.asin}</span>
+          events.map(ev => {
+            const meta = TIPO_META[ev.tipo] || DEFAULT_META;
+            const accent = ACCENT_CLASSES[meta.accent];
+            const Icon = meta.Icon;
+            const isRead = !!ev.letto;
+
+            return (
+              <div
+                key={ev.id}
+                className={`relative bg-slate-900/60 border rounded-lg overflow-hidden transition-all ${
+                  isRead ? "border-slate-800 opacity-50" : "border-slate-800"
+                }`}
+              >
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${isRead ? "bg-slate-700" : accent.bar}`} />
+                <div className="pl-5 pr-4 py-3 flex items-start gap-3">
+                  <Icon className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isRead ? "text-slate-500" : accent.icon}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className={`text-[10px] font-medium uppercase tracking-[0.12em] px-1.5 py-0.5 rounded border ${accent.badge}`}>
+                        {meta.label}
+                      </span>
+                      {ev.asin && (
+                        <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                          {ev.asin}
+                        </span>
+                      )}
+                      {ev.marketplace_id && (
+                        <span className="text-[10px] font-mono text-slate-500">
+                          {ev.marketplace_id}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-200 leading-snug">{ev.messaggio}</p>
+                    {ev.valore_attuale && (
+                      <p className="text-xs mt-1 text-slate-500 tabular-nums">
+                        Valore: <span className="text-slate-300">{ev.valore_attuale}</span>
+                        {ev.valore_precedente ? <> · precedente: <span className="text-slate-400">{ev.valore_precedente}</span></> : null}
+                      </p>
+                    )}
+                    <p className="text-[11px] mt-1 text-slate-600 tabular-nums">
+                      {new Date(ev.created_at).toLocaleString("it-IT")}
+                    </p>
+                  </div>
+                  {!isRead && (
+                    <button
+                      onClick={() => marcaLetto(ev.id)}
+                      className="flex-shrink-0 text-[11px] px-2 py-1 rounded-md border border-slate-700 bg-slate-800/60 hover:bg-slate-800 hover:border-slate-600 text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      Segna letto
+                    </button>
+                  )}
                 </div>
-                <p className="text-sm">{ev.messaggio}</p>
-                {ev.valore_attuale && (
-                  <p className="text-xs mt-1 opacity-60">
-                    Valore: {ev.valore_attuale}
-                    {ev.valore_precedente ? ` (precedente: ${ev.valore_precedente})` : ""}
-                  </p>
-                )}
-                <p className="text-xs mt-1 opacity-50">
-                  {new Date(ev.created_at).toLocaleString("it-IT")}
-                </p>
               </div>
-              {!ev.letto && (
-                <button
-                  onClick={() => marcaLetto(ev.id)}
-                  className="flex-shrink-0 text-xs px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 transition-all"
-                >
-                  Letto
-                </button>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
       {total > events.length && (
-        <p className="text-center text-sm text-zinc-500">
+        <p className="text-center text-xs text-slate-500 tabular-nums">
           Mostrati {events.length} di {total} alert
         </p>
       )}
