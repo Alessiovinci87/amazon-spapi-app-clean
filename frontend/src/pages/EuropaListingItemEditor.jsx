@@ -15,7 +15,150 @@ import {
   RotateCcw,
   Plus,
   Trash2,
+  Copy,
+  RefreshCw,
 } from "lucide-react";
+
+function SubmissionStatusBadge({ sku, country }) {
+  const [state, setState] = useState({ loading: true, status: null, issues: [], cached: null, error: null });
+  const [open, setOpen] = useState(false);
+
+  const fetchStatus = useCallback(async () => {
+    setState((s) => ({ ...s, loading: true, error: null }));
+    try {
+      const r = await fetch(`/api/v2/listings-editor/status?sku=${encodeURIComponent(sku)}&country=${country}`);
+      const j = await r.json();
+      if (!r.ok || !j.ok) throw new Error(j.error || "Errore");
+      setState({ loading: false, status: j.status, issues: j.issues || [], cached: j.cached, error: null });
+    } catch (e) {
+      setState({ loading: false, status: null, issues: [], cached: null, error: e.message });
+    }
+  }, [sku, country]);
+
+  useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  const s = (state.status || "").toUpperCase();
+  const lastSub = state.cached?.last_submission_id;
+  const lastAt = state.cached?.last_status_at;
+
+  let color = "slate";
+  let label = state.loading ? "…" : (state.status || "N/D");
+  if (state.error) { color = "rose"; label = "Errore"; }
+  else if (s === "BUYABLE" || s === "DISCOVERABLE") { color = "emerald"; label = s; }
+  else if (s === "INCOMPLETE" || s === "INACTIVE") { color = "amber"; label = s; }
+
+  const cls = {
+    slate: "bg-slate-800/60 border-slate-700 text-slate-300",
+    emerald: "bg-emerald-500/10 border-emerald-500/40 text-emerald-300",
+    amber: "bg-amber-500/10 border-amber-500/40 text-amber-300",
+    rose: "bg-rose-500/10 border-rose-500/40 text-rose-300",
+  }[color];
+
+  const errCount = state.issues.filter((i) => (i.severity || "").toUpperCase() === "ERROR").length;
+  const warnCount = state.issues.filter((i) => (i.severity || "").toUpperCase() === "WARNING").length;
+
+  const hasIssues = state.issues.length > 0;
+
+  return (
+    <div className="relative flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => hasIssues && setOpen((o) => !o)}
+        className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-[11px] font-mono ${cls} ${hasIssues ? "cursor-pointer hover:brightness-110" : "cursor-default"}`}
+        title={lastSub ? `Submission: ${lastSub} · ${lastAt || ""}` : ""}
+      >
+        <span className="text-[10px] uppercase tracking-[0.14em] opacity-70">Stato</span>
+        <span className="font-semibold">{label}</span>
+        {errCount > 0 && <span className="text-rose-400">· {errCount} err</span>}
+        {warnCount > 0 && <span className="text-amber-400">· {warnCount} warn</span>}
+      </button>
+      <button
+        type="button"
+        onClick={fetchStatus}
+        disabled={state.loading}
+        title="Aggiorna stato"
+        className="w-7 h-7 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center disabled:opacity-40"
+      >
+        <RefreshCw className={`w-3.5 h-3.5 ${state.loading ? "animate-spin" : ""}`} />
+      </button>
+      {open && hasIssues && (
+        <div className="absolute right-0 top-full mt-2 w-[min(480px,90vw)] max-h-[60vh] overflow-auto rounded-md border border-slate-700 bg-slate-900 shadow-xl z-50 p-3 space-y-2">
+          {state.issues.map((iss, i) => {
+            const sev = (iss.severity || "").toUpperCase();
+            const c = sev === "ERROR" ? "text-rose-300 border-rose-500/40 bg-rose-500/5"
+                    : sev === "WARNING" ? "text-amber-300 border-amber-500/40 bg-amber-500/5"
+                    : "text-slate-300 border-slate-700 bg-slate-800/40";
+            return (
+              <div key={i} className={`border rounded-md p-2 text-[11px] ${c}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-[10px] uppercase opacity-80">{sev || "INFO"}</span>
+                  {iss.code && <span className="font-mono text-[10px] opacity-60">· {iss.code}</span>}
+                </div>
+                <div className="text-[12px] leading-snug">{iss.message}</div>
+                {Array.isArray(iss.attributeNames) && iss.attributeNames.length > 0 && (
+                  <div className="mt-1 font-mono text-[10px] opacity-70">attr: {iss.attributeNames.join(", ")}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pattern: pittogrammi estesi (emoji), altri simboli (So), simboli modificatori (Sk).
+// Catturano ● ★ ✓ ✗ ■ ▶ → ⇒ ♥ emoji colorate, dingbats, frecce, geometrici, ecc.
+const SUSPICIOUS_RE = /[\p{Extended_Pictographic}\p{So}\p{Sk}]/gu;
+
+function stripSuspicious(text) {
+  if (typeof text !== "string") return text;
+  return text.replace(SUSPICIOUS_RE, "").replace(/\s{2,}/g, " ").trim();
+}
+
+function findSuspiciousChars(payload) {
+  const report = [];
+  const scan = (label, txt) => {
+    if (typeof txt !== "string") return;
+    const matches = txt.match(SUSPICIOUS_RE);
+    if (matches && matches.length) report.push({ field: label, chars: [...new Set(matches)] });
+  };
+  if (payload.title !== undefined) scan("titolo", payload.title);
+  if (payload.description !== undefined) scan("descrizione", payload.description);
+  if (Array.isArray(payload.bullets)) {
+    payload.bullets.forEach((b, i) => scan(`bullet ${i + 1}`, b));
+  }
+  return report;
+}
+
+function pickLargestImages(urls) {
+  if (!Array.isArray(urls)) return [];
+  // Amazon: la URL "nuda" (senza modificatori _SL/_SX/ecc.) è la full-res.
+  // Teniamo solo quelle. Se per qualche motivo non ce ne sono, fallback alle originali.
+  const hasSizeMod = (url) => /[._](?:SL|SX|SY|UF|UL|UY|UX|AC)\d*_/i.test(url);
+  const bare = urls.filter((u) => u && !hasSizeMod(u));
+  return bare.length ? bare : urls.filter(Boolean);
+}
+
+function CopyField({ label, value }) {
+  if (!value) return null;
+  const copy = () => {
+    navigator.clipboard?.writeText(value);
+    toast.success(`${label} copiato`);
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      title={`Copia ${label}`}
+      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-800/60 hover:bg-slate-700/60 border border-slate-700 hover:border-slate-600 text-[12px] font-mono text-slate-200 transition-colors"
+    >
+      <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <span className="truncate max-w-[220px]">{value}</span>
+      <Copy className="w-3 h-3 text-slate-500" />
+    </button>
+  );
+}
 
 export default function EuropaListingItemEditor() {
   const { t } = useTranslation();
@@ -89,11 +232,45 @@ export default function EuropaListingItemEditor() {
     setSaving(true);
     setSaveError(null);
     try {
-      const payload = {
-        title: form.title.trim() || undefined,
-        bullets: form.bullets.map((b) => b.trim()).filter(Boolean),
-        description: form.description.trim() || undefined,
-      };
+      // Invio SOLO i campi realmente modificati: Amazon rivalida tutti i campi
+      // inclusi nel PATCH, quindi evitiamo errori su bullet/descrizione se abbiamo
+      // toccato solo il titolo.
+      const newTitle = form.title.trim();
+      const newBullets = form.bullets.map((b) => b.trim()).filter(Boolean);
+      const newDescription = form.description.trim();
+      const origTitle = (data.title || "").trim();
+      const origBullets = (data.bullets || []).map((b) => (b || "").trim()).filter(Boolean);
+      const origDescription = (data.description || "").trim();
+
+      const payload = {};
+      if (newTitle !== origTitle) payload.title = newTitle;
+      if (JSON.stringify(newBullets) !== JSON.stringify(origBullets)) payload.bullets = newBullets;
+      if (newDescription !== origDescription) payload.description = newDescription;
+
+      if (Object.keys(payload).length === 0) {
+        toast.info(t("europaListingItemEditor.toast_no_changes", "Nessuna modifica da inviare"));
+        setSaving(false);
+        return;
+      }
+
+      // Pre-check: Amazon rifiuta pittogrammi/emoji/simboli Unicode nei testi
+      const suspicious = findSuspiciousChars(payload);
+      if (suspicious.length > 0) {
+        const summary = suspicious.map((s) => `${s.field}: "${s.chars.join(" ")}"`).join(" · ");
+        const proceed = window.confirm(
+          `Ho trovato caratteri che Amazon potrebbe rifiutare (emoji/simboli):\n\n${summary}\n\nVuoi pulirli automaticamente e inviare?`
+        );
+        if (!proceed) { setSaving(false); return; }
+        if (payload.title) payload.title = stripSuspicious(payload.title);
+        if (payload.description) payload.description = stripSuspicious(payload.description);
+        if (payload.bullets) payload.bullets = payload.bullets.map(stripSuspicious).map((s) => s.trim()).filter(Boolean);
+        setForm((f) => ({
+          ...f,
+          title: payload.title ?? f.title,
+          description: payload.description ?? f.description,
+          bullets: payload.bullets ?? f.bullets,
+        }));
+      }
 
       const res = await fetch(`/api/v2/listings-editor/item?sku=${encodeURIComponent(decodedSku)}&country=${country}`, {
         method: "PATCH",
@@ -169,10 +346,15 @@ export default function EuropaListingItemEditor() {
             </div>
             <div className="flex flex-col leading-none min-w-0">
               <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("europaListingItemEditor.topbar_title")}</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1 font-mono truncate">{country} · {data.asin || "—"} · {decodedSku}</span>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 font-mono">{country}</span>
+                <CopyField label="ASIN" value={data.asin} />
+                <CopyField label="SKU" value={decodedSku} />
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <SubmissionStatusBadge sku={decodedSku} country={country} />
             {dirty && (
               <button onClick={handleReset} type="button" className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 text-[11px] uppercase tracking-wider transition-colors">
                 <RotateCcw className="w-3.5 h-3.5" />
@@ -227,18 +409,24 @@ export default function EuropaListingItemEditor() {
         <div className="max-w-4xl mx-auto space-y-5">
 
           {/* Immagini (read-only) */}
-          {data.images?.length > 0 && (
-            <Section icon={ImageIcon} accent="cyan" title={t("europaListingItemEditor.sec_immagini")} eyebrow={t("europaListingItemEditor.n_immagini", { n: data.images.length })}>
-              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                {data.images.slice(0, 16).map((url, i) => (
-                  <div key={i} className="aspect-square rounded-md bg-slate-800 border border-slate-700 overflow-hidden">
-                    <img src={url} alt="" className="w-full h-full object-cover" />
-                  </div>
-                ))}
-              </div>
-              <p className="mt-3 text-[11px] text-slate-600">{t("europaListingItemEditor.images_future")}</p>
-            </Section>
-          )}
+          {(() => {
+            const cleanImages = pickLargestImages(data.images);
+            console.log("[DEBUG v2] raw:", (data.images || []).length, "filtered:", cleanImages.length);
+            console.log("[DEBUG v2] filtered URLs:\n" + cleanImages.join("\n"));
+            if (!cleanImages.length) return null;
+            return (
+              <Section icon={ImageIcon} accent="cyan" title={t("europaListingItemEditor.sec_immagini")} eyebrow={t("europaListingItemEditor.n_immagini", { n: cleanImages.length })}>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {cleanImages.slice(0, 16).map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noreferrer" className="aspect-square rounded-md bg-slate-800 border border-slate-700 hover:border-slate-500 overflow-hidden transition-colors">
+                      <img src={url} alt="" className="w-full h-full object-contain" />
+                    </a>
+                  ))}
+                </div>
+                <p className="mt-3 text-[11px] text-slate-600">{t("europaListingItemEditor.images_future")}</p>
+              </Section>
+            );
+          })()}
 
           {/* Titolo */}
           <Section icon={FileText} accent="blue" title={t("europaListingItemEditor.sec_titolo")}>

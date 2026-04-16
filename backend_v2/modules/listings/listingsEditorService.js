@@ -343,11 +343,35 @@ function countryToLang(country) {
   return map[country] || "en_GB";
 }
 
+async function fetchSubmissionStatus(sku, country) {
+  const marketplaceId = MARKETPLACES[country];
+  if (!marketplaceId) throw new Error(`Country ${country} non supportato`);
+  const { getSubmissionStatus } = require("./listingsAmazonService");
+  const result = await getSubmissionStatus(sku, null, [marketplaceId]);
+  if (result?.error) {
+    return { ok: false, error: result.data || result.message || "Errore SP-API" };
+  }
+  const issues = Array.isArray(result?.issues) ? result.issues : [];
+  const summary = result?.summaries?.[0] || null;
+  const status = summary?.status?.[0] || null;
+  const db = getDb();
+  const row = db.prepare(
+    `SELECT last_submission_id, last_status, last_status_at FROM amazon_listings WHERE sku = ? AND country = ?`
+  ).get(sku, country);
+  return {
+    ok: true,
+    status,
+    issues,
+    cached: row || null,
+  };
+}
+
 module.exports = {
   ensureTable,
   syncListings,
   listListings,
   getListing,
   updateListing,
+  fetchSubmissionStatus,
   MARKETPLACES,
 };

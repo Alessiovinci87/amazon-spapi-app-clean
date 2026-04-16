@@ -7,6 +7,7 @@ const {
   listListings,
   getListing,
   updateListing,
+  fetchSubmissionStatus,
   MARKETPLACES,
 } = require("./listingsEditorService");
 
@@ -139,6 +140,25 @@ router.patch("/item", async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error("❌ PATCH /item:", err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ============================================================
+// GET /api/v2/listings-editor/status?sku=XXX&country=IT
+// ============================================================
+router.get("/status", async (req, res) => {
+  try {
+    const country = (req.query.country || "").toUpperCase();
+    const sku = req.query.sku;
+    if (!sku || !country) {
+      return res.status(400).json({ ok: false, error: "sku e country obbligatori" });
+    }
+    const result = await fetchSubmissionStatus(sku, country);
+    if (!result.ok) return res.status(400).json(result);
+    res.json(result);
+  } catch (err) {
+    console.error("❌ GET /status:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });

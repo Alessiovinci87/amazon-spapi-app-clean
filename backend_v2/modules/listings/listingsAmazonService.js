@@ -114,7 +114,7 @@ async function getSubmissionStatus(sku, submissionId, marketplaceIds = ["APJ6JRA
   const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
   return await sendSignedRequest("GET", urlPath, {
     marketplaceIds: marketplaceIds.join(","),
-    includedData: "issues",
+    includedData: "summaries,issues",
   });
 }
 
