@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import SpedizioneCard from "../components/spedizioni/SpedizioneCard";
 import ExportCSVButton from "../components/ui/ExportCSVButton";
 import { PAESI, cleanText } from "../utils/gestioneSpedizioni";
+import { fetchJSON } from "../utils/api";
 import {
   ArrowLeft,
   Truck,
@@ -103,12 +104,19 @@ const GestioneSpedizioni = () => {
   const [impegni, setImpegni] = useState({});
 
   useEffect(() => {
-    fetch("/api/v2/impegni").then((r) => r.json()).then(setImpegni).catch(() => {});
+    fetchJSON("impegni")
+      .then((d) => setImpegni(d && typeof d === "object" && !Array.isArray(d) ? d : {}))
+      .catch(() => setImpegni({}));
   }, []);
 
   useEffect(() => {
-    fetch("/api/v2/magazzino").then((r) => r.json()).then((d) => setInventario(d.data || []));
-    fetch("/api/v2/spedizioni").then((r) => r.json()).then(setSpedizioni).catch(() => {});
+    // fetchJSON estrae automaticamente .data se presente (utils/api.js)
+    fetchJSON("magazzino")
+      .then((d) => setInventario(Array.isArray(d) ? d : []))
+      .catch(() => setInventario([]));
+    fetchJSON("spedizioni")
+      .then((d) => setSpedizioni(Array.isArray(d) ? d : []))
+      .catch(() => setSpedizioni([]));
   }, []);
 
   const handleInfoChange = (campo, valore) => setSpedizioneInfo((p) => ({ ...p, [campo]: valore }));
@@ -145,15 +153,23 @@ const GestioneSpedizioni = () => {
     try {
       const bozza = spedizioni.find((s) => s.stato === "BOZZA" && s.paese === spedizioneInfo.paese);
       if (bozza) {
-        const res = await fetch(`/api/v2/spedizioni/${bozza.id}/righe`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ righe }) });
-        const aggiornata = await res.json();
+        const aggiornata = await fetchJSON(`spedizioni/${bozza.id}/righe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ righe }),
+        });
         setSpedizioni((p) => p.map((s) => (s.id === bozza.id ? aggiornata : s)));
       } else {
-        const res = await fetch("/api/v2/spedizioni", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...spedizioneInfo, righe }) });
-        const nuova = await res.json();
+        const nuova = await fetchJSON("spedizioni", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...spedizioneInfo, righe }),
+        });
         setSpedizioni((p) => [nuova, ...p]);
       }
-      fetch("/api/v2/magazzino").then((r) => r.json()).then((d) => setInventario(d.data || []));
+      fetchJSON("magazzino")
+        .then((d) => setInventario(Array.isArray(d) ? d : []))
+        .catch(() => {});
       setRighe([]);
       setErrore("");
     } catch { setErrore(t("gestioneSpedizioni.err_salvataggio")); } finally { setSalvando(false); }
@@ -177,26 +193,31 @@ const GestioneSpedizioni = () => {
 
   const aggiornaSpedizione = async (id, dati) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dati) });
-      const aggiornata = await res.json();
+      const aggiornata = await fetchJSON(`spedizioni/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dati),
+      });
       setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
     } catch (err) { console.error("Errore aggiornamento spedizione:", err); }
   };
 
   const confermaSpedizione = async (id) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}/conferma`, { method: "PATCH" });
-      const aggiornata = await res.json();
+      const aggiornata = await fetchJSON(`spedizioni/${id}/conferma`, { method: "PATCH" });
       setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
     } catch (err) { console.error("Errore conferma spedizione:", err); }
   };
 
   const eliminaTutte = async () => {
-    try { await fetch("/api/v2/spedizioni", { method: "DELETE" }); setSpedizioni([]); } catch {}
+    try { await fetchJSON("spedizioni", { method: "DELETE" }); setSpedizioni([]); } catch {}
   };
 
   const eliminaSpedizione = async (id) => {
-    try { await fetch(`/api/v2/spedizioni/${id}`, { method: "DELETE" }); setSpedizioni((p) => p.filter((s) => s.id !== id)); } catch {}
+    try {
+      await fetchJSON(`spedizioni/${id}`, { method: "DELETE" });
+      setSpedizioni((p) => p.filter((s) => s.id !== id));
+    } catch {}
   };
 
   const filtroLower = (filtro || "").toLowerCase();
