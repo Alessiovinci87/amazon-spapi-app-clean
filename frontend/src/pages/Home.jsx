@@ -183,7 +183,7 @@ const Home = () => {
 
               <div className="space-y-3">
                 <button
-                  onClick={() => setShowLogin(true)}
+                  onClick={() => { localStorage.setItem("auth", "magazzino"); localStorage.setItem("role", "magazzino"); navigate("/magazzino"); }}
                   className="group w-full flex items-center gap-4 px-5 py-4 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-lg transition-all text-left"
                 >
                   <div className="w-10 h-10 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5 transition-colors">
@@ -192,7 +192,7 @@ const Home = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-white">Magazzino</span>
-                      <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700">Login</span>
+                      <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-500 border border-slate-700">Operatore</span>
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5 truncate">
                       Inventario, produzione, spedizioni
