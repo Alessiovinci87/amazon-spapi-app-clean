@@ -269,12 +269,12 @@ const AccessorioCard = ({
         }`} />
 
         <div className="flex items-center gap-5 sm:gap-6 px-6 sm:px-8 py-6 sm:py-7">
-          {/* Immagine */}
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center flex-shrink-0">
+          {/* Immagine — grande per visibilità prodotto */}
+          <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-lg overflow-hidden bg-white border border-slate-800 flex items-center justify-center flex-shrink-0 p-2">
             {immagine ? (
               <img src={immagine} alt={nome} className="w-full h-full object-contain" loading="lazy" />
             ) : (
-              <Package className="w-9 h-9 text-slate-700" />
+              <Package className="w-14 h-14 text-slate-400" />
             )}
           </div>
 
