@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import SpedizioneCard from "../components/spedizioni/SpedizioneCard";
 import ExportCSVButton from "../components/ui/ExportCSVButton";
 import { cleanText } from "../utils/gestioneSpedizioni";
+import { fetchJSON } from "../utils/api";
 import {
   ArrowLeft,
   Truck,
@@ -75,27 +76,37 @@ const GestioneSpedizioniMagazzino = () => {
   const [filterStato, setFilterStato] = useState("TUTTI");
 
   useEffect(() => {
-    fetch("/api/v2/spedizioni").then((r) => r.json()).then(setSpedizioni).catch(() => {});
+    // fetchJSON inietta il JWT e lancia se !ok. Se la response non è un
+    // array (errore, shape inaspettata) tengo lo stato a [] per evitare
+    // il crash su .filter() piu' in basso.
+    fetchJSON("spedizioni")
+      .then((data) => setSpedizioni(Array.isArray(data) ? data : []))
+      .catch(() => setSpedizioni([]));
   }, []);
 
   const aggiornaSpedizione = async (id, dati) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dati) });
-      const aggiornata = await res.json();
+      const aggiornata = await fetchJSON(`spedizioni/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(dati),
+      });
       setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
     } catch {}
   };
 
   const confermaSpedizione = async (id) => {
     try {
-      const res = await fetch(`/api/v2/spedizioni/${id}/conferma`, { method: "PATCH" });
-      const aggiornata = await res.json();
+      const aggiornata = await fetchJSON(`spedizioni/${id}/conferma`, { method: "PATCH" });
       setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
     } catch {}
   };
 
   const eliminaSpedizione = async (id) => {
-    try { await fetch(`/api/v2/spedizioni/${id}`, { method: "DELETE" }); setSpedizioni((p) => p.filter((s) => s.id !== id)); } catch {}
+    try {
+      await fetchJSON(`spedizioni/${id}`, { method: "DELETE" });
+      setSpedizioni((p) => p.filter((s) => s.id !== id));
+    } catch {}
   };
 
   const handleExportCSV = (spedizione) => {
