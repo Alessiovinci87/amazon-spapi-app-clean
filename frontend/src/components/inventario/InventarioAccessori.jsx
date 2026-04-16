@@ -24,6 +24,8 @@ const InventarioAccessori = ({
           asin_accessorio={a.asin_accessorio}
           nome={a.nome}
           quantita={a.quantita}
+          soglia_minima={a.soglia_minima}
+          immagine={a.immagine}
           setMostraStoricoAsin={setMostraStoricoAsin}
           fetchAccessori={fetchAccessori}
         />

@@ -6,7 +6,7 @@ function getAllAccessori() {
   const db = getDb();
   return db
     .prepare(`
-      SELECT asin_accessorio, nome, quantita, soglia_minima
+      SELECT asin_accessorio, nome, quantita, soglia_minima, immagine
       FROM accessori
       ORDER BY asin_accessorio
     `)
@@ -18,10 +18,22 @@ function getAccessorio(asin_accessorio) {
   const db = getDb();
   return db
     .prepare(`
-      SELECT asin_accessorio, nome, quantita, soglia_minima
+      SELECT asin_accessorio, nome, quantita, soglia_minima, immagine
       FROM accessori
       WHERE asin_accessorio = ?
     `)
+    .get(asin_accessorio);
+}
+
+/** 🖼️ Aggiorna il path immagine (o NULL per rimuoverla) */
+function updateImmagineAccessorio(asin_accessorio, path_immagine) {
+  const db = getDb();
+  db.prepare(`UPDATE accessori SET immagine = ? WHERE asin_accessorio = ?`).run(
+    path_immagine,
+    asin_accessorio,
+  );
+  return db
+    .prepare(`SELECT asin_accessorio, nome, quantita, soglia_minima, immagine FROM accessori WHERE asin_accessorio = ?`)
     .get(asin_accessorio);
 }
 
@@ -100,5 +112,6 @@ module.exports = {
   getAccessorio,
   updateQuantitaAccessorio,
   updateSogliaAccessorio,
+  updateImmagineAccessorio,
   getStoricoAccessori,
 };

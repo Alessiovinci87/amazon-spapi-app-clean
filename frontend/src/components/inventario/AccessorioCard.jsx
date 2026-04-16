@@ -1,6 +1,7 @@
 // src/components/inventario/AccessorioCard.jsx
-import React, { useState, useEffect } from "react";
-import { Edit3, X, Package, ImageOff } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Edit3, X, Package, ImageOff, Upload, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 const normalizzaAsinAccessorio = (nome, asin_accessorio) => {
   return asin_accessorio || nome.replace(/\s+/g, "_").toUpperCase();
@@ -151,6 +152,62 @@ const AccessorioCard = ({
   const [editSoglia, setEditSoglia] = useState(false);
   const [sogliaInput, setSogliaInput] = useState(String(sogliaProp || 0));
   const [showRettifica, setShowRettifica] = useState(false);
+  // Immagine locale: se l'utente ha appena caricato un file, usiamo il path
+  // restituito dal backend (aggiornato via upload). Fallback alla prop.
+  const [immagineLocale, setImmagineLocale] = useState(immagine || null);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => { setImmagineLocale(immagine || null); }, [immagine]);
+
+  const uploadImmagine = async (file) => {
+    if (!file || uploadingImg) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Formato non supportato: carica un file immagine");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Immagine troppo grande (max 5MB)");
+      return;
+    }
+    setUploadingImg(true);
+    try {
+      const token = localStorage.getItem("nexus_token");
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/v2/accessori/${asinAccessorioFinale}/immagine`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error || "Upload fallito");
+      // Append timestamp per bypassare la cache del browser (stesso nome file)
+      setImmagineLocale(j.immagine + "?t=" + Date.now());
+      toast.success("Immagine aggiornata");
+      fetchAccessori?.();
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setUploadingImg(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const rimuoviImmagine = async () => {
+    if (!window.confirm("Rimuovere l'immagine caricata?")) return;
+    try {
+      const token = localStorage.getItem("nexus_token");
+      const res = await fetch(`/api/v2/accessori/${asinAccessorioFinale}/immagine`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error();
+      setImmagineLocale(null);
+      toast.success("Immagine rimossa");
+      fetchAccessori?.();
+    } catch { toast.error("Errore rimozione immagine"); }
+  };
 
   useEffect(() => {
     setQuantitaLocale(quantita || 0);
@@ -269,13 +326,49 @@ const AccessorioCard = ({
         }`} />
 
         <div className="flex items-center gap-5 sm:gap-6 px-6 sm:px-8 py-6 sm:py-7">
-          {/* Immagine — grande per visibilità prodotto */}
-          <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-lg overflow-hidden bg-white border border-slate-800 flex items-center justify-center flex-shrink-0 p-2">
-            {immagine ? (
-              <img src={immagine} alt={nome} className="w-full h-full object-contain" loading="lazy" />
-            ) : (
-              <Package className="w-14 h-14 text-slate-400" />
-            )}
+          {/* Immagine — grande per visibilità prodotto + upload utente */}
+          <div className="relative group flex-shrink-0">
+            <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-lg overflow-hidden bg-white border border-slate-800 flex items-center justify-center p-2">
+              {immagineLocale ? (
+                <img src={immagineLocale} alt={nome} className="w-full h-full object-contain" loading="lazy" />
+              ) : (
+                <Package className="w-14 h-14 text-slate-400" />
+              )}
+              {uploadingImg && (
+                <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center rounded-lg">
+                  <span className="text-xs text-white animate-pulse">Caricamento...</span>
+                </div>
+              )}
+            </div>
+            {/* Overlay azioni su hover */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/60 rounded-lg">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImg}
+                title="Carica foto dal PC"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/50 text-indigo-200 text-xs font-medium transition-all disabled:opacity-40"
+              >
+                <Upload className="w-3.5 h-3.5" /> Carica foto
+              </button>
+              {immagineLocale && (
+                <button
+                  type="button"
+                  onClick={rimuoviImmagine}
+                  title="Rimuovi immagine"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-200 text-xs font-medium transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Rimuovi
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => uploadImmagine(e.target.files?.[0])}
+            />
           </div>
 
           {/* Info */}
