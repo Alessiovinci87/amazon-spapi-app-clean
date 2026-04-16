@@ -475,55 +475,16 @@ router.post("/sync-catalog-info", async (req, res) => {
   }
 
   const db = getDb();
-  const asins = db.prepare("SELECT DISTINCT asin FROM fba_stock ORDER BY asin").all().map(r => r.asin);
+  const total = db.prepare("SELECT COUNT(DISTINCT asin) AS n FROM fba_stock").get()?.n ?? 0;
 
-  catalogInfoJob = { running: true, avviato: true, done: 0, total: asins.length, aggiornati: 0, errori: 0, error: null };
-  res.json({ avviato: true, total: asins.length });
+  catalogInfoJob = { running: true, avviato: true, done: 0, total, aggiornati: 0, errori: 0, error: null };
+  res.json({ avviato: true, total });
 
-  // Processo in background (non blocca la risposta HTTP)
   setImmediate(async () => {
     setManualSyncActive(true);
     try {
-      const { getAccessToken } = require("../auth/authService");
-      const { access_token } = await getAccessToken();
-
-      // Marketplace da usare per le immagini
-      const MARKETPLACES_CATALOG = [
-        { marketplaceId: "APJ6JRA9NG5V4",  country: "IT" },
-        { marketplaceId: "A13V1IB3VIYZZH", country: "FR" },
-        { marketplaceId: "A1PA6795UKMFR9",  country: "DE" },
-        { marketplaceId: "A1RKKUPIHCS9HS",  country: "ES" },
-        { marketplaceId: "A1F83G8C2ARO7P",  country: "GB" },
-        { marketplaceId: "A1805IZSGTT6HS",  country: "NL" },
-        { marketplaceId: "AMEN7PMS3EDWL",   country: "BE" },
-        { marketplaceId: "A1C3SOZRARQ6R3",  country: "PL" },
-      ];
-
-      const stmt = db.prepare(`
-        INSERT INTO product_catalog (asin, marketplace_id, country, titolo, image_url, image_count, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        ON CONFLICT(asin, marketplace_id) DO UPDATE SET
-          titolo      = excluded.titolo,
-          image_url   = excluded.image_url,
-          image_count = excluded.image_count,
-          updated_at  = excluded.updated_at
-      `);
-
-      for (const asin of asins) {
-        const infos = await getCatalogInfoPerMarketplace(asin, access_token, MARKETPLACES_CATALOG);
-        const inserisci = db.transaction(() => {
-          for (const info of infos) {
-            if (info.titolo || info.image_url) {
-              stmt.run(asin, info.marketplaceId, info.country, info.titolo, info.image_url, info.image_count ?? 0);
-            }
-          }
-        });
-        inserisci();
-        catalogInfoJob.aggiornati += infos.filter(i => i.titolo || i.image_url).length;
-        catalogInfoJob.done++;
-        // pausa tra ASIN (le pause tra marketplace sono già in getCatalogInfoPerMarketplace)
-        await new Promise(r => setTimeout(r, 500));
-      }
+      const { aggiornaProductCatalog } = require("../catalog/catalogInfoSync");
+      await aggiornaProductCatalog(catalogInfoJob);
     } catch (err) {
       catalogInfoJob.error = err.message;
     } finally {

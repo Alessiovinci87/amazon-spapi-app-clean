@@ -90,6 +90,14 @@ async function syncFBAStockReport() {
   await aggiornaFBAStock();
 }
 
+// ─── Catalog info (titolo + immagini per marketplace) ────
+async function syncCatalogInfo() {
+  const { aggiornaProductCatalog } = require("../catalog/catalogInfoSync");
+  const progress = { done: 0, total: 0, aggiornati: 0, errori: 0 };
+  const res = await aggiornaProductCatalog(progress);
+  console.log(`[SyncCron] catalog-info — ${res.done}/${res.total} ASIN, ${res.aggiornati} righe aggiornate, ${res.errori} errori`);
+}
+
 // ─── Listing Editor cache (per paese) ────────────────────
 async function syncListingCache() {
   const { syncListings, MARKETPLACES } = require("../listings/listingsEditorService");
@@ -126,6 +134,9 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 4:00: FBA Stock Report completo ──
   cron.schedule("0 4 * * *", () => runSafe("fba-stock-report", syncFBAStockReport));
 
+  // ── OGNI DOMENICA alle 02:00: Catalog info (titoli + immagini) ──
+  cron.schedule("0 2 * * 0", () => runSafe("catalog-info", syncCatalogInfo));
+
   // ── OGNI DOMENICA alle 3:00: Listing cache (tutti i paesi) ──
   cron.schedule("0 3 * * 0", () => runSafe("listing-cache", syncListingCache));
 
@@ -135,6 +146,7 @@ function startSyncCrons() {
   console.log("  Alert check:     ogni 3h (:50)");
   console.log("  Sales/Traffic:   06:30 giornaliero");
   console.log("  FBA Stock Report: 04:00 giornaliero");
+  console.log("  Catalog info:    02:00 domenica");
   console.log("  Listing cache:   03:00 domenica");
 }
 
