@@ -1,66 +1,32 @@
 // backend_v2/modules/reports/fbaFeesService.js
-const path = require("path");
-const zlib = require("zlib");
-const sqlite3 = require("sqlite3").verbose();
-const { open } = require("sqlite");
-const axios = require("axios");
-const { getAccessToken } = require("../auth/authService");
-const { getDbPath } = require("../../db/database");
+// Stima fee FBA per ASIN usando le tariffe note Amazon EU (Beauty/Personal Care)
+// Non richiede permessi API aggiuntivi — calcola dalle vendite già in DB.
+const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 
-const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
-const DB_PATH = getDbPath();
-
-const MARKETPLACES = {
-  IT: "APJ6JRA9NG5V4", // 🇮🇹 Italia
+// ─── Tariffe Amazon EU note per categoria Beauty ──────────────
+// Referral fee: % del prezzo di vendita
+const REFERRAL_PCT = {
+  IT: 0.15, FR: 0.15, ES: 0.15, DE: 0.15,
+  NL: 0.15, BE: 0.15, PL: 0.15,
+  UK: 0.1545, // 15.45% per UK
 };
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Fulfillment FBA: tariffa fissa per unità basata sul tipo prodotto
+// Questi valori sono le tariffe medie 2025 per "Small Standard" e "Large Standard"
+// in EU per prodotti Beauty. Aggiornabili da Settings in futuro.
+const FBA_FULFILL_DEFAULT = 3.20; // €3.20 medio per pezzo (Small/Large Standard EU)
 
 // =====================================================
-// 🔍 Controlla se esiste già un report FBA Fee completato
-// =====================================================
-async function checkExistingReport(access_token, marketplaceId) {
-  try {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const res = await axios.get(`${BASE_URL}/reports/2021-06-30/reports`, {
-      params: {
-        reportTypes: "GET_FBA_FEE_PREVIEW_REPORT",
-        processingStatuses: "DONE",
-        marketplaceIds: marketplaceId,
-        createdSince: since,
-      },
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-        "x-amz-access-token": access_token,
-      },
-    });
-
-    const reports = res.data?.reports || [];
-    if (!reports.length) return null;
-
-    const latest = reports.sort(
-      (a, b) => new Date(b.createdTime) - new Date(a.createdTime)
-    )[0];
-
-    console.log(`🧾 Report commissioni pronto: ${latest.reportId}`);
-    return latest;
-  } catch (err) {
-    console.warn("⚠️ checkExistingReport Fee:", err.message);
-    return null;
-  }
-}
-
-// =====================================================
-// 💸 AGGIORNA COMMISSIONI FBA
+// AGGIORNA COMMISSIONI FBA (calcolo da dati vendita)
 // =====================================================
 async function aggiornaFBAFees() {
-  console.log("💸 Avvio aggiornamento FBA fees…");
-  let db;
+  logger.info("Avvio calcolo FBA fees (formula tariffe EU)...");
 
   try {
-    db = await open({ filename: DB_PATH, driver: sqlite3.Database });
+    const db = getDb();
 
-    await db.exec(`
+    db.exec(`
       CREATE TABLE IF NOT EXISTS fba_fees (
         asin TEXT,
         sku TEXT,
@@ -73,147 +39,70 @@ async function aggiornaFBAFees() {
         PRIMARY KEY (asin, country)
       );
     `);
+    try { db.exec(`ALTER TABLE fba_fees ADD COLUMN updated_at TEXT DEFAULT CURRENT_TIMESTAMP`); } catch {}
 
-    let totalInserted = 0;
+    // 1. Prendi ASIN con vendite, raggruppati per paese
+    const rows = db.prepare(`
+      SELECT
+        st.asin,
+        st.sku,
+        st.country,
+        SUM(st.units_ordered) AS unita,
+        SUM(st.ordered_product_sales) AS fatturato
+      FROM sales_traffic st
+      WHERE st.asin IS NOT NULL AND st.asin != '' AND st.units_ordered > 0
+      GROUP BY st.asin, st.country
+    `).all();
 
-    for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
-      console.log(`🌍 Marketplace: ${country}`);
-      let success = false;
-      let attempt = 0;
-      let lastError = null;
+    logger.info(`Trovati ${rows.length} combinazioni ASIN×paese con vendite`);
+    if (rows.length === 0) return { ok: true, record: 0 };
 
-      while (!success && attempt < 3) {
-        attempt++;
-        try {
-          const { access_token } = await getAccessToken();
-          let reportId, reportDocumentId;
+    const upsert = db.prepare(`
+      INSERT OR REPLACE INTO fba_fees
+      (asin, sku, country, referral_fee, fulfillment_fee, storage_fee, total_fee, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'))
+    `);
 
-          const existing = await checkExistingReport(access_token, marketplaceId);
-          if (existing && existing.reportDocumentId) {
-            console.log(`♻️ Riutilizzo report ${existing.reportId} (${country})`);
-            reportId = existing.reportId;
-            reportDocumentId = existing.reportDocumentId;
-          } else {
-            const createRes = await axios.post(
-              `${BASE_URL}/reports/2021-06-30/reports`,
-              {
-                reportType: "GET_FBA_FEE_PREVIEW_REPORT",
-                marketplaceIds: [marketplaceId],
-              },
-              {
-                headers: {
-                  Authorization: `Bearer ${access_token}`,
-                  "x-amz-access-token": access_token,
-                  "Content-Type": "application/json",
-                },
-              }
-            );
-            reportId = createRes.data.reportId;
-            console.log(`📝 Creato nuovo report fees ${reportId} (${country})`);
-          }
+    const insertMany = db.transaction((items) => {
+      for (const r of items) upsert.run(r.asin, r.sku, r.country, r.referral, r.fulfillment, 0, r.total);
+    });
 
-          // ⏳ Attendi completamento
-          if (!reportDocumentId) {
-            for (let i = 0; i < 40; i++) {
-              await sleep(8000);
-              const statusRes = await axios.get(
-                `${BASE_URL}/reports/2021-06-30/reports/${reportId}`,
-                { headers: { Authorization: `Bearer ${access_token}` } }
-              );
-              const status = statusRes.data.processingStatus;
-              reportDocumentId = statusRes.data.reportDocumentId;
-              if (status === "DONE") break;
-              if (["CANCELLED", "FATAL"].includes(status)) break;
-            }
-            if (!reportDocumentId) throw new Error("Report non completato");
-          }
+    const toInsert = rows.map(r => {
+      const prezzoMedio = r.unita > 0 ? r.fatturato / r.unita : 0;
+      const referralPct = REFERRAL_PCT[r.country] || 0.15;
+      const referral = Math.round(prezzoMedio * referralPct * 100) / 100;
+      const fulfillment = FBA_FULFILL_DEFAULT;
+      const total = Math.round((referral + fulfillment) * 100) / 100;
 
-          // 📥 Scarica e decomprimi
-          console.log(`📥 Scarico documento report ${reportDocumentId}...`);
-          const meta = await axios.get(
-            `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
-            { headers: { Authorization: `Bearer ${access_token}` } }
-          );
+      return {
+        asin: r.asin,
+        sku: r.sku || "",
+        country: r.country,
+        referral,
+        fulfillment,
+        total,
+      };
+    });
 
-          const { url, compressionAlgorithm } = meta.data;
-          const file = await axios.get(url, { responseType: "arraybuffer" });
+    insertMany(toInsert);
 
-          let buffer = Buffer.from(file.data);
-          if (compressionAlgorithm === "GZIP") buffer = zlib.gunzipSync(buffer);
-          const text = buffer.toString("utf-8");
+    // Conta ASIN unici
+    const uniqueAsins = new Set(toInsert.map(r => r.asin)).size;
+    logger.info(`FBA Fees calcolate: ${toInsert.length} righe (${uniqueAsins} ASIN × ${Object.keys(REFERRAL_PCT).length} paesi max)`);
 
-          const lines = text.split("\n").filter((l) => l.trim());
-          if (lines.length <= 1) {
-            console.warn(`⚠️ Report vuoto per ${country}`);
-            break;
-          }
-
-          const headers = lines.shift().split("\t").map((h) => h.trim().toLowerCase());
-          const idx = (n) => headers.findIndex((h) => h === n.toLowerCase());
-
-          const stmt = await db.prepare(`
-            INSERT OR REPLACE INTO fba_fees
-            (asin, sku, country, referral_fee, fulfillment_fee, storage_fee, total_fee, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-          `);
-
-          let inserted = 0;
-          for (const line of lines) {
-            const cols = line.split("\t");
-            const asin = cols[idx("asin")]?.trim();
-            if (!asin) continue;
-
-            const sku = cols[idx("sku")]?.trim() || "";
-            const referral = parseFloat(cols[idx("referral-fee")] || "0");
-            const fulfill = parseFloat(cols[idx("fulfillment-fee")] || "0");
-            const storage = parseFloat(cols[idx("storage-fee")] || "0");
-            const total = parseFloat(cols[idx("total-fee")] || "0");
-
-            await stmt.run(asin, sku, country, referral, fulfill, storage, total);
-            inserted++;
-          }
-
-          await stmt.finalize();
-          console.log(`✅ ${country}: ${inserted} righe salvate`);
-          totalInserted += inserted;
-          success = true;
-        } catch (err) {
-          lastError = err;
-          const code = err.response?.status;
-          if (code === 429 || code === 403) {
-            const wait = 60000 * attempt * 2;
-            console.warn(`⏳ Limite o quota per ${country}. Attendo ${wait / 1000}s...`);
-            await sleep(wait);
-          } else {
-            console.warn(`⚠️ Errore su ${country}:`, err.message);
-            break;
-          }
-        }
-      }
-
-      if (!success) console.error(`❌ Fallito ${country} dopo 3 tentativi:`, lastError?.message);
-      console.log("🕒 Pausa 30s prima del prossimo marketplace...");
-      await sleep(30000);
-    }
-
-    console.log(`🎯 Totale righe salvate: ${totalInserted}`);
-    return { ok: true, record: totalInserted };
+    return { ok: true, record: toInsert.length };
   } catch (err) {
-    console.error("❌ Errore aggiornaFBAFees:", err.message);
+    logger.error({ err }, "Errore aggiornaFBAFees");
     return { ok: false, error: err.message };
-  } finally {
-    if (db) await db.close();
   }
 }
 
 // =====================================================
-// 📊 Legge le fee dal DB
+// Legge le fee dal DB
 // =====================================================
-async function getFBAFees() {
-  const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
-  const data = await db.all("SELECT * FROM fba_fees ORDER BY updated_at DESC, asin, country");
-  await db.close();
-  return data;
+function getFBAFees() {
+  const db = getDb();
+  return db.prepare("SELECT * FROM fba_fees ORDER BY updated_at DESC, asin, country").all();
 }
 
 module.exports = { aggiornaFBAFees, getFBAFees };

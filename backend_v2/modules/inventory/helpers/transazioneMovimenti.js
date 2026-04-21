@@ -5,6 +5,7 @@
    Esegue un gruppo di query DB in modo atomico
 ========================================================= */
 const { getDb } = require('../../../db/database');
+const logger = require("../../../utils/logger");
 
 /**
  * Esegue una lista di funzioni DB dentro una singola transazione.
@@ -25,7 +26,7 @@ function eseguiTransazioneMovimenti(db, operazioni = []) {
     tx();
     return { success: true, movimentiCreati: operazioni.length };
   } catch (err) {
-    console.error('❌ Errore transazione movimenti:', err.message);
+    logger.error({ err }, 'Errore transazione movimenti');
     return { success: false, movimentiCreati: 0 };
   }
 }

@@ -147,7 +147,7 @@ const DDTNuovo = () => {
           const blob = await pdfRes.blob();
           window.open(window.URL.createObjectURL(blob), "_blank");
         }
-      } catch {}
+      } catch { toast.error(t("ddtNuovo.toast_error_pdf_open", "Errore apertura PDF aggiornato")); }
       return;
     }
 

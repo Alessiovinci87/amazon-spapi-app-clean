@@ -55,7 +55,8 @@
     "cat_scatolette": "Scatolette",
     "cat_etichette": "Etichette",
     "cat_lotti": "Scadenze Lotti",
-    "cat_europa": "Europa SP-API"
+    "cat_europa": "Europa SP-API",
+    "cat_competitor": "Competitor"
   },
   "dashboardAmazon": {
     "cta_apri": "Apri",
@@ -84,7 +85,13 @@
     "mod_bilancio_label": "Bilancio",
     "mod_bilancio_desc": "Costi, valore magazzino, movimenti",
     "mod_vendite_label": "Vendite",
-    "mod_vendite_desc": "Dashboard vendite e margini"
+    "mod_vendite_desc": "Dashboard vendite e margini",
+    "mod_profittabilita_label": "Profittabilità",
+    "mod_profittabilita_desc": "Margine netto per prodotto",
+    "mod_copertura_fba_label": "Copertura FBA",
+    "mod_copertura_fba_desc": "Rischio stockout per prodotto",
+    "mod_competitor_label": "Competitor Watch",
+    "mod_competitor_desc": "Monitoraggio categorie e concorrenti"
   },
   "dashboardVendite": {
     "topbar_title": "Dashboard Vendite",

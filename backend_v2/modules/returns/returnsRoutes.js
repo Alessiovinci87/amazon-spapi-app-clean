@@ -1,5 +1,6 @@
 // backend_v2/modules/returns/returnsRoutes.js
 const express = require("express");
+const logger = require("../../utils/logger");
 const router = express.Router();
 const {
   syncReturns,
@@ -15,7 +16,7 @@ router.post("/sync", async (req, res) => {
     const result = await syncReturns({ startDate, endDate });
     res.json(result);
   } catch (err) {
-    console.error("❌ [Resi] Errore sync:", err.message);
+    logger.error({ err }, "[Resi] Errore sync");
     res.status(500).json({ error: err.message });
   }
 });
@@ -34,7 +35,7 @@ router.get("/", (req, res) => {
     });
     res.json(result);
   } catch (err) {
-    console.error("❌ [Resi] Errore GET:", err.message);
+    logger.error({ err }, "[Resi] Errore GET");
     res.status(500).json({ error: err.message });
   }
 });

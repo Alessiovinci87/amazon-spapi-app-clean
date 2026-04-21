@@ -19,6 +19,11 @@ import {
   CalendarX2,
   Box,
   Tag,
+  Eye,
+  DollarSign,
+  Pencil,
+  EyeOff,
+  Sparkle,
 } from "lucide-react";
 
 /* ── Configurazione categorie ──────────────────────────────── */
@@ -33,6 +38,7 @@ const CATEGORY_KEYS = [
   { key: "etichette",  icon: Tag,          color: "indigo" },
   { key: "lotti",      icon: CalendarX2,   color: "red" },
   { key: "europa",     icon: TrendingDown, color: "rose" },
+  { key: "competitor", icon: Eye,          color: "violet" },
 ];
 
 const COLOR_MAP = {
@@ -46,14 +52,17 @@ const COLOR_MAP = {
   indigo: { badge: "bg-indigo-500/10 border-indigo-500/30 text-indigo-400", accent: "bg-indigo-400/60", stat: "text-indigo-400" },
   red:    { badge: "bg-red-500/10 border-red-500/30 text-red-400",     accent: "bg-red-400/60",     stat: "text-red-400" },
   rose:   { badge: "bg-rose-500/10 border-rose-500/30 text-rose-400",   accent: "bg-rose-400/60",   stat: "text-rose-400" },
+  violet: { badge: "bg-violet-500/10 border-violet-500/30 text-violet-400", accent: "bg-violet-400/60", stat: "text-violet-400" },
 };
 
 function classifySource(source, tipo) {
   if (!source) {
     if (tipo === "BUYBOX_LOST" || tipo === "LISTING_CHANGED") return "europa";
     if (tipo === "STOCK_LOW") return "europa";
+    if (tipo?.startsWith("COMPETITOR_")) return "competitor";
     return "europa";
   }
+  if (source === "competitor") return "competitor";
   if (source === "prodotti") return "prodotti";
   if (source === "accessori") return "accessori";
   if (source === "sfuso" || source === "sfuso_copertura") return "sfuso";
@@ -80,6 +89,16 @@ const TIPO_ICON = {
   SFUSO_INSUFFICIENTE: AlertTriangle,
   LOTTO_IN_SCADENZA: Clock,
   LOTTO_SCADUTO: CalendarX2,
+  COMPETITOR_PRICE_CHANGED: DollarSign,
+  COMPETITOR_TITLE_CHANGED: Pencil,
+  COMPETITOR_DISAPPEARED: EyeOff,
+  COMPETITOR_REAPPEARED: Sparkle,
+  COMPETITOR_REVIEWS_DROP: AlertTriangle,
+  COMPETITOR_PRIME_LOST: AlertTriangle,
+  COMPETITOR_PRIME_GAINED: Sparkle,
+  COMPETITOR_FBA_LOST: AlertTriangle,
+  COMPETITOR_FBA_GAINED: Sparkle,
+  COMPETITOR_NEW_TOP5: TrendingDown,
 };
 
 /* ── Componente principale ──────────────────────────────────── */
@@ -212,7 +231,7 @@ const CentroAlert = () => {
       <main className="relative flex-1 px-6 sm:px-10 lg:px-16 pb-12 space-y-6">
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-11 gap-3">
           {CATEGORIES.map((cat) => {
             const c = COLOR_MAP[cat.color];
             const Icon = cat.icon;
@@ -312,8 +331,10 @@ const CentroAlert = () => {
                       {items.map((alert) => {
                         const tipoCfg = TIPO_ICON[alert.tipo];
                         const TipoIcon = tipoCfg || AlertTriangle;
+                        const isCompetitor = alert.source === "competitor" || alert.tipo?.startsWith("COMPETITOR_");
+                        const onClickRow = isCompetitor ? () => navigate("/uffici/competitor/storico") : undefined;
                         return (
-                          <div key={alert.id} className="flex items-start gap-3 px-3 py-3 rounded-md hover:bg-slate-800/30 transition-colors group">
+                          <div key={alert.id} onClick={onClickRow} className={`flex items-start gap-3 px-3 py-3 rounded-md hover:bg-slate-800/30 transition-colors group ${onClickRow ? "cursor-pointer" : ""}`}>
                             <TipoIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${c.stat}`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">

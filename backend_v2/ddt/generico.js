@@ -1,6 +1,7 @@
 // backend_v2/ddt/generico.js
 const express = require("express");
 const router = express.Router();
+const logger = require("../utils/logger");
 
 // libreria per creare PDF (puoi riusare quella che usi già per i DDT)
 const PDFDocument = require("pdfkit");
@@ -57,7 +58,7 @@ router.post("/pdf", async (req, res) => {
 
     doc.end();
   } catch (err) {
-    console.error("❌ Errore creazione PDF generico:", err);
+    logger.error({ err }, "Errore creazione PDF generico");
     res.status(500).json({ error: "Errore creazione PDF generico" });
   }
 });

@@ -6,6 +6,7 @@ const axios = require("axios");
 const zlib = require("zlib");
 const { getAccessToken } = require("../auth/authService");
 const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -184,23 +185,23 @@ async function syncReturns(opts = {}) {
     ? new Date(opts.endDate).toISOString()
     : new Date().toISOString();
 
-  console.log(`📦 [Resi] Creazione report dal ${startDate} al ${endDate}...`);
+  logger.info(`[Resi] Creazione report dal ${startDate} al ${endDate}...`);
   const { reportId } = await createReturnsReport(allMarketplaceIds, {
     dataStartTime: startDate,
     dataEndTime: endDate,
   });
-  console.log(`📦 [Resi] Report creato: ${reportId}, attendo elaborazione...`);
+  logger.info(`[Resi] Report creato: ${reportId}, attendo elaborazione...`);
 
   const report = await waitForReport(reportId);
   const docId = report.reportDocumentId;
-  console.log(`📦 [Resi] Report pronto, scarico documento ${docId}...`);
+  logger.info(`[Resi] Report pronto, scarico documento ${docId}...`);
 
   const rows = await downloadReturnsDocument(docId);
-  console.log(`📦 [Resi] ${rows.length} righe scaricate, salvo nel DB...`);
+  logger.info(`[Resi] ${rows.length} righe scaricate, salvo nel DB...`);
 
   if (rows.length > 0) {
     const count = saveReturnsToDb(rows);
-    console.log(`📦 [Resi] ${count} resi salvati/aggiornati nel DB`);
+    logger.info(`[Resi] ${count} resi salvati/aggiornati nel DB`);
     return { ok: true, reportId, rows: rows.length, saved: count };
   }
 

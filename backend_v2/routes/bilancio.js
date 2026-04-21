@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDb } = require("../db/database");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 const tipoCatalogoEnum = z.enum(["prodotto", "accessorio", "sfuso"]);
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -27,7 +28,7 @@ router.get("/movimenti", (req, res) => {
     const rows = db.prepare(`SELECT * FROM bilancio_movimenti ORDER BY data DESC`).all();
     res.json({ ok: true, data: rows });
   } catch (err) {
-    console.error("Errore bilancio movimenti:", err);
+    logger.error({ err }, "Errore bilancio movimenti");
     res.status(500).json({ ok: false, error: "Errore nel recupero dei movimenti" });
   }
 });
@@ -65,7 +66,7 @@ router.get("/catalogo", (req, res) => {
     res.json({ ok: true, data: rows });
 
   } catch (err) {
-    console.error("Errore catalogo bilancio:", err);
+    logger.error({ err }, "Errore catalogo bilancio");
     res.status(500).json({ ok: false, error: "Errore nel recupero del catalogo" });
   }
 });
@@ -133,7 +134,7 @@ router.get("/catalogo/dettagli", (req, res) => {
     res.json({ ok: true, data: risultati });
 
   } catch (err) {
-    console.error("Errore catalogo dettagli:", err);
+    logger.error({ err }, "Errore catalogo dettagli");
     res.status(500).json({ ok: false, error: "Errore nel recupero dei dettagli" });
   }
 });
@@ -155,7 +156,7 @@ router.post("/catalogo", validate({ body: catalogoSchema }), (req, res) => {
 
     res.json({ ok: true, message: "Costo salvato" });
   } catch (err) {
-    console.error("Errore POST catalogo:", err);
+    logger.error({ err }, "Errore POST catalogo");
     res.status(500).json({ ok: false, error: "Errore nel salvataggio del costo" });
   }
 });
@@ -182,7 +183,7 @@ router.post("/movimenti", validate({ body: movimentoSchema }), (req, res) => {
 
     res.json({ ok: true, id: result.lastInsertRowid, message: "Movimento registrato" });
   } catch (err) {
-    console.error("Errore POST movimenti:", err);
+    logger.error({ err }, "Errore POST movimenti");
     res.status(500).json({ ok: false, error: "Errore nella registrazione del movimento" });
   }
 });
@@ -243,7 +244,7 @@ router.post("/catalogo/popola", (req, res) => {
 
     res.json({ ok: true, inseriti, gia });
   } catch (err) {
-    console.error("Errore popola catalogo:", err);
+    logger.error({ err }, "Errore popola catalogo");
     res.status(500).json({ ok: false, error: "Errore nella popolazione del catalogo" });
   }
 });

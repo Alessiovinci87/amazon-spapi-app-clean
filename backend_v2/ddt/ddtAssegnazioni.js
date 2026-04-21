@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const { espandiProdottiInRighe } = require("../utils/classificaProdotto");
+const logger = require("../utils/logger");
 
 /**
  * GET /api/v2/ddt/assegnazioni/:spedizioneId
@@ -38,7 +39,7 @@ router.get("/:spedizioneId", (req, res) => {
       ddtCount: Object.keys(perDDT).length,
     });
   } catch (err) {
-    console.error("❌ Errore recupero assegnazioni:", err);
+    logger.error({ err }, "Errore recupero assegnazioni");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -80,7 +81,7 @@ router.get("/:spedizioneId/:ddtNumero", (req, res) => {
       totaleUnita: righe.reduce((sum, r) => sum + (r.quantita || 0), 0),
     });
   } catch (err) {
-    console.error("❌ Errore recupero righe DDT:", err);
+    logger.error({ err }, "Errore recupero righe DDT");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -139,7 +140,7 @@ router.post("/:spedizioneId/crea", (req, res) => {
       count: righe.length,
     });
   } catch (err) {
-    console.error("❌ Errore creazione assegnazioni:", err);
+    logger.error({ err }, "Errore creazione assegnazioni");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -186,7 +187,7 @@ router.post("/:spedizioneId/sposta", (req, res) => {
 
     if (esistenteDestinazione) {
       // CASO MERGE: Somma alla riga esistente e elimina quella spostata
-      console.log(`🔄 Merge: ${assegnazione.quantita} pz → riga esistente (${esistenteDestinazione.quantita} pz)`);
+      logger.info(`Merge: ${assegnazione.quantita} pz -> riga esistente (${esistenteDestinazione.quantita} pz)`);
       
       db.prepare("UPDATE ddt_assegnazioni SET quantita = quantita + ? WHERE id = ?")
         .run(assegnazione.quantita, esistenteDestinazione.id);
@@ -219,7 +220,7 @@ router.post("/:spedizioneId/sposta", (req, res) => {
       });
     }
   } catch (err) {
-    console.error("❌ Errore spostamento:", err);
+    logger.error({ err }, "Errore spostamento");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -331,7 +332,7 @@ router.post("/:spedizioneId/dividi", (req, res) => {
       message: `Prodotto diviso: ${quantitaDdt1} in DDT ${originale.ddt_numero}, ${quantitaDdt2} in DDT ${nuovoDdtNumero}`,
     });
   } catch (err) {
-    console.error("❌ Errore divisione:", err);
+    logger.error({ err }, "Errore divisione");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -354,7 +355,7 @@ router.delete("/:spedizioneId/reset", (req, res) => {
       message: `Assegnazioni eliminate: ${result.changes}`,
     });
   } catch (err) {
-    console.error("❌ Errore reset assegnazioni:", err);
+    logger.error({ err }, "Errore reset assegnazioni");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -403,7 +404,7 @@ router.get("/:spedizioneId/:ddtNumero/espandi", (req, res) => {
       righe: righeEspanse,
     });
   } catch (err) {
-    console.error("❌ Errore espansione righe:", err);
+    logger.error({ err }, "Errore espansione righe");
     res.status(500).json({ ok: false, error: err.message });
   }
 });

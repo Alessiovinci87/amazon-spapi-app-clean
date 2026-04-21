@@ -20,6 +20,10 @@ import {
   Tag,
   BoxSelect,
   Star,
+  DollarSign,
+  ShieldAlert,
+  RefreshCw,
+  Eye,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -51,6 +55,9 @@ const MENU = [
 
   { divider: true, label: "Analytics" },
   { to: "/uffici/vendite",         label: "Dashboard Vendite",   icon: TrendingUp },
+  { to: "/uffici/profittabilita",  label: "Profittabilità",      icon: DollarSign },
+  { to: "/uffici/copertura-fba",  label: "Copertura FBA",       icon: ShieldAlert },
+  { to: "/uffici/competitor",     label: "Competitor Watch",    icon: Eye },
   { to: "/uffici/resi-fba",       label: "Resi FBA",            icon: Package },
 
   { divider: true, label: "Storici e report" },
@@ -61,6 +68,9 @@ const MENU = [
   { divider: true, label: "Sfuso e produzione" },
   { to: "/magazzino/sfuso",         label: "Gestione sfuso", icon: FlaskConical },
   { to: "/magazzino/storici/sfuso", label: "Storico sfuso",  icon: Archive },
+
+  { divider: true, label: "Sistema" },
+  { to: "/uffici/sync",             label: "Sincronizzazioni", icon: RefreshCw },
 ];
 
 const SidebarUffici = () => {

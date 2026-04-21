@@ -14,6 +14,9 @@ import {
   ArrowRight,
   DollarSign,
   TrendingUp,
+  Percent,
+  ShieldAlert,
+  Eye,
 } from "lucide-react";
 
 const containerVariants = {
@@ -40,6 +43,9 @@ const MODULES_META = [
   { to: "/fba-gestione-prodotti",  icon: Box,        key: "fba",        accent: "cyan",    code: "08" },
   { to: "/uffici/bilancio",        icon: DollarSign, key: "bilancio",   accent: "teal",    code: "09" },
   { to: "/uffici/vendite",         icon: TrendingUp, key: "vendite",    accent: "blue",    code: "10" },
+  { to: "/uffici/profittabilita",  icon: Percent,    key: "profittabilita", accent: "emerald", code: "11" },
+  { to: "/uffici/copertura-fba",  icon: ShieldAlert, key: "copertura_fba", accent: "rose",    code: "12" },
+  { to: "/uffici/competitor",     icon: Eye,         key: "competitor",    accent: "indigo",  code: "13" },
 ];
 
 const ACCENT = {

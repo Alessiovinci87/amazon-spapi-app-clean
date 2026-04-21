@@ -6,6 +6,7 @@ const axios = require("axios");
 const zlib  = require("zlib");
 const { getAccessToken } = require("../auth/authService");
 const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -32,7 +33,7 @@ async function creaEAttendi(access_token, reportType, marketplaceId, extra = {})
       break;
     } catch (err) {
       if (err.response?.status === 429 && attempt < 2) {
-        console.log(`⏳ [Ledger] 429 su createReport (tentativo ${attempt + 1}/3) — attendo 65s…`);
+        logger.info(`⏳ [Ledger] 429 su createReport (tentativo ${attempt + 1}/3) — attendo 65s…`);
         await sleep(65000);
         continue;
       }
@@ -40,7 +41,7 @@ async function creaEAttendi(access_token, reportType, marketplaceId, extra = {})
     }
   }
   const reportId = createRes.data.reportId;
-  console.log(`📝 [Ledger] Report ${reportType} creato: ${reportId}`);
+  logger.info(`📝 [Ledger] Report ${reportType} creato: ${reportId}`);
 
   // 2. Poll fino a DONE (max 20 min)
   for (let i = 0; i < 150; i++) {
@@ -52,13 +53,13 @@ async function creaEAttendi(access_token, reportType, marketplaceId, extra = {})
     );
     const status = s.data.processingStatus;
     if (status === "DONE") {
-      console.log(`✅ [Ledger] Report ${reportId} completato`);
+      logger.info(`✅ [Ledger] Report ${reportId} completato`);
       return { reportId, reportDocumentId: s.data.reportDocumentId, fresh };
     }
     if (["CANCELLED", "FATAL"].includes(status)) {
       throw new Error(`Report ${reportId} terminato con stato ${status}`);
     }
-    console.log(`⏳ [Ledger] ${reportId} stato: ${status} (attesa ${i * 8}s)`);
+    logger.info(`⏳ [Ledger] ${reportId} stato: ${status} (attesa ${i * 8}s)`);
   }
   throw new Error(`Timeout: report ${reportId} non completato in 20 minuti`);
 }
@@ -82,7 +83,7 @@ async function scaricaDocumento(reportDocumentId) {
       return { tsv: buf.toString("utf-8"), compressionAlgorithm, byteLength };
     } catch (err) {
       if (err.response?.status === 403 || err.response?.status === 429) {
-        console.warn(`⏳ [Ledger] Retry download (${i + 1}/3)`);
+        logger.warn(`⏳ [Ledger] Retry download (${i + 1}/3)`);
         await sleep(30000);
         continue;
       }
@@ -103,13 +104,13 @@ async function scaricaDocumento(reportDocumentId) {
 // Detail:  country=country, reconciled quantity=saldo running, date and time=timestamp
 function parsaEAggiorna(db, tsvText, defaultCountry) {
   const lines = tsvText.split("\n").filter(l => l.trim());
-  console.log(`[Ledger] Righe dati (escluso header): ${lines.length - 1}`);
+  logger.info(`[Ledger] Righe dati (escluso header): ${lines.length - 1}`);
   if (lines.length <= 1) return 0;
 
   const headers = lines[0].split("\t").map(h => h.trim().toLowerCase().replace(/"/g, ""));
   const idx = name => headers.findIndex(h => h === name);
 
-  console.log("[Ledger] Headers:", headers.join(" | "));
+  logger.info("[Ledger] Headers:", headers.join(" | "));
 
   const iAsin = idx("asin");
   const iDisp = idx("disposition");
@@ -123,10 +124,10 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
   const iDt     = idx("date and time");
 
   const isSummary = iLoc !== -1 && iEnd !== -1;
-  console.log(`[Ledger] Formato: ${isSummary ? "SUMMARY (dati fisici per paese)" : "DETAIL (saldo running)"}`);
+  logger.info(`[Ledger] Formato: ${isSummary ? "SUMMARY (dati fisici per paese)" : "DETAIL (saldo running)"}`);
 
   if (iAsin === -1 || (!isSummary && iRecQty === -1)) {
-    console.warn("[Ledger] ⚠️ Formato non riconosciuto. Headers:", headers.join(", "));
+    logger.warn("[Ledger] ⚠️ Formato non riconosciuto. Headers:", headers.join(", "));
     return 0;
   }
 
@@ -161,7 +162,7 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
     agg[asin][country] = qty;
   }
 
-  console.log(`[Ledger] ASIN unici SELLABLE: ${Object.keys(agg).length}`);
+  logger.info(`[Ledger] ASIN unici SELLABLE: ${Object.keys(agg).length}`);
 
   const stmt = db.prepare(`
     INSERT INTO fba_stock (asin, sku, product_name, country, quantity, stock_totale, updated_at)
@@ -250,7 +251,7 @@ async function aggiornaLedgerStock() {
   ];
 
   for (const { label, reportType, start, end, options } of TENTATIVI) {
-    console.log(`📊 [Ledger] ${label}: ${start} → ${end}`);
+    logger.info(`📊 [Ledger] ${label}: ${start} → ${end}`);
     let attempts = 0;
     while (attempts < 3) {
       attempts++;
@@ -266,15 +267,15 @@ async function aggiornaLedgerStock() {
         const updated = parsaEAggiorna(db, tsv, "IT");
 
         if (updated > 0) {
-          console.log(`✅ [Ledger] Aggiornate ${updated} righe per paese (${label})`);
+          logger.info(`✅ [Ledger] Aggiornate ${updated} righe per paese (${label})`);
           return { ok: true, righeAggiornate: updated };
         }
-        console.log(`⚠️ [Ledger] ${label}: 0 righe SELLABLE, provo il prossimo tentativo…`);
+        logger.info(`⚠️ [Ledger] ${label}: 0 righe SELLABLE, provo il prossimo tentativo…`);
         break; // 0 righe → passa al prossimo label senza retry
       } catch (err) {
-        console.error(`❌ [Ledger] Errore ${label} (tentativo ${attempts}/3): ${err.message}`);
+        logger.error(`❌ [Ledger] Errore ${label} (tentativo ${attempts}/3): ${err.message}`);
         if (err.response?.status === 429 && attempts < 3) {
-          console.log(`⏳ [Ledger] Rate limit — attendo 65s prima di riprovare ${label}…`);
+          logger.info(`⏳ [Ledger] Rate limit — attendo 65s prima di riprovare ${label}…`);
           await sleep(65000);
           continue; // riprova stesso tentativo
         }
@@ -283,7 +284,7 @@ async function aggiornaLedgerStock() {
     }
   }
 
-  console.warn("⚠️ [Ledger] Nessun dato SELLABLE trovato in nessun tentativo.");
+  logger.warn("⚠️ [Ledger] Nessun dato SELLABLE trovato in nessun tentativo.");
   return { ok: true, righeAggiornate: 0, avviso: "Nessun dato inventario trovato nel Ledger EU." };
 }
 

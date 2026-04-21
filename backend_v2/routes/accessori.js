@@ -1,5 +1,6 @@
 // backend_v2/routes/accessori.js
 const express = require('express');
+const logger = require("../utils/logger");
 const { z } = require("zod");
 const path = require("path");
 const fs = require("fs");
@@ -46,7 +47,7 @@ const updateQtaSchema = z.object({
 });
 
 router.use((req, _res, next) => {
-  console.log(`[ACCESSORI] ${req.method} ${req.originalUrl}`);
+  logger.info(`[ACCESSORI] ${req.method} ${req.originalUrl}`);
   next();
 });
 

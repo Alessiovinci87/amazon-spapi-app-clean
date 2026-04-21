@@ -1,5 +1,6 @@
 // backend_v2/controllers/movimentiController.js
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 
 /* =========================================================
    💾 CONTROLLER MOVIMENTI
@@ -48,7 +49,7 @@ exports.salvaMovimento = (req, res) => {
       id: result.lastInsertRowid,
     });
   } catch (err) {
-    console.error("❌ Errore salvataggio movimento:", err);
+    logger.error({ err }, "Errore salvataggio movimento");
     res.status(500).json({ ok: false, message: "Errore salvataggio movimento" });
   }
 };
@@ -65,7 +66,7 @@ exports.listaMovimenti = (req, res) => {
       .all();
     res.json({ ok: true, data });
   } catch (err) {
-    console.error("❌ Errore lettura movimenti:", err);
+    logger.error({ err }, "Errore lettura movimenti");
     res.status(500).json({ ok: false, message: err.message });
   }
 };

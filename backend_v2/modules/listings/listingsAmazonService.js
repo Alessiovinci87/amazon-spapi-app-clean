@@ -1,5 +1,6 @@
 // backend_v2/modules/listings/listingsAmazonService.js
 const axios = require("axios");
+const logger = require("../../utils/logger");
 const { sign } = require("aws4");
 const { getAccessToken } = require("../auth/authService");
 
@@ -64,17 +65,17 @@ async function sendSignedRequest(method, urlPath, query = "", body = null) {
     });
     return response.data;
   } catch (err) {
-    console.error(`❌ Errore SP-API [${method} ${urlPath}]`);
+    logger.error(`❌ Errore SP-API [${method} ${urlPath}]`);
     if (err.response) {
-      console.error("Status:", err.response.status);
-      console.error("Data:", JSON.stringify(err.response.data, null, 2));
+      logger.error("Status:", err.response.status);
+      logger.error("Data:", JSON.stringify(err.response.data, null, 2));
       return {
         error: true,
         status: err.response.status,
         data: err.response.data,
       };
     }
-    console.error(err.message);
+    logger.error(err.message);
     return { error: true, message: err.message };
   }
 }
@@ -125,7 +126,7 @@ async function getSubmissionStatus(sku, submissionId, marketplaceIds = ["APJ6JRA
 async function patchListingItem(sku, payload, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   const encodedSku = encodeURIComponent(sku);
   const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
-  console.log("👉 PATCH Listing:", { sku, marketplaceIds, payload });
+  logger.info("👉 PATCH Listing:", { sku, marketplaceIds, payload });
   return await sendSignedRequest(
     "PATCH",
     urlPath,
@@ -140,7 +141,7 @@ async function patchListingItem(sku, payload, marketplaceIds = ["APJ6JRA9NG5V4"]
 async function deleteListingItem(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   const encodedSku = encodeURIComponent(sku);
   const urlPath = `/listings/2021-08-01/items/${SELLER_ID}/${encodedSku}`;
-  console.log("👉 DELETE Listing:", { sku, marketplaceIds });
+  logger.info("👉 DELETE Listing:", { sku, marketplaceIds });
   return await sendSignedRequest("DELETE", urlPath, {
     marketplaceIds: marketplaceIds.join(","),
   });
@@ -162,7 +163,7 @@ async function createFeedDocument() {
     contentType: "application/json; charset=utf-8",
   });
   if (result.error) throw new Error(`createFeedDocument failed: ${JSON.stringify(result.data || result.message)}`);
-  console.log("[Feed] Document creato:", result.feedDocumentId);
+  logger.info("[Feed] Document creato:", result.feedDocumentId);
   return result; // { feedDocumentId, url }
 }
 
@@ -171,11 +172,11 @@ async function createFeedDocument() {
  */
 async function uploadFeedContent(uploadUrl, jsonContent) {
   const body = JSON.stringify(jsonContent);
-  console.log("[Feed] Upload content:", body.substring(0, 200) + "...");
+  logger.info("[Feed] Upload content:", body.substring(0, 200) + "...");
   await axios.put(uploadUrl, body, {
     headers: { "Content-Type": "application/json; charset=utf-8" },
   });
-  console.log("[Feed] Upload completato");
+  logger.info("[Feed] Upload completato");
 }
 
 /**
@@ -188,7 +189,7 @@ async function createFeed(feedDocumentId, marketplaceIds = ["APJ6JRA9NG5V4"]) {
     inputFeedDocumentId: feedDocumentId,
   });
   if (result.error) throw new Error(`createFeed failed: ${JSON.stringify(result.data || result.message)}`);
-  console.log("[Feed] Feed avviato:", result.feedId);
+  logger.info("[Feed] Feed avviato:", result.feedId);
   return result; // { feedId }
 }
 
@@ -200,11 +201,11 @@ async function waitForFeed(feedId, maxAttempts = 20) {
     await sleep(10000);
     const result = await sendSignedRequest("GET", `/feeds/2021-06-30/feeds/${feedId}`);
     if (result.error) {
-      console.warn("[Feed] Errore polling:", result.data || result.message);
+      logger.warn("[Feed] Errore polling:", result.data || result.message);
       continue;
     }
     const status = result.processingStatus;
-    console.log(`[Feed] Polling ${i + 1}/${maxAttempts}: ${status}`);
+    logger.info(`[Feed] Polling ${i + 1}/${maxAttempts}: ${status}`);
     if (status === "DONE" || status === "CANCELLED" || status === "FATAL") {
       return result;
     }
@@ -249,7 +250,7 @@ async function getFeedResult(resultFeedDocumentId) {
  * @param {string[]} marketplaceIds
  */
 async function updateListingViaFeed(sku, productType, attributes, marketplaceIds = ["APJ6JRA9NG5V4"]) {
-  console.log(`[Feed] Avvio update listing: SKU=${sku}, productType=${productType}`);
+  logger.info(`[Feed] Avvio update listing: SKU=${sku}, productType=${productType}`);
 
   const feedContent = {
     header: {

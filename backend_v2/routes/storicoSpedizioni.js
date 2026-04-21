@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 
 // 📜 GET storico spedizioni
 router.get("/", (req, res) => {
@@ -18,7 +19,7 @@ router.get("/", (req, res) => {
 
     res.json(storico);
   } catch (err) {
-    console.error("❌ Errore recupero storico spedizioni:", err);
+    logger.error({ err }, "Errore recupero storico spedizioni");
     res.status(500).json({ error: "Errore caricamento storico spedizioni" });
   }
 });

@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const cron = require("node-cron");
 const { getDb, getDbPath } = require("../../db/database");
+const logger = require("../../utils/logger");
 
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(path.dirname(getDbPath()), "backups");
 const BACKUP_DIR_SECONDARY = process.env.BACKUP_DIR_SECONDARY || "";
@@ -32,10 +33,10 @@ function mirrorToSecondary(sourcePath, filename) {
     ensureBackupDir(BACKUP_DIR_SECONDARY);
     const destPath = path.join(BACKUP_DIR_SECONDARY, filename);
     fs.copyFileSync(sourcePath, destPath);
-    console.log(`🪞 Backup copiato su secondario: ${destPath}`);
+    logger.info(`🪞 Backup copiato su secondario: ${destPath}`);
     rotateBackupsInDir(BACKUP_DIR_SECONDARY);
   } catch (err) {
-    console.error(`❌ Errore copia backup secondario (${BACKUP_DIR_SECONDARY}):`, err.message);
+    logger.error(`❌ Errore copia backup secondario (${BACKUP_DIR_SECONDARY}):`, err.message);
   }
 }
 
@@ -54,7 +55,7 @@ function rotateBackupsInDir(dir) {
   if (files.length > MAX_BACKUPS) {
     for (const f of files.slice(MAX_BACKUPS)) {
       fs.unlinkSync(f.path);
-      console.log(`🗑️  Backup rimosso (rotazione, ${dir}): ${f.name}`);
+      logger.info(`🗑️  Backup rimosso (rotazione, ${dir}): ${f.name}`);
     }
   }
 }
@@ -87,7 +88,7 @@ async function runBackup(manual = false) {
     type: tag,
   };
 
-  console.log(`💾 Backup ${tag} completato: ${filename} (${sizeMB} MB)`);
+  logger.info(`💾 Backup ${tag} completato: ${filename} (${sizeMB} MB)`);
 
   rotateBackups();
   mirrorToSecondary(destPath, filename);
@@ -138,10 +139,10 @@ function getLastBackupMtime() {
  * Avvia il cron job e fa un backup all'avvio se l'ultimo è troppo vecchio.
  */
 function startBackupCron() {
-  console.log(`⏰ Backup cron schedulato: "${BACKUP_CRON}" (mantiene ultimi ${MAX_BACKUPS})`);
-  console.log(`📁 Directory backup: ${BACKUP_DIR}`);
+  logger.info(`⏰ Backup cron schedulato: "${BACKUP_CRON}" (mantiene ultimi ${MAX_BACKUPS})`);
+  logger.info(`📁 Directory backup: ${BACKUP_DIR}`);
   if (BACKUP_DIR_SECONDARY) {
-    console.log(`🪞 Directory backup secondaria: ${BACKUP_DIR_SECONDARY}`);
+    logger.info(`🪞 Directory backup secondaria: ${BACKUP_DIR_SECONDARY}`);
   }
 
   // Backup all'avvio se l'ultimo è più vecchio di BACKUP_STARTUP_MAX_AGE_HOURS
@@ -151,19 +152,19 @@ function startBackupCron() {
     const reason = lastMtime
       ? `ultimo backup ${ageHours.toFixed(1)}h fa`
       : "nessun backup esistente";
-    console.log(`🔄 Backup all'avvio (${reason})…`);
+    logger.info(`🔄 Backup all'avvio (${reason})…`);
     runBackup(false).catch((err) =>
-      console.error("❌ Errore backup all'avvio:", err.message)
+      logger.error("❌ Errore backup all'avvio:", err.message)
     );
   } else {
-    console.log(`✔️  Ultimo backup ${ageHours.toFixed(1)}h fa, nessun backup all'avvio necessario`);
+    logger.info(`✔️  Ultimo backup ${ageHours.toFixed(1)}h fa, nessun backup all'avvio necessario`);
   }
 
   cron.schedule(BACKUP_CRON, async () => {
     try {
       await runBackup(false);
     } catch (err) {
-      console.error("❌ Errore backup automatico:", err.message);
+      logger.error("❌ Errore backup automatico:", err.message);
     }
   });
 }

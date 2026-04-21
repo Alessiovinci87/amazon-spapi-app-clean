@@ -5,6 +5,7 @@ const { z } = require("zod");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 // ===== Schemas =====
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -83,7 +84,7 @@ router.get("/ordini-tutti", (req, res) => {
     const ordini = db.prepare(query).all();
     res.json(ordini || []);
   } catch (err) {
-    console.error("❌ Errore caricamento ordini:", err);
+    logger.error({ err }, "Errore caricamento ordini");
     res.status(500).json({ error: "Errore interno del server" });
   }
 });
@@ -111,7 +112,7 @@ router.delete("/ordini/:idOrdine", validate({ params: idOrdineParam }), (req, re
 
     res.json({ ok: true, message: "Ordine eliminato correttamente" });
   } catch (err) {
-    console.error("❌ Errore eliminazione ordine:", err);
+    logger.error({ err }, "Errore eliminazione ordine");
     res.status(500).json({ ok: false, message: "Errore durante l'eliminazione dell'ordine." });
   }
 });
@@ -222,7 +223,7 @@ router.patch("/ordini/:idOrdine/ricevi", validate({ params: idOrdineParam, body:
 
     res.json({ ok: true, message: isParziale ? `Ricezione parziale: ${qtaRicevuta}L ricevuti, ${qtaOriginale - qtaRicevuta}L in attesa` : "Ricezione confermata", ordine: updated });
   } catch (err) {
-    console.error("Errore ricezione ordine:", err);
+    logger.error({ err }, "Errore ricezione ordine");
     res.status(500).json({ ok: false, message: "Errore durante la ricezione." });
   }
 });
@@ -236,7 +237,7 @@ router.get("/", (req, res) => {
     const fornitori = db.prepare("SELECT * FROM fornitori ORDER BY nome ASC").all();
     res.json(fornitori);
   } catch (err) {
-    console.error("❌ Errore caricamento fornitori:", err);
+    logger.error({ err }, "Errore caricamento fornitori");
     res.status(500).json({ error: "Errore interno del server" });
   }
 });
@@ -271,7 +272,7 @@ router.get("/sfuso/:idSfuso/ordini", (req, res) => {
     const ordini = db.prepare(query).all(idSfuso);
     res.json(ordini || []);
   } catch (err) {
-    console.error("❌ Errore caricamento ordini per sfuso:", err);
+    logger.error({ err }, "Errore caricamento ordini per sfuso");
     res.status(500).json({ ok: false, error: "Errore caricamento ordini per sfuso" });
   }
 });
@@ -315,7 +316,7 @@ router.get("/:id/prodotti", (req, res) => {
 
     res.json(prodotti || []);
   } catch (err) {
-    console.error("❌ Errore caricamento prodotti fornitore:", err);
+    logger.error({ err }, "Errore caricamento prodotti fornitore");
     res.status(500).json({ error: "Errore server" });
   }
 });
@@ -338,7 +339,7 @@ router.post("/", validate({ body: fornitoreBodySchema }), (req, res) => {
 
     res.json({ ok: true, id: result.lastInsertRowid, message: "Fornitore aggiunto correttamente" });
   } catch (err) {
-    console.error("❌ Errore salvataggio fornitore:", err);
+    logger.error({ err }, "Errore salvataggio fornitore");
     res.status(500).json({ error: "Errore durante il salvataggio" });
   }
 });
@@ -409,7 +410,7 @@ router.post("/:idFornitore/ordini", validate({ params: idFornitoreParam, body: c
     transaction();
     res.json({ ok: true, message: "Ordine fornitore inserito correttamente" });
   } catch (err) {
-    console.error("❌ Errore inserimento ordine fornitore:", err);
+    logger.error({ err }, "Errore inserimento ordine fornitore");
     res.status(500).json({ error: "Errore durante l'inserimento ordine fornitore" });
   }
 });
@@ -452,7 +453,7 @@ router.get("/:id/ordini", (req, res) => {
     const ordini = db.prepare(query).all(id);
     res.json(ordini || []);
   } catch (err) {
-    console.error("❌ Errore caricamento ordini per fornitore:", err);
+    logger.error({ err }, "Errore caricamento ordini per fornitore");
     res.status(500).json({ error: "Errore durante il caricamento ordini fornitore" });
   }
 });
@@ -497,7 +498,7 @@ router.get("/ordini/asin/:asin", (req, res) => {
       quantita: ordineAttivo.quantita || 0
     });
   } catch (err) {
-    console.error("❌ Errore caricamento ordini per ASIN:", err);
+    logger.error({ err }, "Errore caricamento ordini per ASIN");
     res.status(500).json({ error: "Errore durante il caricamento ordini fornitore" });
   }
 });
@@ -528,7 +529,7 @@ router.patch("/:id", validate({ params: idParam, body: fornitorePatchSchema }), 
 
     res.json({ ok: true, message: "Fornitore aggiornato correttamente" });
   } catch (err) {
-    console.error("❌ Errore aggiornamento fornitore:", err);
+    logger.error({ err }, "Errore aggiornamento fornitore");
     res.status(500).json({ ok: false, message: "Errore durante l'aggiornamento" });
   }
 });
@@ -544,7 +545,7 @@ router.delete("/:id/ordini", validate({ params: idParam }), (req, res) => {
     db.prepare("DELETE FROM ordini_fornitori WHERE id_fornitore = ?").run(id);
     res.json({ ok: true, message: `Eliminati ${count} ordini del fornitore`, count });
   } catch (err) {
-    console.error("❌ Errore eliminazione ordini del fornitore:", err);
+    logger.error({ err }, "Errore eliminazione ordini del fornitore");
     res.status(500).json({ ok: false, message: "Errore durante l'eliminazione degli ordini." });
   }
 });

@@ -1,5 +1,6 @@
 // backend_v2/modules/auth/authService.js
 const axios = require("axios");
+const logger = require("../../utils/logger");
 
 const LWA_ENDPOINT = "https://api.amazon.com/auth/o2/token";
 
@@ -28,7 +29,7 @@ async function getAccessToken() {
       throw new Error("Variabili LWA mancanti! Controlla il file .env");
     }
 
-    console.log("🔄 Richiesta nuovo access_token a Amazon...");
+    logger.info("Richiesta nuovo access_token a Amazon...");
 
     const response = await axios.post(
       LWA_ENDPOINT,
@@ -47,11 +48,11 @@ async function getAccessToken() {
     // Rinnova 60 secondi prima della scadenza reale
     _tokenExpiresAt = now + (expires_in - 60) * 1000;
 
-    console.log(`✅ Access token ottenuto (expires_in: ${expires_in}s, type: ${token_type})`);
+    logger.info(`Access token ottenuto (expires_in: ${expires_in}s, type: ${token_type})`);
 
     return _cachedToken;
   } catch (err) {
-    console.error("❌ Errore richiesta access_token:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore richiesta access_token");
     throw new Error("Impossibile ottenere access_token");
   }
 }

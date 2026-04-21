@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   PackageX,
   RefreshCw,
+  Loader2,
   Search,
   Filter,
   BarChart3,
@@ -40,15 +41,24 @@ function DispositionBadge({ value }) {
 
 const ResiFBA = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [returns, setReturns] = useState([]);
   const [stats, setStats] = useState({});
   const [reasons, setReasons] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filterReason, setFilterReason] = useState("");
-  const [tab, setTab] = useState("lista");
+  const [search, setSearch] = useState(() => searchParams.get("q") || "");
+  const [filterReason, setFilterReason] = useState(() => searchParams.get("reason") || "");
+  const [tab, setTab] = useState(() => searchParams.get("tab") || "lista");
+
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (tab && tab !== "lista") p.set("tab", tab);
+    if (search) p.set("q", search);
+    if (filterReason) p.set("reason", filterReason);
+    setSearchParams(p, { replace: true });
+  }, [tab, search, filterReason]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -194,7 +204,7 @@ const ResiFBA = () => {
             </div>
 
             {loading ? (
-              <div className="text-center py-16 text-slate-500">Caricamento...</div>
+              <div className="text-center py-16"><Loader2 className="w-8 h-8 text-violet-400 animate-spin mx-auto mb-2" /><span className="text-sm text-slate-500">Caricamento...</span></div>
             ) : filtered.length === 0 ? (
               <div className="text-center py-16">
                 <PackageX className="w-10 h-10 text-slate-700 mx-auto mb-3" />

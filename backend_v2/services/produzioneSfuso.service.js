@@ -1,4 +1,5 @@
 // backend_v2/services/produzioneSfuso.service.js
+const logger = require("../utils/logger");
 const { getDb } = require("../db/database");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
 const magazzinoService = require("./magazzino.service");
@@ -93,7 +94,7 @@ function creaProduzioneDaPrenotazione(prenotazione) {
             asin_prodotto = asinList[0];
           }
         } catch (e) {
-          console.warn("⚠️ Errore parsing asin_collegati:", e.message);
+          logger.warn({ err: e }, "Errore parsing asin_collegati");
         }
       }
     }

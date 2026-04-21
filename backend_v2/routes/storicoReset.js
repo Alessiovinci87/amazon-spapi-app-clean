@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database.js");
+const logger = require("../utils/logger");
 
 // RESET STORICO PRODUZIONI
 router.delete("/storico/reset", (req, res) => {
@@ -11,7 +12,7 @@ router.delete("/storico/reset", (req, res) => {
 
     res.json({ ok: true, message: "Storico produzioni svuotato correttamente." });
   } catch (err) {
-    console.error("❌ Errore reset storico:", err.message);
+    logger.error({ err }, "Errore reset storico");
     res.status(500).json({ ok: false, error: err.message });
   }
 });

@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 
 /**
  * 📦 Recupera tutte le spedizioni confermate per pre-bolle DDT
@@ -53,7 +54,7 @@ router.get("/", (req, res) => {
 
         res.json(prebolle);
     } catch (err) {
-        console.error("❌ Errore recupero prebolle:", err);
+        logger.error({ err }, "Errore recupero prebolle");
         res.status(500).json({ error: "Errore nel recupero prebolle" });
     }
 });

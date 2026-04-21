@@ -67,6 +67,11 @@ import Settings from "./pages/Settings";
 import CentroAlert from "./pages/CentroAlert";
 import ResiFBA from "./pages/ResiFBA";
 import DashboardVendite from "./pages/DashboardVendite";
+import DashboardProfitability from "./pages/DashboardProfitability";
+import CopertureFBA from "./pages/CopertureFBA";
+import CentroSync from "./pages/CentroSync";
+import CompetitorWatch from "./pages/CompetitorWatch";
+import CompetitorStorico from "./pages/CompetitorStorico";
 
 function App() {
   return (
@@ -145,6 +150,11 @@ function App() {
         <Route path="/uffici/alert-center" element={<CentroAlert />} />
         <Route path="/uffici/resi-fba" element={<ResiFBA />} />
         <Route path="/uffici/vendite" element={<DashboardVendite />} />
+        <Route path="/uffici/profittabilita" element={<DashboardProfitability />} />
+        <Route path="/uffici/copertura-fba" element={<CopertureFBA />} />
+        <Route path="/uffici/sync" element={<CentroSync />} />
+        <Route path="/uffici/competitor" element={<CompetitorWatch />} />
+        <Route path="/uffici/competitor/storico" element={<CompetitorStorico />} />
 
         {/* ==================== REDIRECT VECCHIE ROTTE ==================== */}
 
@@ -186,6 +196,9 @@ function App() {
         <Route path="/storico" element={<Navigate to="/uffici/storici/movimenti" replace />} />
 
       </Route>
+
+      {/* 404 catch-all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

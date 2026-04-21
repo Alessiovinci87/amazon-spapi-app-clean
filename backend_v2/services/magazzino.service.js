@@ -1,3 +1,4 @@
+const logger = require("../utils/logger");
 const { getDb } = require("../db/database");
 const {
   distinguiTipoMovimento,
@@ -76,7 +77,7 @@ function getImpegnatoPerProdotto(asin) {
 
 /** ✏️ Imposta pronto (PRODUZIONE o RETTIFICA) */
 function setProntoAssoluto({ asin, nuovoPronto, note = "", operatore = "system" }) {
-  console.log("📌 setProntoAssoluto() → asin:", asin, "nuovoPronto:", nuovoPronto);
+  logger.info({ asin, nuovoPronto }, "setProntoAssoluto()");
 
   const db = getDb();
   const tx = db.transaction(() => {
@@ -101,7 +102,7 @@ function setProntoAssoluto({ asin, nuovoPronto, note = "", operatore = "system" 
     }
 
     const result = db.prepare(`UPDATE prodotti SET pronto=? WHERE asin=?`).run(nuovo, asin);
-    console.log("📌 UPDATE prodotti → changes:", result.changes);
+    logger.info({ changes: result.changes }, "UPDATE prodotti");
 
 
     registraMovimento({
@@ -121,7 +122,7 @@ function setProntoAssoluto({ asin, nuovoPronto, note = "", operatore = "system" 
 /** ➕ Produzione a delta */
 
 function produceDelta({ asin, qty, note = "", operatore = "system" }) {
-  console.log("📌 produceDelta() chiamato con:", { asin, qty });
+  logger.info({ asin, qty }, "produceDelta() chiamato");
   if (qty <= 0) throw new Error("qty deve essere > 0");
   const db = getDb();
   const cur = db.prepare(`SELECT pronto FROM prodotti WHERE asin=?`).get(asin);
@@ -177,7 +178,7 @@ function createProdotto(payload) {
   const pronto = Number(payload.pronto) || 0;
   const immagine = payload.immagine || payload.immagine_main || "";
   
-  console.log(`🆕 Creazione prodotto: ${nome} (ASIN: ${asin})`);
+  logger.info({ nome, asin }, "Creazione prodotto");
   
   // Verifica se ASIN esiste già
   const existing = db.prepare("SELECT asin FROM prodotti WHERE asin = ?").get(asin);
@@ -191,7 +192,7 @@ function createProdotto(payload) {
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(asin, sku, nome, formato, categoria, pronto, immagine);
   
-  console.log(`✅ Prodotto creato con ID: ${result.lastInsertRowid}`);
+  logger.info({ id: result.lastInsertRowid }, "Prodotto creato");
   
   return {
     id: result.lastInsertRowid,
@@ -209,20 +210,20 @@ function createProdotto(payload) {
 function deleteProdotto(asin) {
   const db = getDb();
   
-  console.log(`🗑️ Eliminazione prodotto: ${asin}`);
+  logger.info({ asin }, "Eliminazione prodotto");
   
   // Verifica che il prodotto esista
   const prodotto = db.prepare("SELECT * FROM prodotti WHERE asin = ?").get(asin);
   
   if (!prodotto) {
-    console.log(`❌ Prodotto non trovato: ${asin}`);
+    logger.warn({ asin }, "Prodotto non trovato per eliminazione");
     return { changes: 0, asin };
   }
   
   // Esegui la DELETE
   const result = db.prepare("DELETE FROM prodotti WHERE asin = ?").run(asin);
   
-  console.log(`✅ Prodotto eliminato: ${asin}, changes: ${result.changes}`);
+  logger.info({ asin, changes: result.changes }, "Prodotto eliminato");
   
   return {
     changes: result.changes,

@@ -5,6 +5,7 @@ const { getDb } = require("../db/database");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
 const storicoService = require("../services/storicoProduzioniSfuso.service");
+const logger = require("../utils/logger");
 
 const eventoSchema = z.object({
   id_produzione: z.coerce.number().int().positive(),
@@ -77,7 +78,7 @@ router.get("/", (req, res) => {
     res.json({ ok: true, data: rows });
 
   } catch (err) {
-    console.error("❌ Errore GET storico unificato:", err);
+    logger.error({ err }, "Errore GET storico unificato");
     res.status(500).json({ ok: false, message: err.message });
   }
 });
@@ -105,7 +106,7 @@ router.post("/", validate({ body: eventoSchema }), (req, res) => {
     res.json({ ok: true, message: "Evento storico registrato" });
 
   } catch (err) {
-    console.error("❌ Errore POST storico produzioni:", err);
+    logger.error({ err }, "Errore POST storico produzioni");
     res.status(500).json({ ok: false, message: err.message });
   }
 });

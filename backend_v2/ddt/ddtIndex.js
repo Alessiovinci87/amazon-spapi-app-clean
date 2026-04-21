@@ -1,12 +1,13 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const logger = require("../utils/logger");
 let puppeteer;
 
 try {
   puppeteer = require("puppeteer");
 } catch (err) {
-  console.warn("⚠️ Puppeteer non installato, modalità PDF disattivata temporaneamente");
+  logger.warn("Puppeteer non installato, modalita PDF disattivata temporaneamente");
 }
 
 const { getDb } = require("../db/database");
@@ -179,10 +180,10 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
             checkSottoSogliaOnestep(db, r.asin);
           }
         })();
-        console.log(`📦 [OneStep] Scaricati ${righeOnestep.length} ASIN da DDT #${spedizione.progressivo}`);
+        logger.info(`[OneStep] Scaricati ${righeOnestep.length} ASIN da DDT #${spedizione.progressivo}`);
       }
     } catch (hookErr) {
-      console.warn("⚠️ [OneStep] Hook DDT non critico:", hookErr.message);
+      logger.warn({ err: hookErr }, "[OneStep] Hook DDT non critico");
     }
 
     // 🔗 Hook Top Coat: scarica stock per ogni ASIN Top Coat presente nel DDT
@@ -205,10 +206,10 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
             checkSottoSogliaTopcoat(db, r.asin);
           }
         })();
-        console.log(`📦 [TopCoat] Scaricati ${righeTopcoat.length} ASIN da DDT #${spedizione.progressivo}`);
+        logger.info(`[TopCoat] Scaricati ${righeTopcoat.length} ASIN da DDT #${spedizione.progressivo}`);
       }
     } catch (hookErr) {
-      console.warn("⚠️ [TopCoat] Hook DDT non critico:", hookErr.message);
+      logger.warn({ err: hookErr }, "[TopCoat] Hook DDT non critico");
     }
 
     // 🔗 Hook Moduli Custom: scarica stock per ogni modulo dinamico
@@ -234,14 +235,14 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
               checkSottoSogliaModulo(db, m.id, r.asin);
             }
           })();
-          console.log(`📦 [Modulo ${m.label}] Scaricati ${righeModulo.length} ASIN da DDT #${spedizione.progressivo}`);
+          logger.info(`[Modulo ${m.label}] Scaricati ${righeModulo.length} ASIN da DDT #${spedizione.progressivo}`);
         }
       }
     } catch (hookErr) {
-      console.warn("⚠️ [Moduli Custom] Hook DDT non critico:", hookErr.message);
+      logger.warn({ err: hookErr }, "[Moduli Custom] Hook DDT non critico");
     }
   } catch (err) {
-    console.error("❌ Errore Puppeteer (PDF):", err);
+    logger.error({ err }, "Errore Puppeteer (PDF)");
     res
       .status(500)
       .json({ error: "Errore generazione PDF", details: err.message });
@@ -282,7 +283,7 @@ router.get("/test", async (req, res) => {
     res.setHeader("Content-Disposition", "inline; filename=test.pdf");
     res.end(pdfBuffer);
   } catch (err) {
-    console.error("❌ Errore Puppeteer test:", err);
+    logger.error({ err }, "Errore Puppeteer test");
     res
       .status(500)
       .json({ error: "Errore generazione PDF", details: err.message });

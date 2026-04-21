@@ -3,6 +3,7 @@ const zlib = require("zlib");
 const axios = require("axios");
 const { getAccessToken } = require("../auth/authService");
 const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 const MARKETPLACES = {
@@ -78,17 +79,17 @@ async function checkExistingReport(access_token, marketplaceId) {
     const latest = reports.sort(
       (a, b) => new Date(b.createdTime) - new Date(a.createdTime)
     )[0];
-    console.log(`[SalesTraffic] Report pronto: ${latest.reportId}`);
+    logger.info(`[SalesTraffic] Report pronto: ${latest.reportId}`);
     return latest;
   } catch (err) {
-    console.warn("[SalesTraffic] checkExistingReport:", err.message);
+    logger.warn("[SalesTraffic] checkExistingReport:", err.message);
     return null;
   }
 }
 
 // Aggiorna dati di vendita e traffico
 async function aggiornaSalesTraffic() {
-  console.log("[SalesTraffic] Avvio aggiornamento...");
+  logger.info("[SalesTraffic] Avvio aggiornamento...");
   ensureTable();
 
   const db = getDb();
@@ -108,7 +109,7 @@ async function aggiornaSalesTraffic() {
   `);
 
   for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
-    console.log(`[SalesTraffic] Marketplace: ${country}`);
+    logger.info(`[SalesTraffic] Marketplace: ${country}`);
 
     // Skip se abbiamo gia molti giorni di dati per questo country e aggiornamento recente
     const dataCount = db.prepare(
@@ -122,7 +123,7 @@ async function aggiornaSalesTraffic() {
       if (lastUpdate?.last_ts) {
         const hoursSince = (Date.now() - new Date(lastUpdate.last_ts).getTime()) / (1000 * 60 * 60);
         if (hoursSince < 12) {
-          console.log(`[SalesTraffic] ${country}: ${dataCount.days} giorni in DB, aggiornato ${hoursSince.toFixed(1)}h fa, skip`);
+          logger.info(`[SalesTraffic] ${country}: ${dataCount.days} giorni in DB, aggiornato ${hoursSince.toFixed(1)}h fa, skip`);
           continue;
         }
       }
@@ -165,7 +166,7 @@ async function aggiornaSalesTraffic() {
           );
 
           reportId = createRes.data.reportId;
-          console.log(`[SalesTraffic] Creato report ${reportId} (${country})`);
+          logger.info(`[SalesTraffic] Creato report ${reportId} (${country})`);
 
           // Attendi completamento
           let status = "IN_PROGRESS";
@@ -184,7 +185,7 @@ async function aggiornaSalesTraffic() {
         }
 
         // Scarica e decomprimi
-        console.log(`[SalesTraffic] Scarico documento ${reportDocumentId}...`);
+        logger.info(`[SalesTraffic] Scarico documento ${reportDocumentId}...`);
         const freshToken = (await getAccessToken()).access_token;
         const metaRes = await axios.get(
           `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
@@ -233,7 +234,7 @@ async function aggiornaSalesTraffic() {
             }
           });
           insertDailyTx(json.salesAndTrafficByDate);
-          console.log(`[SalesTraffic] ${country}: ${insertedDaily} giorni salvati in sales_daily`);
+          logger.info(`[SalesTraffic] ${country}: ${insertedDaily} giorni salvati in sales_daily`);
         }
 
         // --- SEZIONE 2: dettaglio per ASIN (sales_traffic) ---
@@ -267,11 +268,11 @@ async function aggiornaSalesTraffic() {
         }
 
         if (!insertedDaily && !insertedAsin) {
-          console.warn(`[SalesTraffic] Nessun dato nel report per ${country}`);
+          logger.warn(`[SalesTraffic] Nessun dato nel report per ${country}`);
           break;
         }
 
-        console.log(`[SalesTraffic] ${country}: ${insertedAsin} ASIN salvati in sales_traffic`);
+        logger.info(`[SalesTraffic] ${country}: ${insertedAsin} ASIN salvati in sales_traffic`);
         totalInserted += insertedDaily + insertedAsin;
         success = true;
       } catch (err) {
@@ -279,27 +280,27 @@ async function aggiornaSalesTraffic() {
         const code = err.response?.status;
         const amzMsg = err.response?.data?.errors?.[0]?.message || err.response?.data;
         if (code === 429 || code === 403) {
-          console.warn(`[SalesTraffic] Limite per ${country} (${code}): ${amzMsg || err.message}`);
+          logger.warn(`[SalesTraffic] Limite per ${country} (${code}): ${amzMsg || err.message}`);
           if (attempt < 2) {
-            console.warn(`[SalesTraffic] Retry tra 90s...`);
+            logger.warn(`[SalesTraffic] Retry tra 90s...`);
             await sleep(90000);
           }
         } else {
-          console.warn(`[SalesTraffic] Errore ${country} (${code || "?"}):`, amzMsg || err.message);
+          logger.warn(`[SalesTraffic] Errore ${country} (${code || "?"}):`, amzMsg || err.message);
           break;
         }
       }
     }
 
     if (!success) {
-      console.error(`[SalesTraffic] Fallito ${country} dopo ${attempt} tentativi:`, lastError?.message);
+      logger.error(`[SalesTraffic] Fallito ${country} dopo ${attempt} tentativi:`, lastError?.message);
     }
 
-    console.log("[SalesTraffic] Pausa 60s prima del prossimo marketplace...");
+    logger.info("[SalesTraffic] Pausa 60s prima del prossimo marketplace...");
     await sleep(60000);
   }
 
-  console.log(`[SalesTraffic] Totale righe salvate: ${totalInserted}`);
+  logger.info(`[SalesTraffic] Totale righe salvate: ${totalInserted}`);
   return { ok: true, record: totalInserted };
 }
 
@@ -310,4 +311,267 @@ function getSalesTraffic() {
   return db.prepare("SELECT * FROM sales_traffic ORDER BY date DESC, asin, country").all();
 }
 
-module.exports = { aggiornaSalesTraffic, getSalesTraffic };
+// =====================================================
+// STIMA GIORNALIERA PER ASIN (nessuna API, calcolo proporzionale)
+// Usa: sales_traffic (annuo per ASIN×paese) + sales_daily (giornaliero per paese)
+// Formula: asin_day = (asin_year / country_year) × country_day
+// =====================================================
+
+/**
+ * Stima le vendite per ASIN in un range di date, distribuendo proporzionalmente
+ * i dati annuali per ASIN in base ai totali giornalieri per paese.
+ * @param {string} [from] - data inizio YYYY-MM-DD
+ * @param {string} [to] - data fine YYYY-MM-DD
+ * @param {string[]} [countries] - filtro paesi
+ * @returns {Object[]} - righe con asin, sku, unita, fatturato, sessioni, visualizzazioni
+ */
+function getAsinSalesForPeriod(from, to, countries = []) {
+  const db = getDb();
+
+  // 1. Totali annui per paese (da sales_daily, per calcolare le proporzioni)
+  const countryTotals = {};
+  const totalRows = db.prepare(
+    "SELECT country, SUM(units_ordered) AS tot_u, SUM(ordered_product_sales) AS tot_f, SUM(sessions) AS tot_s, SUM(page_views) AS tot_pv FROM sales_daily GROUP BY country"
+  ).all();
+  for (const r of totalRows) countryTotals[r.country] = r;
+
+  // 2. Totali giornalieri per paese nel periodo richiesto
+  let dateFilter = "";
+  const dateParams = [];
+  if (from) { dateFilter += " AND date >= ?"; dateParams.push(from); }
+  if (to) { dateFilter += " AND date <= ?"; dateParams.push(to); }
+
+  let countryIn = "";
+  if (countries.length > 0) {
+    countryIn = ` AND country IN (${countries.map(() => "?").join(",")})`;
+    dateParams.push(...countries);
+  }
+
+  const periodTotals = {};
+  const periodRows = db.prepare(
+    `SELECT country, SUM(units_ordered) AS p_u, SUM(ordered_product_sales) AS p_f, SUM(sessions) AS p_s, SUM(page_views) AS p_pv FROM sales_daily WHERE 1=1${dateFilter}${countryIn} GROUP BY country`
+  ).all(...dateParams);
+  for (const r of periodRows) periodTotals[r.country] = r;
+
+  // 3. Vendite annuali per ASIN×paese
+  let stCountryFilter = "";
+  const stParams = [];
+  if (countries.length > 0) {
+    stCountryFilter = ` AND country IN (${countries.map(() => "?").join(",")})`;
+    stParams.push(...countries);
+  }
+
+  const asinRows = db.prepare(
+    `SELECT asin, sku, country, units_ordered, ordered_product_sales, sessions, page_views FROM sales_traffic WHERE asin IS NOT NULL AND asin != '' AND units_ordered > 0${stCountryFilter}`
+  ).all(...stParams);
+
+  // 4. Calcola stima proporzionale
+  const asinMap = {}; // asin → { unita, fatturato, sessioni, visualizzazioni }
+
+  for (const r of asinRows) {
+    const ct = countryTotals[r.country];
+    const pt = periodTotals[r.country];
+    if (!ct || !pt) continue; // no data per questo paese
+
+    // Proporzione: quanto del totale annuo cade nel periodo selezionato
+    const ratioU = ct.tot_u > 0 ? pt.p_u / ct.tot_u : 0;
+    const ratioF = ct.tot_f > 0 ? pt.p_f / ct.tot_f : 0;
+    const ratioS = ct.tot_s > 0 ? pt.p_s / ct.tot_s : 0;
+    const ratioPV = ct.tot_pv > 0 ? pt.p_pv / ct.tot_pv : 0;
+
+    if (!asinMap[r.asin]) asinMap[r.asin] = { asin: r.asin, sku: r.sku || "", unita: 0, fatturato: 0, sessioni: 0, visualizzazioni: 0 };
+    asinMap[r.asin].unita += Math.round(r.units_ordered * ratioU);
+    asinMap[r.asin].fatturato += r.ordered_product_sales * ratioF;
+    asinMap[r.asin].sessioni += Math.round((r.sessions || 0) * ratioS);
+    asinMap[r.asin].visualizzazioni += Math.round((r.page_views || 0) * ratioPV);
+  }
+
+  return Object.values(asinMap);
+}
+
+// (Legacy: ensureAsinDailyTable mantenuta per compatibilità, non più usata attivamente)
+function ensureAsinDailyTable() {
+  const db = getDb();
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS sales_asin_daily (
+      asin TEXT NOT NULL,
+      sku TEXT DEFAULT '',
+      country TEXT NOT NULL,
+      date TEXT NOT NULL,
+      units_ordered INTEGER DEFAULT 0,
+      ordered_product_sales REAL DEFAULT 0,
+      sessions INTEGER DEFAULT 0,
+      page_views INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now','localtime')),
+      PRIMARY KEY (asin, country, date)
+    )
+  `).run();
+}
+
+/**
+ * Sync ASIN sales per un singolo giorno e un singolo marketplace.
+ * Richiede un report GET_SALES_AND_TRAFFIC_REPORT con finestra 1 giorno.
+ */
+async function syncAsinForDay(country, marketplaceId, targetDate) {
+  const db = getDb();
+  const startDate = new Date(targetDate + "T00:00:00Z");
+  const endDate = new Date(targetDate + "T23:59:59Z");
+
+  const { access_token } = await getAccessToken();
+
+  // Crea report per 1 giorno
+  const createRes = await axios.post(
+    `${BASE_URL}/reports/2021-06-30/reports`,
+    {
+      reportType: "GET_SALES_AND_TRAFFIC_REPORT",
+      dataStartTime: startDate.toISOString(),
+      dataEndTime: endDate.toISOString(),
+      marketplaceIds: [marketplaceId],
+      reportOptions: { dateGranularity: "DAY", asinGranularity: "SKU" },
+    },
+    { headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" } }
+  );
+
+  const reportId = createRes.data.reportId;
+  logger.info(`[AsinDaily] Report ${reportId} creato per ${country} ${targetDate}`);
+
+  // Attendi completamento
+  let reportDocumentId;
+  for (let i = 0; i < 30; i++) {
+    await sleep(8000);
+    const freshToken = (await getAccessToken()).access_token;
+    const statusRes = await axios.get(
+      `${BASE_URL}/reports/2021-06-30/reports/${reportId}`,
+      { headers: { Authorization: `Bearer ${freshToken}` } }
+    );
+    if (statusRes.data.processingStatus === "DONE") {
+      reportDocumentId = statusRes.data.reportDocumentId;
+      break;
+    }
+    if (["CANCELLED", "FATAL"].includes(statusRes.data.processingStatus)) break;
+  }
+  if (!reportDocumentId) throw new Error(`Report non completato per ${country} ${targetDate}`);
+
+  // Scarica
+  const dlToken = (await getAccessToken()).access_token;
+  const meta = await axios.get(
+    `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
+    { headers: { Authorization: `Bearer ${dlToken}` } }
+  );
+  const { url, compressionAlgorithm } = meta.data;
+  const file = await axios.get(url, { responseType: "arraybuffer" });
+  let buffer = Buffer.from(file.data);
+  if (compressionAlgorithm === "GZIP") buffer = require("zlib").gunzipSync(buffer);
+  const json = JSON.parse(buffer.toString("utf-8"));
+
+  // Parsing per ASIN
+  const asinRows = Array.isArray(json?.salesAndTrafficByAsin) ? json.salesAndTrafficByAsin : [];
+  if (asinRows.length === 0) return 0;
+
+  const upsert = db.prepare(`
+    INSERT OR REPLACE INTO sales_asin_daily
+    (asin, sku, country, date, units_ordered, ordered_product_sales, sessions, page_views)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const tx = db.transaction((rows) => {
+    for (const r of rows) {
+      const asin = r.parentAsin || r.childAsin || "";
+      if (!asin) continue;
+      const sales = r.salesByAsin || {};
+      const traffic = r.trafficByAsin || {};
+      upsert.run(
+        asin, r.sku || "", country, targetDate,
+        sales.unitsOrdered || 0,
+        sales.orderedProductSales?.amount || 0,
+        traffic.sessions || 0,
+        traffic.pageViews || 0
+      );
+    }
+  });
+  tx(asinRows);
+
+  return asinRows.length;
+}
+
+/**
+ * Sync giornaliero: scarica i dati ASIN di ieri per tutti i marketplace.
+ */
+async function syncAsinDaily() {
+  ensureAsinDailyTable();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const targetDate = yesterday.toISOString().slice(0, 10);
+
+  logger.info(`[AsinDaily] Sync dati ASIN per ${targetDate}...`);
+  let totalInserted = 0;
+
+  for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
+    // Skip se già sincronizzato
+    const db = getDb();
+    const existing = db.prepare(
+      "SELECT COUNT(*) as n FROM sales_asin_daily WHERE country = ? AND date = ?"
+    ).get(country, targetDate);
+    if (existing.n > 0) {
+      logger.info(`[AsinDaily] ${country} ${targetDate} già sincronizzato (${existing.n} ASIN), skip`);
+      continue;
+    }
+
+    try {
+      const count = await syncAsinForDay(country, marketplaceId, targetDate);
+      logger.info(`[AsinDaily] ${country} ${targetDate}: ${count} ASIN salvati`);
+      totalInserted += count;
+    } catch (err) {
+      const code = err.response?.status;
+      logger.warn(`[AsinDaily] Errore ${country} ${targetDate} (HTTP ${code}): ${err.message}`);
+    }
+
+    // Pausa tra marketplace
+    await sleep(45000);
+  }
+
+  logger.info(`[AsinDaily] Completato. Totale: ${totalInserted} righe.`);
+  return { ok: true, record: totalInserted };
+}
+
+/**
+ * Backfill: riempi gli ultimi N giorni. Ogni giorno per ogni marketplace.
+ * Attenzione: molte chiamate API, usare con cautela.
+ */
+async function backfillAsinDaily(days = 7) {
+  ensureAsinDailyTable();
+  logger.info(`[AsinDaily] Backfill ultimi ${days} giorni...`);
+
+  let totalInserted = 0;
+  const dates = [];
+  for (let i = 1; i <= days; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0, 10));
+  }
+
+  for (const targetDate of dates) {
+    for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
+      const db = getDb();
+      const existing = db.prepare(
+        "SELECT COUNT(*) as n FROM sales_asin_daily WHERE country = ? AND date = ?"
+      ).get(country, targetDate);
+      if (existing.n > 0) continue; // già presente
+
+      try {
+        const count = await syncAsinForDay(country, marketplaceId, targetDate);
+        logger.info(`[AsinDaily] Backfill ${country} ${targetDate}: ${count} ASIN`);
+        totalInserted += count;
+      } catch (err) {
+        logger.warn(`[AsinDaily] Backfill errore ${country} ${targetDate}: ${err.message}`);
+      }
+
+      await sleep(45000);
+    }
+  }
+
+  logger.info(`[AsinDaily] Backfill completato. ${totalInserted} righe totali.`);
+  return { ok: true, record: totalInserted };
+}
+
+module.exports = { aggiornaSalesTraffic, getSalesTraffic, getAsinSalesForPeriod, syncAsinDaily, backfillAsinDaily };

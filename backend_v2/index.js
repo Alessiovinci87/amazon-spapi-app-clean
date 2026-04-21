@@ -109,14 +109,15 @@ const notificationRoutes = require("./modules/notifications/notificationRoutes")
 const PORT = Number(process.env.PORT) || 3005;
 
 async function bootstrap() {
-  console.log("🔧 Avvio backend_v2…");
-  console.log("   NODE_ENV:", process.env.NODE_ENV || "(non impostato)");
-  console.log("   PORT (effettiva):", PORT);
+  logger.info("Avvio backend_v2…");
+  logger.info({ NODE_ENV: process.env.NODE_ENV || "(non impostato)", PORT }, "Configurazione");
 
   // Variabili SP-API
-  console.log("🔑 LWA_CLIENT_ID:", process.env.LWA_CLIENT_ID ? "(ok)" : "(manca)");
-  console.log("🔑 LWA_REFRESH_TOKEN:", process.env.LWA_REFRESH_TOKEN ? "(ok)" : "(manca)");
-  console.log("🔑 AWS_ACCESS_KEY_ID:", process.env.AWS_ACCESS_KEY_ID ? "(ok)" : "(manca)");
+  logger.info({
+    LWA_CLIENT_ID: process.env.LWA_CLIENT_ID ? "(ok)" : "(manca)",
+    LWA_REFRESH_TOKEN: process.env.LWA_REFRESH_TOKEN ? "(ok)" : "(manca)",
+    AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID ? "(ok)" : "(manca)",
+  }, "SP-API env check");
 
 
 
@@ -124,12 +125,12 @@ async function bootstrap() {
   // 🗄️ DATABASE
   // =========================================================
   await ensureDatabaseReady();
-  console.log("💾 DB pronto");
+  logger.info("DB pronto");
 
   // =========================================================
   // 🗂️ MIGRAZIONI AUTOMATICHE
   // =========================================================
-  console.log("📦 Applicazione migrazioni database…");
+  logger.info("Applicazione migrazioni database…");
   const { getDbPath } = require("./db/database");
   runMigrations(getDbPath());
 
@@ -214,7 +215,7 @@ async function bootstrap() {
     return requireAuth(req, res, next);
   });
 
-  console.log("➡️ Montaggio rotte principali...");
+  logger.info("Montaggio rotte principali...");
   
 
   // =========================================================
@@ -288,6 +289,16 @@ async function bootstrap() {
   app.use("/api/v2/europa", require("./modules/europa/europaRoutes"));
 
   // =========================================================
+  // 🔄 CENTRO SINCRONIZZAZIONI
+  // =========================================================
+  app.use("/api/v2/sync", require("./modules/sync/syncRoutes"));
+
+  // =========================================================
+  // 🔍 COMPETITOR WATCH
+  // =========================================================
+  app.use("/api/v2/competitor", require("./modules/competitor/competitorRoutes"));
+
+  // =========================================================
   // ⭐ SELLER FEEDBACK (recensioni venditore via SP-API)
   // =========================================================
   app.use("/api/v2/feedback", require("./modules/feedback/feedbackRoutes"));
@@ -352,23 +363,23 @@ async function bootstrap() {
   // 🚀 AVVIO SERVER
   // =========================================================
   const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`✅ backend_v2 in ascolto su http://localhost:${PORT}`);
+    logger.info(`backend_v2 in ascolto su http://localhost:${PORT}`);
   });
 
   // Shutdown graceful
   const keepAlive = setInterval(() => { }, 1 << 30);
   function shutdown(signal) {
-    console.log(`\n🛑 Ricevuto segnale ${signal}, chiusura in corso…`);
+    logger.info(`Ricevuto segnale ${signal}, chiusura in corso…`);
     clearInterval(keepAlive);
     server.close(() => process.exit(0));
   }
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
   process.on("unhandledRejection", (reason) =>
-    console.error("❌ UnhandledRejection:", reason)
+    logger.error({ err: reason }, "UnhandledRejection")
   );
   process.on("uncaughtException", (err) => {
-    console.error("❌ UncaughtException:", err);
+    logger.error({ err }, "UncaughtException");
     process.exit(1);
   });
 
@@ -388,6 +399,6 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => {
-  console.error("❌ Errore di bootstrap:", err);
+  logger.error({ err }, "Errore di bootstrap");
   process.exit(1);
 });

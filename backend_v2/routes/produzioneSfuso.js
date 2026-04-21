@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 const produzioneController = require("../controllers/produzioneSfuso.controller");
 const storicoService = require("../services/storicoProduzioniSfuso.service");
@@ -55,7 +56,7 @@ router.get("/storico", (req, res) => {
     const data = storicoService.getStorico({ asin, stato });
     res.json({ ok: true, data });
   } catch (err) {
-    console.error("Errore getStoricoProduzioniSfuso:", err);
+    logger.error({ err }, "Errore getStoricoProduzioniSfuso");
     res.status(500).json({ ok: false, message: "Errore nel recupero dello storico" });
   }
 });

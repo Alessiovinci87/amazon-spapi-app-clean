@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { sign } = require("aws4");
+const logger = require("../../utils/logger");
 
 const {
   AWS_ACCESS_KEY_ID,
@@ -40,7 +41,7 @@ async function getCatalogItem(asin, accessToken, marketplaceId = "APJ6JRA9NG5V4"
 
     return response.data;
   } catch (err) {
-    console.error("❌ Errore Catalog API:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore Catalog API");
     throw new Error("Impossibile recuperare dati catalogo");
   }
 }

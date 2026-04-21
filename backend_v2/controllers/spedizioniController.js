@@ -1,5 +1,6 @@
 // backend_v2/controllers/spedizioniController.js
 const service = require("../services/spedizioniService");
+const logger = require("../utils/logger");
 
 /* ============================================================
    📦 CONTROLLER — tutte le funzioni chiamate dal router
@@ -93,7 +94,7 @@ function getStorico(req, res) {
     const storico = service.getStorico(paese, tipo_evento, da, a);
     res.json(storico);
   } catch (err) {
-    console.error("❌ Errore GET storico:", err);
+    logger.error({ err }, "Errore GET storico");
     res.status(500).json({ error: "Errore interno del server" });
   }
 }

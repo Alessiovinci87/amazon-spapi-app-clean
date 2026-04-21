@@ -2,6 +2,7 @@
 // Servizio email con Nodemailer — supporta SMTP generico (Gmail, Outlook, custom)
 
 const nodemailer = require("nodemailer");
+const logger = require("../../utils/logger");
 
 let transporter = null;
 
@@ -14,7 +15,7 @@ function getTransporter() {
   const pass = process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
-    console.warn("⚠️  Email non configurata — imposta SMTP_HOST, SMTP_USER, SMTP_PASS nel .env");
+    logger.warn("Email non configurata — imposta SMTP_HOST, SMTP_USER, SMTP_PASS nel .env");
     return null;
   }
 
@@ -39,7 +40,7 @@ async function sendEmail({ to, subject, html, text }) {
 
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const info = await t.sendMail({ from, to, subject, html, text });
-  console.log(`📧 Email inviata a ${to}: ${info.messageId}`);
+  logger.info(`Email inviata a ${to}: ${info.messageId}`);
   return info;
 }
 

@@ -1,5 +1,6 @@
 // controllers/accessoriController.js
 const AccessoriService = require("../services/accessoriService");
+const logger = require("../utils/logger");
 
 const AccessoriController = {
   /** 📦 GET tutti gli accessori */
@@ -8,7 +9,7 @@ const AccessoriController = {
       const accessori = AccessoriService.getAllAccessori();
       return res.json(accessori);
     } catch (err) {
-      console.error("❌ [ACCESSORI][GET] Errore:", err.message);
+      logger.error({ err }, "[ACCESSORI][GET] Errore");
       return res.status(500).json({ error: "Errore nel recupero accessori" });
     }
   },
@@ -25,7 +26,7 @@ const AccessoriController = {
       }
       return res.json(acc);
     } catch (err) {
-      console.error("❌ [ACCESSORI][GET ONE] Errore:", err.message);
+      logger.error({ err }, "[ACCESSORI][GET ONE] Errore");
       return res.status(500).json({ error: "Errore nel recupero accessorio" });
     }
   },
@@ -53,7 +54,7 @@ const AccessoriController = {
       return res.json({ ok: true, message: "Accessorio aggiornato", data: result });
 
     } catch (err) {
-      console.error("❌ [ACCESSORI][PATCH] Errore:", err.message);
+      logger.error({ err }, "[ACCESSORI][PATCH] Errore");
       return res
         .status(500)
         .json({ error: "Errore interno durante aggiornamento accessorio" });
@@ -73,7 +74,7 @@ const AccessoriController = {
       const result = AccessoriService.updateSogliaAccessorio(asin_accessorio, soglia_minima);
       return res.json(result);
     } catch (err) {
-      console.error("❌ [ACCESSORI][SOGLIA] Errore:", err.message);
+      logger.error({ err }, "[ACCESSORI][SOGLIA] Errore");
       return res.status(500).json({ error: "Errore nell'aggiornamento soglia" });
     }
   },
@@ -84,7 +85,7 @@ const AccessoriController = {
       const righe = AccessoriService.getStoricoAccessori();
       return res.json(righe);
     } catch (err) {
-      console.error("❌ [ACCESSORI][STORICO] Errore:", err.message);
+      logger.error({ err }, "[ACCESSORI][STORICO] Errore");
       return res
         .status(500)
         .json({ error: "Errore nel recupero storico accessori" });

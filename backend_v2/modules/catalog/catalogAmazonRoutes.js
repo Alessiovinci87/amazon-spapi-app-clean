@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getCatalogDetails, getListingImages, getAplusContent, getListingText } = require("./catalogAmazonService");
+const logger = require("../../utils/logger");
 
 
 /**
@@ -15,7 +16,7 @@ router.get("/:asin", async (req, res) => {
     const details = await getCatalogDetails(asin, marketplaceId);
     res.json(details);
   } catch (err) {
-    console.error("❌ Errore getCatalogDetails:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore getCatalogDetails");
     res.status(500).json({ error: "Impossibile recuperare dettagli catalogo" });
   }
 });

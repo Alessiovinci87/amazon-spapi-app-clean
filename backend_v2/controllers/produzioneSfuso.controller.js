@@ -3,6 +3,7 @@
 // backend_v2/controllers/produzioneSfuso.controller.js
 const produzioneService = require("../services/produzioneSfuso.service");
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 
 /* =========================================================
    🎛️ CONTROLLER PRODUZIONI SFUSO
@@ -16,7 +17,7 @@ exports.getAllProduzioni = (req, res) => {
     const data = produzioneService.getAllProduzioni(stato);
     res.json({ ok: true, data });
   } catch (err) {
-    console.error("❌ Errore getAllProduzioni:", err);
+    logger.error({ err }, "Errore getAllProduzioni");
     res.status(500).json({ ok: false, message: "Errore interno del server" });
   }
 };
@@ -27,7 +28,7 @@ exports.creaProduzione = (req, res) => {
     const produzione = produzioneService.creaProduzione(req.body);
     res.json({ ok: true, message: "Produzione creata correttamente", data: produzione });
   } catch (err) {
-    console.error("❌ Errore creaProduzione:", err);
+    logger.error({ err }, "Errore creaProduzione");
     res.status(500).json({ ok: false, message: "Errore interno del server" });
   }
 };
@@ -56,7 +57,7 @@ exports.creaDaPrenotazione = (req, res) => {
       data: risultato
     });
   } catch (err) {
-    console.error("❌ Errore creaDaPrenotazione:", err);
+    logger.error({ err }, "Errore creaDaPrenotazione");
     res.status(500).json({ ok: false, message: "Errore interno del server" });
   }
 };
@@ -70,7 +71,7 @@ exports.aggiornaProduzione = (req, res) => {
     const produzioneAggiornata = produzioneService.aggiornaProduzione(id, req.body);
     res.json({ ok: true, message: "Produzione aggiornata", data: produzioneAggiornata });
   } catch (err) {
-    console.error("❌ Errore aggiornaProduzione:", err);
+    logger.error({ err }, "Errore aggiornaProduzione");
     res.status(500).json({ ok: false, message: "Errore interno del server" });
   }
 };
@@ -83,7 +84,7 @@ exports.completaProduzione = (req, res) => {
     const risultato = produzioneService.completaProduzione(id, operatore);
     res.json({ ok: true, message: "Produzione completata", data: risultato });
   } catch (err) {
-    console.error("❌ Errore completaProduzione:", err);
+    logger.error({ err }, "Errore completaProduzione");
     res.status(500).json({ ok: false, message: "Errore interno del server" });
   }
 };
@@ -95,7 +96,7 @@ exports.eliminaProduzione = (req, res) => {
     produzioneService.eliminaProduzione(id);
     res.json({ ok: true, message: "Produzione eliminata" });
   } catch (err) {
-    console.error("❌ Errore eliminaProduzione:", err);
+    logger.error({ err }, "Errore eliminaProduzione");
     res.status(500).json({ ok: false, message: "Errore interno del server" });
   }
 };

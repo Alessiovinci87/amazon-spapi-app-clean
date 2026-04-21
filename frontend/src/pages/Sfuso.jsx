@@ -261,7 +261,7 @@ const Sfuso = () => {
         } catch { ordiniMap[sfuso.id] = []; }
       }));
       setOrdiniPerSfuso(ordiniMap);
-    } catch (err) { console.error("Errore fetch sfusi:", err); }
+    } catch (err) { console.error("Errore fetch sfusi:", err); toast.error("Errore caricamento inventario sfuso"); }
   };
 
   const apriRicezione = (ordine, sfusoId) => {

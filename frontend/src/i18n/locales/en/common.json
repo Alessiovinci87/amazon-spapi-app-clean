@@ -54,8 +54,9 @@
     "cat_modulo": "Moduli Custom",
     "cat_scatolette": "Scatolette",
     "cat_etichette": "Etichette",
-    "cat_lotti": "Scadenze Lotti",
-    "cat_europa": "Europa SP-API"
+    "cat_lotti": "Batch Expiry",
+    "cat_europa": "Europa SP-API",
+    "cat_competitor": "Competitor"
   },
   "dashboardAmazon": {
     "cta_apri": "Apri",
@@ -84,7 +85,13 @@
     "mod_bilancio_label": "Bilancio",
     "mod_bilancio_desc": "Costi, valore magazzino, movimenti",
     "mod_vendite_label": "Vendite",
-    "mod_vendite_desc": "Dashboard vendite e margini"
+    "mod_vendite_desc": "Dashboard vendite e margini",
+    "mod_profittabilita_label": "Profitability",
+    "mod_profittabilita_desc": "Net margin per product",
+    "mod_copertura_fba_label": "FBA Coverage",
+    "mod_copertura_fba_desc": "Stockout risk per product",
+    "mod_competitor_label": "Competitor Watch",
+    "mod_competitor_desc": "Category and competitor monitoring"
   },
   "dashboardVendite": {
     "topbar_title": "Dashboard Vendite",

@@ -3,6 +3,7 @@
 
 const cron = require("node-cron");
 const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 const { sendEmail, isEmailConfigured } = require("./emailService");
 
 const DIGEST_CRON = process.env.ALERT_DIGEST_CRON || "0 7 * * *"; // ogni mattina alle 07:00
@@ -142,19 +143,19 @@ function buildDigestHtml({ grouped, total }) {
  */
 async function sendAlertDigest() {
   if (!isEmailConfigured()) {
-    console.log("📧 [AlertDigest] Email non configurata, skip.");
+    logger.info("📧 [AlertDigest] Email non configurata, skip.");
     return { sent: false, reason: "smtp_not_configured" };
   }
 
   const to = DIGEST_TO;
   if (!to) {
-    console.log("📧 [AlertDigest] Nessun destinatario (ALERT_DIGEST_TO), skip.");
+    logger.info("📧 [AlertDigest] Nessun destinatario (ALERT_DIGEST_TO), skip.");
     return { sent: false, reason: "no_recipient" };
   }
 
   const summary = getAlertSummary();
   if (summary.total === 0) {
-    console.log("📧 [AlertDigest] Nessun alert aperto, niente da inviare.");
+    logger.info("📧 [AlertDigest] Nessun alert aperto, niente da inviare.");
     return { sent: false, reason: "no_alerts", total: 0 };
   }
 
@@ -163,10 +164,10 @@ async function sendAlertDigest() {
 
   try {
     await sendEmail({ to, subject, html });
-    console.log(`📧 [AlertDigest] Digest inviato a ${to} — ${summary.total} alert.`);
+    logger.info(`📧 [AlertDigest] Digest inviato a ${to} — ${summary.total} alert.`);
     return { sent: true, total: summary.total, to };
   } catch (err) {
-    console.error("❌ [AlertDigest] Errore invio:", err.message);
+    logger.error("❌ [AlertDigest] Errore invio:", err.message);
     return { sent: false, reason: "send_error", error: err.message };
   }
 }
@@ -176,20 +177,20 @@ async function sendAlertDigest() {
  */
 function startDigestCron() {
   if (!isEmailConfigured()) {
-    console.log("📧 [AlertDigest] SMTP non configurato — cron digest non avviato.");
+    logger.info("📧 [AlertDigest] SMTP non configurato — cron digest non avviato.");
     return;
   }
   if (!DIGEST_TO) {
-    console.log("📧 [AlertDigest] ALERT_DIGEST_TO non impostato — cron digest non avviato.");
+    logger.info("📧 [AlertDigest] ALERT_DIGEST_TO non impostato — cron digest non avviato.");
     return;
   }
 
-  console.log(`📧 [AlertDigest] Cron schedulato: "${DIGEST_CRON}" → ${DIGEST_TO}`);
+  logger.info(`📧 [AlertDigest] Cron schedulato: "${DIGEST_CRON}" → ${DIGEST_TO}`);
   cron.schedule(DIGEST_CRON, async () => {
     try {
       await sendAlertDigest();
     } catch (err) {
-      console.error("❌ [AlertDigest] Errore cron:", err.message);
+      logger.error("❌ [AlertDigest] Errore cron:", err.message);
     }
   });
 }

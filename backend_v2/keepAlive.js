@@ -1,6 +1,7 @@
 const axios = require("axios");
 const cron = require("node-cron");
-const { getAccessToken } = require("./modules/auth/authService"); 
+const logger = require("./utils/logger");
+const { getAccessToken } = require("./modules/auth/authService");
 // ⬆️ qui usi già la funzione che ti genera l'access_token fresco dal refresh_token
 
 // 🔄 Funzione che fa la chiamata keep-alive
@@ -19,7 +20,7 @@ async function keepAlive() {
     );
 
   } catch (err) {
-    console.error("❌ Errore keep-alive:", err.response?.data || err.message);
+    logger.error({ err, responseData: err.response?.data }, "Errore keep-alive");
   }
 }
 

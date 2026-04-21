@@ -1,6 +1,7 @@
 // backend_v2/modules/sync/syncCron.js
 // Sync automatici periodici da Amazon SP-API
 const cron = require("node-cron");
+const logger = require("../../utils/logger");
 
 let running = {};
 
@@ -8,17 +9,17 @@ function isRunning(name) { return !!running[name]; }
 
 async function runSafe(name, fn) {
   if (running[name]) {
-    console.log(`[SyncCron] ${name} — gia in esecuzione, skip`);
+    logger.info(`[SyncCron] ${name} — gia in esecuzione, skip`);
     return;
   }
   running[name] = true;
   const start = Date.now();
   try {
-    console.log(`[SyncCron] ${name} — avvio`);
+    logger.info(`[SyncCron] ${name} — avvio`);
     await fn();
-    console.log(`[SyncCron] ${name} — completato in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+    logger.info(`[SyncCron] ${name} — completato in ${((Date.now() - start) / 1000).toFixed(1)}s`);
   } catch (err) {
-    console.error(`[SyncCron] ${name} — errore:`, err.message);
+    logger.error({ err }, `[SyncCron] ${name} — errore`);
   } finally {
     running[name] = false;
   }
@@ -53,7 +54,7 @@ async function syncPrezzi() {
   ];
 
   if (asinList.length === 0) {
-    console.log("[SyncCron] prezzi — catalogo vuoto, skip");
+    logger.info("[SyncCron] prezzi — catalogo vuoto, skip");
     return;
   }
 
@@ -63,13 +64,13 @@ async function syncPrezzi() {
       await sincronizzaPrezziAsin(asin);
       ok++;
     } catch (err) {
-      console.error(`[SyncCron] prezzi ${asin} errore:`, err.message);
+      logger.error({ err }, `[SyncCron] prezzi ${asin} errore`);
       fail++;
     }
     // 2.5s tra un ASIN e l'altro (rate limit pricing API)
     await new Promise(r => setTimeout(r, 2500));
   }
-  console.log(`[SyncCron] prezzi — ${ok} ok, ${fail} errori su ${asinList.length} ASIN (${conAlert.length} con alert + ${asinList.length - conAlert.length} resto catalogo)`);
+  logger.info(`[SyncCron] prezzi — ${ok} ok, ${fail} errori su ${asinList.length} ASIN (${conAlert.length} con alert + ${asinList.length - conAlert.length} resto catalogo)`);
 }
 
 // ─── Alert check (dopo stock + prezzi aggiornati) ────────
@@ -90,12 +91,36 @@ async function syncFBAStockReport() {
   await aggiornaFBAStock();
 }
 
+// ─── ASIN Daily Sales (dati giornalieri per ASIN) ──────────
+async function syncAsinDailyCron() {
+  const { syncAsinDaily } = require("../reports/salesTrafficService");
+  await syncAsinDaily();
+}
+
+// ─── Competitor Watch (conteggio categorie) ────────────────
+async function syncCompetitorSnapshot() {
+  const { runCategorySnapshot } = require("../competitor/competitorService");
+  await runCategorySnapshot();
+}
+
+// ─── Competitor Tracked ASINs (snapshot dettagliati + diff) ──
+async function syncCompetitorTrackedAsins() {
+  const { runTrackedAsinsSnapshot } = require("../competitor/competitorService");
+  await runTrackedAsinsSnapshot();
+}
+
+// ─── FBA Fees (commissioni per ASIN, tutti i marketplace) ──
+async function syncFBAFees() {
+  const { aggiornaFBAFees } = require("../reports/fbaFeesService");
+  await aggiornaFBAFees();
+}
+
 // ─── Catalog info (titolo + immagini per marketplace) ────
 async function syncCatalogInfo() {
   const { aggiornaProductCatalog } = require("../catalog/catalogInfoSync");
   const progress = { done: 0, total: 0, aggiornati: 0, errori: 0 };
   const res = await aggiornaProductCatalog(progress);
-  console.log(`[SyncCron] catalog-info — ${res.done}/${res.total} ASIN, ${res.aggiornati} righe aggiornate, ${res.errori} errori`);
+  logger.info(`[SyncCron] catalog-info — ${res.done}/${res.total} ASIN, ${res.aggiornati} righe aggiornate, ${res.errori} errori`);
 }
 
 // ─── Listing Editor cache (per paese) ────────────────────
@@ -104,12 +129,12 @@ async function syncListingCache() {
   const countries = Object.keys(MARKETPLACES);
 
   for (const country of countries) {
-    console.log(`[SyncCron] listing-cache ${country} — avvio`);
+    logger.info(`[SyncCron] listing-cache ${country} — avvio`);
     try {
       await syncListings(country);
-      console.log(`[SyncCron] listing-cache ${country} — ok`);
+      logger.info(`[SyncCron] listing-cache ${country} — ok`);
     } catch (err) {
-      console.error(`[SyncCron] listing-cache ${country} — errore:`, err.message);
+      logger.error({ err }, `[SyncCron] listing-cache ${country} — errore`);
     }
     // 30s pausa tra un paese e l'altro per non saturare le API
     await new Promise(r => setTimeout(r, 30000));
@@ -134,20 +159,34 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 4:00: FBA Stock Report completo ──
   cron.schedule("0 4 * * *", () => runSafe("fba-stock-report", syncFBAStockReport));
 
+  // ── OGNI GIORNO alle 5:00: FBA Fees (commissioni per ASIN) ──
+  cron.schedule("0 5 * * *", () => runSafe("fba-fees", syncFBAFees));
+
+  // ── OGNI GIORNO alle 8:00: Competitor Watch ──
+  cron.schedule("0 8 * * *", () => runSafe("competitor-snapshot", syncCompetitorSnapshot));
+
+  // ── OGNI GIORNO alle 8:30: Competitor ASIN tracciati (dettagli + diff) ──
+  cron.schedule("30 8 * * *", () => runSafe("competitor-tracked", syncCompetitorTrackedAsins));
+
+  // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
+  cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));
+
   // ── OGNI DOMENICA alle 02:00: Catalog info (titoli + immagini) ──
   cron.schedule("0 2 * * 0", () => runSafe("catalog-info", syncCatalogInfo));
 
   // ── OGNI DOMENICA alle 3:00: Listing cache (tutti i paesi) ──
   cron.schedule("0 3 * * 0", () => runSafe("listing-cache", syncListingCache));
 
-  console.log("[SyncCron] Sync automatici schedulati:");
-  console.log("  Stock FBA:       ogni 3h (:10)");
-  console.log("  Prezzi+BuyBox:   ogni 3h (:30)");
-  console.log("  Alert check:     ogni 3h (:50)");
-  console.log("  Sales/Traffic:   06:30 giornaliero");
-  console.log("  FBA Stock Report: 04:00 giornaliero");
-  console.log("  Catalog info:    02:00 domenica");
-  console.log("  Listing cache:   03:00 domenica");
+  logger.info("[SyncCron] Sync automatici schedulati:");
+  logger.info("  Stock FBA:       ogni 3h (:10)");
+  logger.info("  Prezzi+BuyBox:   ogni 3h (:30)");
+  logger.info("  Alert check:     ogni 3h (:50)");
+  logger.info("  Sales/Traffic:   06:30 giornaliero");
+  logger.info("  FBA Stock Report: 04:00 giornaliero");
+  logger.info("  FBA Fees:        05:00 giornaliero");
+  logger.info("  ASIN Daily:      07:00 giornaliero");
+  logger.info("  Catalog info:    02:00 domenica");
+  logger.info("  Listing cache:   03:00 domenica");
 }
 
 module.exports = { startSyncCrons, isRunning };

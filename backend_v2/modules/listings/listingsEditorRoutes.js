@@ -1,5 +1,6 @@
 // backend_v2/modules/listings/listingsEditorRoutes.js
 const express = require("express");
+const logger = require("../../utils/logger");
 const router = express.Router();
 
 const {
@@ -61,7 +62,7 @@ router.post("/sync", (req, res) => {
         error: null,
       };
     } catch (err) {
-      console.error(`❌ Sync ${country} fallito:`, err.message);
+      logger.error(`❌ Sync ${country} fallito:`, err.message);
       syncState[country] = {
         running: false,
         startedAt: syncState[country].startedAt,
@@ -100,7 +101,7 @@ router.get("/list", (req, res) => {
     const data = listListings({ country, search, limit, offset });
     res.json({ ok: true, ...data });
   } catch (err) {
-    console.error("❌ /list:", err.message);
+    logger.error("❌ /list:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -119,7 +120,7 @@ router.get("/item", (req, res) => {
     if (!row) return res.status(404).json({ ok: false, error: "Listing non in cache" });
     res.json({ ok: true, data: row });
   } catch (err) {
-    console.error("❌ /item:", err.message);
+    logger.error("❌ /item:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -139,7 +140,7 @@ router.patch("/item", async (req, res) => {
     if (!result.ok) return res.status(400).json(result);
     res.json(result);
   } catch (err) {
-    console.error("❌ PATCH /item:", err.message);
+    logger.error("❌ PATCH /item:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -158,7 +159,7 @@ router.get("/status", async (req, res) => {
     if (!result.ok) return res.status(400).json(result);
     res.json(result);
   } catch (err) {
-    console.error("❌ GET /status:", err.message);
+    logger.error("❌ GET /status:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });

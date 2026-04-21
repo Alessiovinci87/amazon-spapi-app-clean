@@ -6,6 +6,7 @@ const axios = require("axios");
 const zlib = require("zlib");
 const { getAccessToken } = require("../auth/authService");
 const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -78,7 +79,7 @@ async function getOrderInfo(orderId) {
     .prepare(`SELECT * FROM amazon_order_cache WHERE order_id = ?`)
     .get(orderId);
   if (cached && (cached.marketplace_id || cached.asin)) {
-    console.log(
+    logger.info(
       `  💾 [Orders] cache hit ${orderId} → mp=${cached.marketplace_id || "?"} asin=${cached.asin || "?"}`
     );
     return {
@@ -90,14 +91,14 @@ async function getOrderInfo(orderId) {
     };
   }
   if (cached) {
-    console.log(`  ♻️ [Orders] cache stale (NULL) per ${orderId} — ri-tento API`);
+    logger.info(`  ♻️ [Orders] cache stale (NULL) per ${orderId} — ri-tento API`);
   }
 
   const { access_token } = await getAccessToken();
 
   let orderData = null;
   let itemsData = null;
-  console.log(`  🔍 [Orders] getOrder ${orderId}…`);
+  logger.info(`  🔍 [Orders] getOrder ${orderId}…`);
   try {
     const orderRes = await axios.get(
       `${BASE_URL}/orders/v0/orders/${encodeURIComponent(orderId)}`,
@@ -110,17 +111,17 @@ async function getOrderInfo(orderId) {
       }
     );
     orderData = orderRes.data?.payload || orderRes.data;
-    console.log(
+    logger.info(
       `  ✓ [Orders] getOrder ${orderId} → marketplace=${orderData?.MarketplaceId || "?"}`
     );
   } catch (err) {
     const status = err.response?.status;
     if (status === 429) {
-      console.warn(`  ⏳ [Orders] 429 su getOrder ${orderId} — attendo 30s`);
+      logger.warn(`  ⏳ [Orders] 429 su getOrder ${orderId} — attendo 30s`);
       await sleep(30000);
       return getOrderInfo(orderId); // retry
     }
-    console.warn(
+    logger.warn(
       `  ⚠️ [Orders] getOrder ${orderId} fallito: ${status || ""} ${
         err.response?.data?.errors?.[0]?.message || err.message
       }`
@@ -129,7 +130,7 @@ async function getOrderInfo(orderId) {
 
   await sleep(250); // throttle Orders API
 
-  console.log(`  🔍 [Orders] getOrderItems ${orderId}…`);
+  logger.info(`  🔍 [Orders] getOrderItems ${orderId}…`);
   try {
     const itemsRes = await axios.get(
       `${BASE_URL}/orders/v0/orders/${encodeURIComponent(orderId)}/orderItems`,
@@ -142,7 +143,7 @@ async function getOrderInfo(orderId) {
       }
     );
     itemsData = itemsRes.data?.payload || itemsRes.data;
-    console.log(
+    logger.info(
       `  ✓ [Orders] getOrderItems ${orderId} → asin=${
         itemsData?.OrderItems?.[0]?.ASIN || "?"
       }`
@@ -150,10 +151,10 @@ async function getOrderInfo(orderId) {
   } catch (err) {
     const status = err.response?.status;
     if (status === 429) {
-      console.warn(`  ⏳ [Orders] 429 su orderItems ${orderId} — attendo 30s`);
+      logger.warn(`  ⏳ [Orders] 429 su orderItems ${orderId} — attendo 30s`);
       await sleep(30000);
     } else {
-      console.warn(
+      logger.warn(
         `  ⚠️ [Orders] orderItems ${orderId} fallito: ${status || ""} ${
           err.response?.data?.errors?.[0]?.message || err.message
         }`
@@ -185,7 +186,7 @@ async function getOrderInfo(orderId) {
       new Date().toISOString()
     );
   } else {
-    console.log(`  ⚠️ [Orders] info totalmente vuota per ${orderId} — non salvo in cache`);
+    logger.info(`  ⚠️ [Orders] info totalmente vuota per ${orderId} — non salvo in cache`);
   }
 
   return info;
@@ -328,7 +329,7 @@ function mapHeaderColumns(headerLine) {
 async function downloadFeedbackDocument(reportDocumentId) {
   const { access_token } = await getAccessToken();
 
-  console.log(`  📑 [Feedback] reportDocumentId: ${reportDocumentId}`);
+  logger.info(`  📑 [Feedback] reportDocumentId: ${reportDocumentId}`);
 
   // GET_SELLER_FEEDBACK_DATA non è un report type "restricted" — RDT non serve.
   // Amazon restituisce solo feedback 1-3★ per design (niente 4-5★).
@@ -359,19 +360,19 @@ async function downloadFeedbackDocument(reportDocumentId) {
   }
 
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
-  console.log(
+  logger.info(
     `📄 [Feedback] Documento scaricato: ${buffer.length} byte, ${lines.length} righe (header inclusa)`
   );
   if (lines.length > 0) {
-    console.log(`📄 [Feedback] Header: ${lines[0].substring(0, 200)}`);
+    logger.info(`📄 [Feedback] Header: ${lines[0].substring(0, 200)}`);
   }
   if (lines.length > 1) {
-    console.log(`📄 [Feedback] Prima riga dati: ${lines[1].substring(0, 200)}`);
+    logger.info(`📄 [Feedback] Prima riga dati: ${lines[1].substring(0, 200)}`);
   }
   if (lines.length <= 1) return [];
 
   const idx = mapHeaderColumns(lines[0]);
-  console.log(`📄 [Feedback] Mappa colonne:`, idx);
+  logger.info(`📄 [Feedback] Mappa colonne:`, idx);
 
   return lines.slice(1).map((line) => {
     const cols = line.split("\t");
@@ -409,15 +410,15 @@ async function fetchFeedbackReport(marketplaceIds, opts = {}) {
       const existing = await listFeedbackReports(marketplaceIds, ["DONE"]);
       const withDoc = existing.find((r) => r.reportDocumentId);
       if (withDoc) {
-        console.log(
+        logger.info(
           `♻️ [Feedback] Riuso report esistente ${withDoc.reportId} (creato ${withDoc.createdTime})`
         );
         const rows = await downloadFeedbackDocument(withDoc.reportDocumentId);
         return { reportId: withDoc.reportId, rows, reused: true };
       }
-      console.log(`ℹ️ [Feedback] Nessun report DONE esistente — ne creo uno nuovo`);
+      logger.info(`ℹ️ [Feedback] Nessun report DONE esistente — ne creo uno nuovo`);
     } catch (err) {
-      console.warn(`⚠️ [Feedback] listReports fallito: ${err.message} — proseguo con createReport`);
+      logger.warn(`⚠️ [Feedback] listReports fallito: ${err.message} — proseguo con createReport`);
     }
   }
 
@@ -513,7 +514,7 @@ async function syncMarketplaceFeedback(code, opts = {}) {
   const validRows = result.rows.filter((r) => r.rating >= 1 && r.rating <= 5);
 
   // Enrichment via Orders API: una passata sequenziale con throttling
-  console.log(`🔎 [Feedback] Enrichment di ${validRows.length} ordini via Orders API…`);
+  logger.info(`🔎 [Feedback] Enrichment di ${validRows.length} ordini via Orders API…`);
   const enriched = [];
   for (const r of validRows) {
     let info = null;
@@ -521,7 +522,7 @@ async function syncMarketplaceFeedback(code, opts = {}) {
       try {
         info = await getOrderInfo(r.orderId);
       } catch (e) {
-        console.warn(`  ⚠️ enrichment ${r.orderId}: ${e.message}`);
+        logger.warn(`  ⚠️ enrichment ${r.orderId}: ${e.message}`);
       }
     }
     enriched.push({

@@ -4,6 +4,7 @@ const router = express.Router();
 const { getDb } = require("../db/database");
 const { verifyPassword } = require("../utils/password");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 const resetContatoreSchema = z.object({
   password: z.string().min(1, "Password richiesta.").max(200),
@@ -16,7 +17,7 @@ router.get("/produzione-counter", (req, res) => {
         const row = db.prepare(`SELECT value FROM config WHERE key = ?`).get("produzione_counter");
         res.json({ ok: true, value: row ? Number(row.value) : 0 });
     } catch (err) {
-        console.error("❌ Errore GET produzione-counter:", err);
+        logger.error({ err }, "Errore GET produzione-counter");
         res.status(500).json({ ok: false, error: "Errore nel recupero del contatore" });
     }
 });
@@ -42,11 +43,11 @@ router.post("/reset-contatore-produzione", validate({ body: resetContatoreSchema
 
         reset();
 
-        console.log("🔄 Reset contatore produzione eseguito");
+        logger.info("Reset contatore produzione eseguito");
         res.json({ ok: true, message: "Reset eseguito senza cancellare lo storico." });
 
     } catch (err) {
-        console.error("❌ Errore reset contatore produzione:", err);
+        logger.error({ err }, "Errore reset contatore produzione");
         res.status(500).json({ ok: false, error: "Errore durante il reset" });
     }
 });

@@ -1,6 +1,7 @@
 // backend_v2/modules/reports/reportsAmazonRoutes.js
 const express = require("express");
 const router = express.Router();
+const logger = require("../../utils/logger");
 
 const {
   createReport,
@@ -39,12 +40,12 @@ const { getDbPath } = require("../../db/database");
 
 
 const { aggiornaFBAFees, getFBAFees } = require("./fbaFeesService");
-const { aggiornaSalesTraffic, getSalesTraffic } = require("./salesTrafficService");
+const { aggiornaSalesTraffic, getSalesTraffic, getAsinSalesForPeriod, syncAsinDaily, backfillAsinDaily } = require("./salesTrafficService");
 
 // 🔄 POST → genera o aggiorna report vendite
 router.post("/sales-traffic/update", async (req, res) => {
   try {
-    console.log("🚀 Avvio aggiornamento Sales & Traffic...");
+    logger.info("Avvio aggiornamento Sales & Traffic...");
     // ✅ risponde subito, non blocca Postman
     res.json({ ok: true, message: "Aggiornamento Sales & Traffic avviato in background" });
 
@@ -52,13 +53,13 @@ router.post("/sales-traffic/update", async (req, res) => {
     setImmediate(async () => {
       try {
         const result = await aggiornaSalesTraffic();
-        console.log("✅ Sales & Traffic completato:", result);
+        logger.info({ data: result }, "Sales & Traffic completato");
       } catch (err) {
-        console.error("❌ Errore in background Sales & Traffic:", err.message);
+        logger.error({ err }, "Errore in background Sales & Traffic");
       }
     });
   } catch (err) {
-    console.error("❌ Errore iniziale aggiornaSalesTraffic:", err.message);
+    logger.error({ err }, "Errore iniziale aggiornaSalesTraffic");
     res.status(500).json({
       ok: false,
       error: "Impossibile avviare aggiornamento Sales & Traffic",
@@ -72,10 +73,10 @@ router.post("/sales-traffic/update", async (req, res) => {
 router.get("/sales-traffic", async (req, res) => {
   try {
     const data = await getSalesTraffic();
-    console.log(`📊 Sales & Traffic → ${data.length} record trovati`);
+    logger.info(`Sales & Traffic: ${data.length} record trovati`);
     res.json({ ok: true, count: data.length, data });
   } catch (err) {
-    console.error("❌ Errore getSalesTraffic:", err.message);
+    logger.error({ err }, "Errore getSalesTraffic");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -160,7 +161,7 @@ router.get("/sales-traffic/summary", async (req, res) => {
 
     res.json({ ok: true, totals, perMarketplace, topAsin, perData });
   } catch (err) {
-    console.error("Errore sales-traffic/summary:", err.message);
+    logger.error({ err }, "Errore sales-traffic/summary");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -203,13 +204,325 @@ router.get("/sales-traffic/compare", (req, res) => {
 
     res.json({ ok: true, thisWeek, lastWeek, thisMonth, lastMonth });
   } catch (err) {
-    console.error("❌ Errore sales-traffic/compare:", err.message);
+    logger.error({ err }, "Errore sales-traffic/compare");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// 📊 GET → margine per prodotto (fatturato - fees - costo produzione)
-// Nota: i dati ASIN sono aggregati sull'intero periodo del report (365gg), non filtrabili per data
+// POST → sync ASIN daily (ieri)
+router.post("/asin-daily/sync", async (req, res) => {
+  try {
+    res.json({ ok: true, message: "Sync ASIN giornaliero avviato in background" });
+    setImmediate(async () => {
+      try {
+        const result = await syncAsinDaily();
+        logger.info({ data: result }, "AsinDaily sync completato");
+      } catch (err) { logger.error({ err }, "Errore AsinDaily sync"); }
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST → backfill ultimi N giorni (default 7)
+router.post("/asin-daily/backfill", async (req, res) => {
+  const days = parseInt(req.query.days) || 7;
+  try {
+    res.json({ ok: true, message: `Backfill ultimi ${days} giorni avviato in background` });
+    setImmediate(async () => {
+      try {
+        const result = await backfillAsinDaily(days);
+        logger.info({ data: result }, "AsinDaily backfill completato");
+      } catch (err) { logger.error({ err }, "Errore AsinDaily backfill"); }
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET → dati giornalieri ASIN disponibili (date range)
+router.get("/asin-daily/dates", (req, res) => {
+  try {
+    const db = require("../../db/database").getDb();
+    try { db.prepare("SELECT 1 FROM sales_asin_daily LIMIT 1").get(); } catch { return res.json({ ok: true, dates: [], min: null, max: null }); }
+    const range = db.prepare("SELECT MIN(date) as min_date, MAX(date) as max_date, COUNT(DISTINCT date) as days FROM sales_asin_daily").get();
+    const dates = db.prepare("SELECT DISTINCT date FROM sales_asin_daily ORDER BY date DESC").all().map(r => r.date);
+    res.json({ ok: true, dates, min: range.min_date, max: range.max_date, days: range.days });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── FBA COVERAGE (giorni copertura stock) ────────────────────────
+// Per ogni ASIN×paese: stock attuale, velocità vendita, giorni copertura, rischio stockout
+router.get("/fba-coverage", (req, res) => {
+  try {
+    const db = require("../../db/database").getDb();
+    const { country } = req.query;
+    const countryFilter = country ? country.split(",").map(c => c.trim().toUpperCase()).filter(Boolean) : [];
+
+    // 1. Giorni nel periodo vendite (per calcolare velocità media)
+    const daysInPeriod = db.prepare("SELECT COUNT(DISTINCT date) AS n FROM sales_daily").get()?.n || 365;
+
+    // 2. Vendite per ASIN×paese (annuali)
+    let stWhere = "";
+    const stParams = [];
+    if (countryFilter.length > 0) {
+      stWhere = ` AND st.country IN (${countryFilter.map(() => "?").join(",")})`;
+      stParams.push(...countryFilter);
+    }
+
+    const rows = db.prepare(`
+      SELECT
+        fs.asin,
+        fs.country,
+        fs.quantity AS stock_fulfillable,
+        COALESCE(fs.quantity, 0) + COALESCE(fs.reserved_qty, 0) + COALESCE(fs.inbound_working, 0) + COALESCE(fs.inbound_shipped, 0) + COALESCE(fs.inbound_receiving, 0) + COALESCE(fs.unfulfillable_qty, 0) AS stock_fba,
+        COALESCE(fs.reserved_qty, 0) AS reserved_qty,
+        COALESCE(fs.inbound_receiving, 0) + COALESCE(fs.inbound_shipped, 0) + COALESCE(fs.inbound_working, 0) AS inbound_qty,
+        fs.product_name,
+        COALESCE(st.units_ordered, 0) AS unita_anno,
+        COALESCE(st.ordered_product_sales, 0) AS fatturato_anno,
+        COALESCE(img.titolo, fs.product_name, '') AS nome,
+        COALESCE(img.image_url, '') AS immagine
+      FROM fba_stock fs
+      LEFT JOIN sales_traffic st ON st.asin = fs.asin AND st.country = fs.country
+      LEFT JOIN (
+        SELECT asin, titolo, image_url FROM product_catalog
+        WHERE image_url IS NOT NULL AND image_url != ''
+        GROUP BY asin
+      ) img ON img.asin = fs.asin
+      WHERE fs.quantity >= 0${stWhere ? stWhere.replace(/st\./g, "fs.").replace("fs.country", "fs.country") : ""}
+      ${countryFilter.length > 0 ? "" : ""}
+    `).all(...(countryFilter.length > 0 ? countryFilter : []));
+
+    // Paesi disponibili
+    const availableCountries = db.prepare(
+      "SELECT DISTINCT country FROM fba_stock WHERE country IS NOT NULL ORDER BY country"
+    ).all().map(r => r.country);
+
+    // Velocità ultimi 30gg per paese (per pesare la velocità recente vs annuale)
+    const maxDate = db.prepare("SELECT MAX(date) AS d FROM sales_daily").get()?.d;
+    const last30 = {};
+    if (maxDate) {
+      const d30ago = new Date(maxDate);
+      d30ago.setDate(d30ago.getDate() - 30);
+      const rows30 = db.prepare(
+        "SELECT country, SUM(units_ordered) AS u30, SUM(ordered_product_sales) AS f30 FROM sales_daily WHERE date >= ? GROUP BY country"
+      ).all(d30ago.toISOString().slice(0, 10));
+      for (const r of rows30) last30[r.country] = r;
+    }
+
+    // Totali annui per paese (per calcolare rapporto 30gg/anno)
+    const countryAnnual = {};
+    db.prepare("SELECT country, SUM(units_ordered) AS u_year FROM sales_daily GROUP BY country").all()
+      .forEach(r => countryAnnual[r.country] = r.u_year);
+
+    let critici = 0, attenzione = 0, ok = 0, esauriti = 0;
+
+    const prodotti = rows
+      .filter(r => r.unita_anno > 0 || r.stock_fba > 0) // escludi ASIN senza vendite e senza stock
+      .map(r => {
+        // Velocità media annuale
+        const velAnno = r.unita_anno / daysInPeriod;
+
+        // Velocità ultimi 30gg (più recente, pesa di più)
+        let vel30 = velAnno;
+        if (last30[r.country] && countryAnnual[r.country] > 0) {
+          const ratio30 = last30[r.country].u30 / countryAnnual[r.country];
+          vel30 = (r.unita_anno * ratio30 / 30); // velocità stimata ultimi 30gg per questo ASIN
+        }
+
+        // Media pesata: 70% ultimi 30gg + 30% annuale
+        const velocita = vel30 * 0.7 + velAnno * 0.3;
+        const giorniCopertura = velocita > 0 ? Math.round(r.stock_fba / velocita) : (r.stock_fba > 0 ? 999 : 0);
+
+        // Suggerimento riordino: quante unità per arrivare a 60gg di copertura
+        const target60 = Math.ceil(velocita * 60);
+        const suggerimentoQty = Math.max(0, target60 - r.stock_fba);
+
+        let rischio;
+        if (r.stock_fba === 0 && r.unita_anno > 0) { rischio = "ESAURITO"; esauriti++; }
+        else if (giorniCopertura <= 14) { rischio = "CRITICO"; critici++; }
+        else if (giorniCopertura <= 30) { rischio = "ATTENZIONE"; attenzione++; }
+        else { rischio = "OK"; ok++; }
+
+        return {
+          asin: r.asin,
+          country: r.country,
+          nome: r.nome || r.asin,
+          immagine: r.immagine || "",
+          stock_fba: r.stock_fba,
+          stock_fulfillable: r.stock_fulfillable || 0,
+          reserved_qty: r.reserved_qty || 0,
+          inbound_qty: r.inbound_qty || 0,
+          velocita_giorno: Math.round(velocita * 100) / 100,
+          giorni_copertura: giorniCopertura,
+          suggerimento_qty: suggerimentoQty,
+          fatturato_anno: Math.round(r.fatturato_anno * 100) / 100,
+          rischio,
+        };
+      })
+      .sort((a, b) => a.giorni_copertura - b.giorni_copertura); // più urgenti prima
+
+    // Stock EU aggregato per ASIN (Amazon cross-ship in EU)
+    const euStock = {};
+    db.prepare("SELECT asin, SUM(quantity) AS eu_qty FROM fba_stock WHERE country NOT IN ('GB','SK') GROUP BY asin").all()
+      .forEach(r => euStock[r.asin] = r.eu_qty || 0);
+    for (const p of prodotti) {
+      p.eu_stock_totale = euStock[p.asin] || 0;
+    }
+
+    res.json({
+      ok: true,
+      kpi: { esauriti, critici, attenzione, ok, totale: prodotti.length },
+      countries: availableCountries,
+      prodotti,
+    });
+  } catch (err) {
+    logger.error({ err }, "Errore fba-coverage");
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ─── PROFITABILITY DASHBOARD ───────────────────────────────────────
+// Endpoint completo: per ogni ASIN → ricavi, fee breakdown, costo, margine, stock FBA, immagine
+router.get("/profitability", (req, res) => {
+  try {
+    const { getDb } = require("../../db/database");
+    const db = getDb();
+
+    const { country, from, to } = req.query;
+    const countryFilter = country ? country.split(",").map(c => c.trim().toUpperCase()).filter(Boolean) : [];
+    const usePeriod = !!(from || to);
+
+    const periodo = usePeriod ? `${from || "inizio"} — ${to || "oggi"}` : "ultimi 365 giorni (aggregato)";
+
+    // Se ci sono filtri data, usa la stima proporzionale; altrimenti dati annui diretti
+    let salesData;
+    if (usePeriod) {
+      salesData = getAsinSalesForPeriod(from || null, to || null, countryFilter);
+    } else {
+      // Query diretta su sales_traffic (aggregato annuo)
+      let whereExtra = "";
+      const stParams = [];
+      if (countryFilter.length > 0) {
+        whereExtra = ` AND country IN (${countryFilter.map(() => "?").join(",")})`;
+        stParams.push(...countryFilter);
+      }
+      salesData = db.prepare(`
+        SELECT asin, MAX(sku) AS sku,
+          SUM(units_ordered) AS unita,
+          SUM(ordered_product_sales) AS fatturato,
+          SUM(sessions) AS sessioni,
+          SUM(page_views) AS visualizzazioni
+        FROM sales_traffic
+        WHERE units_ordered > 0 AND asin IS NOT NULL AND asin != ''${whereExtra}
+        GROUP BY asin
+      `).all(...stParams);
+    }
+
+    // Arricchisci con fee, costi, immagini, stock
+    const feeCountryFilter = countryFilter.length > 0 ? ` WHERE country IN (${countryFilter.map(() => "?").join(",")})` : "";
+    const feeParams = countryFilter.length > 0 ? countryFilter : [];
+    const feesMap = {};
+    db.prepare(`SELECT asin, AVG(referral_fee) AS referral_fee, AVG(fulfillment_fee) AS fulfillment_fee, AVG(storage_fee) AS storage_fee, AVG(total_fee) AS fee_media FROM fba_fees${feeCountryFilter} GROUP BY asin`).all(...feeParams).forEach(r => feesMap[r.asin] = r);
+
+    const prodottiMap = {};
+    db.prepare("SELECT id, asin, nome FROM prodotti WHERE asin IS NOT NULL").all().forEach(r => prodottiMap[r.asin] = r);
+
+    const costiMap = {};
+    db.prepare("SELECT bc.tipo, bc.id_riferimento, bc.costo, p.asin FROM bilancio_catalogo bc LEFT JOIN prodotti p ON bc.tipo = 'prodotto' AND bc.id_riferimento = p.id WHERE p.asin IS NOT NULL").all().forEach(r => costiMap[r.asin] = r.costo);
+
+    const imgMap = {};
+    db.prepare("SELECT asin, titolo, image_url FROM product_catalog WHERE image_url IS NOT NULL AND image_url != '' GROUP BY asin").all().forEach(r => imgMap[r.asin] = r);
+
+    const alMap = {};
+    db.prepare("SELECT asin, title FROM amazon_listings GROUP BY asin").all().forEach(r => alMap[r.asin] = r.title);
+
+    const stkMap = {};
+    db.prepare("SELECT asin, SUM(quantity) AS stock_fba FROM fba_stock GROUP BY asin").all().forEach(r => stkMap[r.asin] = r.stock_fba);
+
+    const rows = salesData.map(v => ({
+      ...v,
+      referral_fee: feesMap[v.asin]?.referral_fee || 0,
+      fulfillment_fee: feesMap[v.asin]?.fulfillment_fee || 0,
+      storage_fee: feesMap[v.asin]?.storage_fee || 0,
+      fee_media: feesMap[v.asin]?.fee_media || 0,
+      costo_unitario: costiMap[v.asin] || 0,
+      nome: imgMap[v.asin]?.titolo || alMap[v.asin] || prodottiMap[v.asin]?.nome || "",
+      immagine: imgMap[v.asin]?.image_url || "",
+      stock_fba: stkMap[v.asin] || 0,
+    }));
+
+    // Paesi disponibili per il selettore frontend
+    const availableCountries = db.prepare(
+      "SELECT DISTINCT country FROM sales_traffic WHERE country IS NOT NULL ORDER BY country"
+    ).all().map(r => r.country);
+
+    let totRicavi = 0, totFee = 0, totCosti = 0, totUnita = 0;
+
+    const prodotti = rows.map((r) => {
+      const feeTotale = (r.fee_media || 0) * (r.unita || 0);
+      const costoTotale = (r.costo_unitario || 0) * (r.unita || 0);
+      const margine = (r.fatturato || 0) - feeTotale - costoTotale;
+      const marginePct = r.fatturato > 0 ? Math.round((margine / r.fatturato) * 1000) / 10 : 0;
+      const prezzoMedio = r.unita > 0 ? r.fatturato / r.unita : 0;
+
+      totRicavi += r.fatturato || 0;
+      totFee += feeTotale;
+      totCosti += costoTotale;
+      totUnita += r.unita || 0;
+
+      return {
+        asin: r.asin,
+        sku: r.sku || "",
+        nome: r.nome || r.asin,
+        immagine: r.immagine || "",
+        unita: r.unita || 0,
+        fatturato: Math.round((r.fatturato || 0) * 100) / 100,
+        prezzo_medio: Math.round(prezzoMedio * 100) / 100,
+        costo_unitario: Math.round((r.costo_unitario || 0) * 100) / 100,
+        referral_fee: Math.round((r.referral_fee || 0) * 100) / 100,
+        fulfillment_fee: Math.round((r.fulfillment_fee || 0) * 100) / 100,
+        storage_fee: Math.round((r.storage_fee || 0) * 100) / 100,
+        fee_totale: Math.round(feeTotale * 100) / 100,
+        costo_totale: Math.round(costoTotale * 100) / 100,
+        margine: Math.round(margine * 100) / 100,
+        margine_pct: marginePct,
+        stock_fba: r.stock_fba || 0,
+        sessioni: r.sessioni || 0,
+        visualizzazioni: r.visualizzazioni || 0,
+      };
+    });
+
+    const totMargine = totRicavi - totFee - totCosti;
+
+    res.json({
+      ok: true,
+      kpi: {
+        ricavi_totali: Math.round(totRicavi * 100) / 100,
+        fee_totali: Math.round(totFee * 100) / 100,
+        costi_totali: Math.round(totCosti * 100) / 100,
+        margine_netto: Math.round(totMargine * 100) / 100,
+        margine_pct: totRicavi > 0 ? Math.round((totMargine / totRicavi) * 1000) / 10 : 0,
+        unita_totali: totUnita,
+        prodotti_count: prodotti.length,
+      },
+      countries: availableCountries,
+      filtro_paese: countryFilter.length > 0 ? countryFilter : null,
+      periodo,
+      stima_proporzionale: usePeriod,
+      date_range: (() => { try { return db.prepare("SELECT MIN(date) AS min, MAX(date) AS max FROM sales_daily").get(); } catch { return null; } })(),
+      prodotti,
+    });
+  } catch (err) {
+    logger.error({ err }, "Errore profitability");
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// GET → margine per prodotto (legacy, usato da DashboardVendite)
 router.get("/sales-traffic/margins", (req, res) => {
   try {
     const { getDb } = require("../../db/database");
@@ -256,7 +569,7 @@ router.get("/sales-traffic/margins", (req, res) => {
 
     res.json({ ok: true, data: result });
   } catch (err) {
-    console.error("❌ Errore sales-traffic/margins:", err.message);
+    logger.error({ err }, "Errore sales-traffic/margins");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -264,7 +577,7 @@ router.get("/sales-traffic/margins", (req, res) => {
 // 🔄 POST → genera o aggiorna report commissioni FBA
 router.post("/fba-fees/update", async (req, res) => {
   try {
-    console.log("🚀 Avvio aggiornamento FBA Fees...");
+    logger.info("Avvio aggiornamento FBA Fees...");
     // Risposta immediata → evita timeout
     res.json({ ok: true, message: "Aggiornamento FBA Fees avviato in background" });
 
@@ -272,13 +585,13 @@ router.post("/fba-fees/update", async (req, res) => {
     setImmediate(async () => {
       try {
         const result = await aggiornaFBAFees();
-        console.log(`✅ FBA Fees completato. Record salvati: ${result?.record || 0}`);
+        logger.info(`FBA Fees completato. Record salvati: ${result?.record || 0}`);
       } catch (err) {
-        console.error("❌ Errore in background FBA Fees:", err.message);
+        logger.error({ err }, "Errore in background FBA Fees");
       }
     });
   } catch (err) {
-    console.error("❌ Errore iniziale aggiornaFBAFees:", err.message);
+    logger.error({ err }, "Errore iniziale aggiornaFBAFees");
     res.status(500).json({
       ok: false,
       error: "Impossibile avviare aggiornamento FBA Fees",
@@ -291,10 +604,10 @@ router.post("/fba-fees/update", async (req, res) => {
 router.get("/fba-fees", async (req, res) => {
   try {
     const data = await getFBAFees();
-    console.log(`📊 FBA Fees → ${data.length} record trovati`);
+    logger.info(`FBA Fees: ${data.length} record trovati`);
     res.json({ ok: true, count: data.length, data });
   } catch (err) {
-    console.error("❌ Errore getFBAFees:", err.message);
+    logger.error({ err }, "Errore getFBAFees");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -304,7 +617,7 @@ router.post("/create", async (req, res) => {
     const { marketplaceIds, reportType, dataStartTime, dataEndTime } = req.body;
     const ids = marketplaceIds?.length ? marketplaceIds : defaultMarketplaceIds;
 
-    console.log(`📑 Creazione report: ${reportType || "non specificato"} → ${ids.join(", ")}`);
+    logger.info(`Creazione report: ${reportType || "non specificato"} → ${ids.join(", ")}`);
 
     const report = await createReport({
       reportType,
@@ -315,7 +628,7 @@ router.post("/create", async (req, res) => {
 
     res.json({ ok: true, report });
   } catch (err) {
-    console.error("❌ Errore creazione report:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore creazione report");
     res.status(500).json({ error: "Impossibile creare report" });
   }
 });
@@ -327,7 +640,7 @@ router.get("/status/:reportId", async (req, res) => {
     const status = await getReportStatus(reportId);
     res.json(status);
   } catch (err) {
-    console.error("❌ Errore stato report:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore stato report");
     res.status(500).json({ error: "Impossibile recuperare stato report" });
   }
 });
@@ -339,7 +652,7 @@ router.get("/document/:id", async (req, res) => {
     const doc = await getReportDocument(id);
     res.json(doc);
   } catch (err) {
-    console.error("❌ Errore documento report:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore documento report");
     res.status(500).json({ error: "Impossibile recuperare documento report" });
   }
 });
@@ -393,7 +706,7 @@ router.get("/catalogo/:reportDocumentId", async (req, res) => {
 
     res.json({ ok: true, count: Object.keys(mappa).length, catalogo: Object.values(mappa) });
   } catch (err) {
-    console.error("❌ Errore catalogo:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore catalogo");
     res.status(500).json({ error: "Impossibile recuperare catalogo", details: err.message });
   }
 });
@@ -422,7 +735,7 @@ router.get("/download/:reportDocumentId", async (req, res) => {
 
     res.json({ ok: true, count: Array.isArray(data) ? data.length : 1, data });
   } catch (err) {
-    console.error("❌ Errore download report:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore download report");
     res.status(500).json({ error: "Impossibile scaricare report", details: err.message });
   }
 });
@@ -464,7 +777,7 @@ router.get("/catalog/:asin/:sku", async (req, res) => {
       ),
     });
   } catch (err) {
-    console.error("❌ Errore catalog asin:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore catalog asin");
     res.status(500).json({ error: "Impossibile recuperare catalog asin" });
   }
 });
@@ -482,7 +795,7 @@ router.get("/fba-stock", async (req, res) => {
     const data = await getFBAStock();
     res.json({ ok: true, count: data.length, data });
   } catch (err) {
-    console.error("❌ Errore getFBAStock:", err.message);
+    logger.error({ err }, "Errore getFBAStock");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -539,7 +852,7 @@ router.get("/fba-stock/completo", async (req, res) => {
 
     res.json({ ok: true, count: unione.length, prodotti: unione });
   } catch (err) {
-    console.error("❌ Errore fba-stock/completo:", err.message);
+    logger.error({ err }, "Errore fba-stock/completo");
     res.status(500).json({ ok: false, error: err.message });
   } finally {
     if (db) await db.close();
@@ -602,7 +915,7 @@ router.get("/fba-stock/:asin", async (req, res) => {
       marketplace: dettagli,
     });
   } catch (err) {
-    console.error("❌ Errore get FBA stock per asin:", err.message);
+    logger.error({ err }, "Errore get FBA stock per asin");
     res.status(500).json({ ok: false, error: err.message });
   } finally {
     if (db) await db.close();
@@ -642,7 +955,7 @@ router.get("/catalog-image/:asin", async (req, res) => {
         images[0]?.link ||
         null;
     } catch {
-      console.warn(`⚠️ SP-API: immagine non trovata per ${asin}`);
+      logger.warn(`SP-API: immagine non trovata per ${asin}`);
     }
 
     // 🔹 2️⃣ Fallback scraping pubblico
@@ -660,7 +973,7 @@ router.get("/catalog-image/:asin", async (req, res) => {
           html.match(/"large":"(https:\/\/m\.media-amazon\.com\/images\/[^"]+)"/);
         if (match) imageUrl = match[1].replace(/\\u0026/g, "&");
       } catch {
-        console.warn(`⚠️ Fallback: immagine non trovata per ${asin}`);
+        logger.warn(`Fallback: immagine non trovata per ${asin}`);
       }
     }
 
@@ -670,7 +983,7 @@ router.get("/catalog-image/:asin", async (req, res) => {
 
     res.json({ ok: true, asin, image: imageUrl });
   } catch (err) {
-    console.error("❌ Errore catalog-image:", err.message);
+    logger.error({ err }, "Errore catalog-image");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -683,7 +996,7 @@ router.get("/catalog-image/:asin", async (req, res) => {
 // 🔄 POST per aggiornare FBA stock (versione SINCRONA)
 router.post("/fba-stock/update", async (req, res) => {
   try {
-    console.log("🚀 Avvio aggiornamento FBA stock...");
+    logger.info("Avvio aggiornamento FBA stock...");
     // ✅ Risposta immediata → evita timeout
     res.json({ ok: true, message: "Aggiornamento FBA stock avviato in background" });
 
@@ -691,13 +1004,13 @@ router.post("/fba-stock/update", async (req, res) => {
     setImmediate(async () => {
       try {
         const result = await aggiornaFBAStock();
-        console.log("✅ Aggiornamento FBA stock completato:", result);
+        logger.info({ data: result }, "Aggiornamento FBA stock completato");
       } catch (err) {
-        console.error("❌ Errore in background aggiornaFBAStock:", err.message);
+        logger.error({ err }, "Errore in background aggiornaFBAStock");
       }
     });
   } catch (err) {
-    console.error("❌ Errore iniziale aggiornaFBAStock:", err.message);
+    logger.error({ err }, "Errore iniziale aggiornaFBAStock");
     res.status(500).json({
       ok: false,
       error: "Impossibile avviare aggiornamento FBA stock",
@@ -777,7 +1090,7 @@ router.get("/catalog-images/all", async (req, res) => {
           images[0]?.link ||
           null;
       } catch (err) {
-        console.warn(`⚠️ SP-API: immagine non trovata per ${asin}`);
+        logger.warn(`SP-API: immagine non trovata per ${asin}`);
       }
 
       // 🔹 4️⃣ Fallback pubblico
@@ -796,7 +1109,7 @@ router.get("/catalog-images/all", async (req, res) => {
 
           if (match) imageUrl = match[1].replace(/\\u0026/g, "&");
         } catch {
-          console.warn(`⚠️ Fallback: nessuna immagine trovata per ${asin}`);
+          logger.warn(`Fallback: nessuna immagine trovata per ${asin}`);
         }
       }
 
@@ -815,7 +1128,7 @@ router.get("/catalog-images/all", async (req, res) => {
 
     res.json({ ok: true, count: results.length, immagini: results });
   } catch (err) {
-    console.error("❌ Errore catalog-images/all:", err.message);
+    logger.error({ err }, "Errore catalog-images/all");
     res.status(500).json({
       ok: false,
       error: "Impossibile recuperare immagini globali",
@@ -832,8 +1145,8 @@ router.get("/catalog-images/all", async (req, res) => {
 router.post("/sync-sku", async (req, res) => {
   let db;
   try {
-    console.log("🚀 Avvio sincronizzazione SKU da Amazon...");
-    
+    logger.info("Avvio sincronizzazione SKU da Amazon...");
+
     // Risposta immediata
     res.json({ ok: true, message: "Sincronizzazione SKU avviata in background" });
 
@@ -844,7 +1157,7 @@ router.post("/sync-sku", async (req, res) => {
         const { access_token } = await getAccessToken();
 
         // 1️⃣ Crea il report
-        console.log("📑 Creazione report GET_MERCHANT_LISTINGS_ALL_DATA...");
+        logger.info("Creazione report GET_MERCHANT_LISTINGS_ALL_DATA...");
         const reportResponse = await createReport({
           reportType: "GET_FLAT_FILE_OPEN_LISTINGS_DATA",
           marketplaceIds: defaultMarketplaceIds,
@@ -852,10 +1165,10 @@ router.post("/sync-sku", async (req, res) => {
 
         const reportId = reportResponse?.reportId;
         if (!reportId) {
-          console.error("❌ Nessun reportId ricevuto");
+          logger.error("Nessun reportId ricevuto");
           return;
         }
-        console.log(`📋 Report creato: ${reportId}`);
+        logger.info(`Report creato: ${reportId}`);
 
         // 2️⃣ Attendi che il report sia pronto (polling)
         let status = null;
@@ -865,29 +1178,29 @@ router.post("/sync-sku", async (req, res) => {
         while (attempts < maxAttempts) {
           await new Promise((r) => setTimeout(r, 10000)); // Attendi 10 secondi
           status = await getReportStatus(reportId);
-          console.log(`⏳ Stato report: ${status?.processingStatus} (tentativo ${attempts + 1}/${maxAttempts})`);
+          logger.info(`Stato report: ${status?.processingStatus} (tentativo ${attempts + 1}/${maxAttempts})`);
 
           if (status?.processingStatus === "DONE") break;
           if (status?.processingStatus === "FATAL" || status?.processingStatus === "CANCELLED") {
-            console.error(`❌ Report fallito: ${status?.processingStatus}`);
+            logger.error(`Report fallito: ${status?.processingStatus}`);
             return;
           }
           attempts++;
         }
 
         if (status?.processingStatus !== "DONE") {
-          console.error("❌ Timeout: report non completato");
+          logger.error("Timeout: report non completato");
           return;
         }
 
         // 3️⃣ Scarica il documento
         const reportDocumentId = status?.reportDocumentId;
         if (!reportDocumentId) {
-          console.error("❌ Nessun reportDocumentId");
+          logger.error("Nessun reportDocumentId");
           return;
         }
 
-        console.log(`📥 Download documento: ${reportDocumentId}`);
+        logger.info(`Download documento: ${reportDocumentId}`);
         const docInfo = await getReportDocument({ reportId: reportDocumentId });
         const buffer = await downloadReportDocument({
           url: docInfo.url,
@@ -897,7 +1210,7 @@ router.post("/sync-sku", async (req, res) => {
         // 4️⃣ Parsing TSV
         const { parseDelimited } = require("./reportClient");
         const rows = parseDelimited(buffer);
-        console.log(`📊 Righe trovate nel report: ${rows.length}`);
+        logger.info(`Righe trovate nel report: ${rows.length}`);
 
         // 5️⃣ Aggiorna DB
         db = await open({
@@ -918,20 +1231,20 @@ router.post("/sync-sku", async (req, res) => {
             );
             if (result.changes > 0) {
               updated++;
-              console.log(`✅ SKU aggiornato: ${asin} → ${sku}`);
+              logger.info(`SKU aggiornato: ${asin} → ${sku}`);
             }
           }
         }
 
-        console.log(`🎉 Sincronizzazione completata! SKU aggiornati: ${updated}`);
+        logger.info(`Sincronizzazione completata! SKU aggiornati: ${updated}`);
       } catch (err) {
-        console.error("❌ Errore sincronizzazione SKU:", err.message);
+        logger.error({ err }, "Errore sincronizzazione SKU");
       } finally {
         if (db) await db.close();
       }
     });
   } catch (err) {
-    console.error("❌ Errore iniziale sync-sku:", err.message);
+    logger.error({ err }, "Errore iniziale sync-sku");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -957,7 +1270,7 @@ router.get("/sku-status", async (req, res) => {
       percentuale: Math.round((conSku.count / totale.count) * 100) + "%",
     });
   } catch (err) {
-    console.error("❌ Errore sku-status:", err.message);
+    logger.error({ err }, "Errore sku-status");
     res.status(500).json({ ok: false, error: err.message });
   } finally {
     if (db) await db.close();

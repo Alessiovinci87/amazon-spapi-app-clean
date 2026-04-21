@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { getCatalogDetails } = require("./catalogAmazonService");
+const logger = require("../../utils/logger");
 
 /**
  * 📦 GET dettagli catalogo per ASIN
@@ -11,7 +12,7 @@ router.get("/:asin", async (req, res) => {
   try {
     const { asin } = req.params;
 
-    console.log(`📦 Richiesta dettagli catalogo per ASIN: ${asin}`);
+    logger.info(`Richiesta dettagli catalogo per ASIN: ${asin}`);
 
     // 🔹 Recupera i dettagli da tutti i marketplace EU
     const details = await getCatalogDetails(asin);
@@ -19,7 +20,7 @@ router.get("/:asin", async (req, res) => {
     // 🔹 Risposta compatibile col frontend
     res.json(details);
   } catch (err) {
-    console.error("❌ Errore getCatalogDetails:", err.message);
+    logger.error({ err }, "Errore getCatalogDetails");
     res.status(500).json({ error: "Impossibile recuperare dettagli catalogo" });
   }
 });

@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const Database = require("better-sqlite3");
 const { hashPassword } = require("../utils/password");
+const logger = require("../utils/logger");
 
 let dbInstance = null;
 
@@ -23,10 +24,7 @@ function getDbPath() {
 function openDb(retry = true) {
   const dbFile = getDbPath();
 
-  console.log("\n=========================================");
-  console.log("📌 DATABASE APERTO DA QUESTO PERCORSO:");
-  console.log(path.resolve(dbFile));
-  console.log("=========================================\n");
+  logger.info({ dbPath: path.resolve(dbFile) }, "DATABASE APERTO DA QUESTO PERCORSO");
 
   if (!fs.existsSync(dbFile)) {
     throw new Error(
@@ -45,12 +43,12 @@ function openDb(retry = true) {
     db.pragma("busy_timeout = 5000");
 
     const mode = db.pragma("journal_mode", { simple: true });
-    console.log(`🧩 PRAGMA impostate correttamente (journal_mode=${mode}).`);
+    logger.info(`PRAGMA impostate correttamente (journal_mode=${mode})`);
 
     return db;
   } catch (err) {
     if (err.code === "SQLITE_IOERR_TRUNCATE" && retry) {
-      console.warn("⚠️  WAL corrotto rilevato — rimozione automatica dei file WAL/SHM e nuovo tentativo…");
+      logger.warn("WAL corrotto rilevato — rimozione automatica dei file WAL/SHM e nuovo tentativo…");
       const walFile = dbFile + "-wal";
       const shmFile = dbFile + "-shm";
       try { fs.unlinkSync(walFile); } catch (_) {}
@@ -79,7 +77,7 @@ function seedPasswordAdmin(db) {
   const hash = hashPassword(defaultPassword);
 
   db.prepare("INSERT INTO impostazioni (chiave, valore) VALUES ('admin_password', ?)").run(hash);
-  console.log("🔐 Password admin inizializzata nel DB dall'env ADMIN_PASSWORD_DEFAULT.");
+  logger.info("Password admin inizializzata nel DB dall'env ADMIN_PASSWORD_DEFAULT");
 }
 
 /**
@@ -101,7 +99,7 @@ function seedAdminUser(db) {
   db.prepare(
     "INSERT INTO utenti (username, password, ruolo, nome) VALUES ('admin', ?, 'admin', 'Amministratore')"
   ).run(hash);
-  console.log("🔐 Utente admin creato con password da ADMIN_PASSWORD_DEFAULT.");
+  logger.info("Utente admin creato con password da ADMIN_PASSWORD_DEFAULT");
 }
 
 /**
@@ -112,26 +110,26 @@ function runMigrations(db) {
   const cols = db.pragma("table_info(accessori)");
   if (!cols.some(c => c.name === "quantita_impegnata")) {
     db.prepare("ALTER TABLE accessori ADD COLUMN quantita_impegnata INTEGER NOT NULL DEFAULT 0").run();
-    console.log("🔧 Migrazione: aggiunta colonna quantita_impegnata ad accessori");
+    logger.info("Migrazione: aggiunta colonna quantita_impegnata ad accessori");
   }
   // Aggiunge soglia_minima ad accessori se mancante
   if (!cols.some(c => c.name === "soglia_minima")) {
     db.prepare("ALTER TABLE accessori ADD COLUMN soglia_minima INTEGER NOT NULL DEFAULT 0").run();
-    console.log("🔧 Migrazione: aggiunta colonna soglia_minima ad accessori");
+    logger.info("Migrazione: aggiunta colonna soglia_minima ad accessori");
   }
 
   // Aggiunge soglia_minima a sfuso se mancante
   const colsSfuso = db.pragma("table_info(sfuso)");
   if (colsSfuso.length > 0 && !colsSfuso.some(c => c.name === "soglia_minima")) {
     db.prepare("ALTER TABLE sfuso ADD COLUMN soglia_minima REAL NOT NULL DEFAULT 0").run();
-    console.log("🔧 Migrazione: aggiunta colonna soglia_minima a sfuso");
+    logger.info("Migrazione: aggiunta colonna soglia_minima a sfuso");
   }
 
   // Aggiunge nome a alert_events se mancante (per mostrare nome prodotto accanto all'ASIN)
   const colsAlertEv = db.pragma("table_info(alert_events)");
   if (colsAlertEv.length > 0 && !colsAlertEv.some(c => c.name === "nome")) {
     db.prepare("ALTER TABLE alert_events ADD COLUMN nome TEXT").run();
-    console.log("🔧 Migrazione: aggiunta colonna nome ad alert_events");
+    logger.info("Migrazione: aggiunta colonna nome ad alert_events");
 
     // Backfill: popola nome dagli alert esistenti usando fba_stock.product_name
     try {
@@ -140,19 +138,19 @@ function runMigrations(db) {
           SELECT fs.product_name FROM fba_stock fs WHERE fs.asin = alert_events.asin LIMIT 1
         ) WHERE nome IS NULL AND asin IS NOT NULL
       `).run();
-      console.log("🔧 Backfill: nome popolato per alert esistenti da fba_stock");
-    } catch (e) { console.warn("⚠️ Backfill nome alert:", e.message); }
+      logger.info("Backfill: nome popolato per alert esistenti da fba_stock");
+    } catch (e) { logger.warn({ err: e }, "Backfill nome alert"); }
   }
 
   // ===== SALES TRAFFIC: aggiunge date + created_at se mancanti =====
   const colsST = db.pragma("table_info(sales_traffic)");
   if (colsST.length > 0 && !colsST.some(c => c.name === "date")) {
     db.prepare("ALTER TABLE sales_traffic ADD COLUMN date TEXT DEFAULT ''").run();
-    console.log("🔧 Migrazione: aggiunta colonna date a sales_traffic");
+    logger.info("Migrazione: aggiunta colonna date a sales_traffic");
   }
   if (colsST.length > 0 && !colsST.some(c => c.name === "created_at")) {
     db.prepare("ALTER TABLE sales_traffic ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP").run();
-    console.log("🔧 Migrazione: aggiunta colonna created_at a sales_traffic");
+    logger.info("Migrazione: aggiunta colonna created_at a sales_traffic");
   }
 
   // ===== RESI FBA =====
@@ -181,25 +179,25 @@ function runMigrations(db) {
   const colsProdSfuso = db.pragma("table_info(produzioni_sfuso)");
   if (colsProdSfuso.length > 0 && !colsProdSfuso.some(c => c.name === "lotto")) {
     db.prepare("ALTER TABLE produzioni_sfuso ADD COLUMN lotto TEXT").run();
-    console.log("🔧 Migrazione: aggiunta colonna lotto a produzioni_sfuso");
+    logger.info("Migrazione: aggiunta colonna lotto a produzioni_sfuso");
   }
   // Aggiunge lotto a storico_produzioni_sfuso se mancante
   const colsStoricoProd = db.pragma("table_info(storico_produzioni_sfuso)");
   if (colsStoricoProd.length > 0 && !colsStoricoProd.some(c => c.name === "lotto")) {
     db.prepare("ALTER TABLE storico_produzioni_sfuso ADD COLUMN lotto TEXT").run();
-    console.log("🔧 Migrazione: aggiunta colonna lotto a storico_produzioni_sfuso");
+    logger.info("Migrazione: aggiunta colonna lotto a storico_produzioni_sfuso");
   }
   // Aggiunge lotto a storico_movimenti se mancante
   const colsStoricoMov = db.pragma("table_info(storico_movimenti)");
   if (colsStoricoMov.length > 0 && !colsStoricoMov.some(c => c.name === "lotto")) {
     db.prepare("ALTER TABLE storico_movimenti ADD COLUMN lotto TEXT").run();
-    console.log("🔧 Migrazione: aggiunta colonna lotto a storico_movimenti");
+    logger.info("Migrazione: aggiunta colonna lotto a storico_movimenti");
   }
   // Aggiunge lotto a ddt_generici_righe se mancante
   const colsDdtRighe = db.pragma("table_info(ddt_generici_righe)");
   if (colsDdtRighe.length > 0 && !colsDdtRighe.some(c => c.name === "lotto")) {
     db.prepare("ALTER TABLE ddt_generici_righe ADD COLUMN lotto TEXT").run();
-    console.log("🔧 Migrazione: aggiunta colonna lotto a ddt_generici_righe");
+    logger.info("Migrazione: aggiunta colonna lotto a ddt_generici_righe");
   }
 
   // ===== ONE STEP =====
@@ -258,7 +256,7 @@ function runMigrations(db) {
     )
   `).run();
 
-  console.log("✅ Migrazione One Step completata");
+  logger.info("Migrazione One Step completata");
 
   // ===== TOP COAT =====
   db.prepare(`
@@ -316,7 +314,7 @@ function runMigrations(db) {
     )
   `).run();
 
-  console.log("✅ Migrazione Top Coat completata");
+  logger.info("Migrazione Top Coat completata");
 
   // ===== MODULI CUSTOM (sistema generico) =====
   db.prepare(`
@@ -390,14 +388,14 @@ function runMigrations(db) {
     )
   `).run();
 
-  console.log("✅ Migrazione Moduli Custom completata");
+  logger.info("Migrazione Moduli Custom completata");
 
   // ===== ALERT EVENTS: aggiungi colonna 'source' se mancante =====
   try {
     const colsAlert = db.pragma("table_info(alert_events)");
     if (colsAlert.length > 0 && !colsAlert.some(c => c.name === "source")) {
       db.prepare("ALTER TABLE alert_events ADD COLUMN source TEXT").run();
-      console.log("🔧 Migrazione: aggiunta colonna source ad alert_events");
+      logger.info("Migrazione: aggiunta colonna source ad alert_events");
     }
   } catch (_) { /* tabella non esiste ancora, sarà creata dalla migration europa */ }
 
@@ -414,7 +412,7 @@ function runMigrations(db) {
       oldSchema.sql.includes("UNIQUE(marketplace_id, order_id, date, rating)")
     ) {
       db.prepare("DROP TABLE seller_feedback").run();
-      console.log("🔧 Migrazione: drop seller_feedback (vecchio schema)");
+      logger.info("Migrazione: drop seller_feedback (vecchio schema)");
     }
   } catch (_) {}
 
@@ -458,33 +456,33 @@ function runMigrations(db) {
     )
   `).run();
 
-  console.log("✅ Migrazione Seller Feedback completata");
+  logger.info("Migrazione Seller Feedback completata");
 
   // ===== SCADENZE LOTTI =====
   // Aggiunge data_scadenza e pao_mesi a sfuso se mancanti
   const colsSfusoScad = db.pragma("table_info(sfuso)");
   if (colsSfusoScad.length > 0 && !colsSfusoScad.some(c => c.name === "data_scadenza")) {
     db.prepare("ALTER TABLE sfuso ADD COLUMN data_scadenza TEXT").run();
-    console.log("🔧 Migrazione: aggiunta colonna data_scadenza a sfuso");
+    logger.info("Migrazione: aggiunta colonna data_scadenza a sfuso");
   }
   if (colsSfusoScad.length > 0 && !colsSfusoScad.some(c => c.name === "pao_mesi")) {
     db.prepare("ALTER TABLE sfuso ADD COLUMN pao_mesi INTEGER").run();
-    console.log("🔧 Migrazione: aggiunta colonna pao_mesi a sfuso");
+    logger.info("Migrazione: aggiunta colonna pao_mesi a sfuso");
   }
   // Aggiunge data_scadenza a sfuso_movimenti se mancante
   const colsSfusoMov = db.pragma("table_info(sfuso_movimenti)");
   if (colsSfusoMov.length > 0 && !colsSfusoMov.some(c => c.name === "data_scadenza")) {
     db.prepare("ALTER TABLE sfuso_movimenti ADD COLUMN data_scadenza TEXT").run();
-    console.log("🔧 Migrazione: aggiunta colonna data_scadenza a sfuso_movimenti");
+    logger.info("Migrazione: aggiunta colonna data_scadenza a sfuso_movimenti");
   }
 
-  console.log("✅ Migrazione Scadenze Lotti completata");
+  logger.info("Migrazione Scadenze Lotti completata");
 
   // ===== ORDINI FORNITORI: aggiungi quantita_ricevuta se mancante =====
   const colsOrdForn = db.pragma("table_info(ordini_fornitori)");
   if (colsOrdForn.length > 0 && !colsOrdForn.some(c => c.name === "quantita_ricevuta")) {
     db.prepare("ALTER TABLE ordini_fornitori ADD COLUMN quantita_ricevuta REAL").run();
-    console.log("🔧 Migrazione: aggiunta colonna quantita_ricevuta a ordini_fornitori");
+    logger.info("Migrazione: aggiunta colonna quantita_ricevuta a ordini_fornitori");
   }
 
   // ===== PRODUZIONI_SFUSO: FK CASCADE se mancante =====
@@ -517,22 +515,22 @@ function runMigrations(db) {
       db.exec("DROP TABLE produzioni_sfuso");
       db.exec("ALTER TABLE produzioni_sfuso_cascade RENAME TO produzioni_sfuso");
       db.pragma("foreign_keys = ON");
-      console.log("🔧 Migrazione: FK CASCADE aggiunta a produzioni_sfuso");
+      logger.info("Migrazione: FK CASCADE aggiunta a produzioni_sfuso");
     }
-  } catch (e) { console.warn("⚠️ Migrazione FK CASCADE produzioni_sfuso:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "Migrazione FK CASCADE produzioni_sfuso"); }
 
   // ===== PRODOTTI: aggiungi soglia_minima se mancante =====
   const colsProdotti = db.pragma("table_info(prodotti)");
   if (colsProdotti.length > 0 && !colsProdotti.some(c => c.name === "soglia_minima")) {
     db.prepare("ALTER TABLE prodotti ADD COLUMN soglia_minima INTEGER NOT NULL DEFAULT 10").run();
-    console.log("🔧 Migrazione: aggiunta colonna soglia_minima a prodotti");
+    logger.info("Migrazione: aggiunta colonna soglia_minima a prodotti");
   }
 
   // ===== SCATOLETTE: aggiungi soglia_minima se mancante =====
   const colsScatolette = db.pragma("table_info(scatolette)");
   if (colsScatolette.length > 0 && !colsScatolette.some(c => c.name === "soglia_minima")) {
     db.prepare("ALTER TABLE scatolette ADD COLUMN soglia_minima INTEGER NOT NULL DEFAULT 0").run();
-    console.log("🔧 Migrazione: aggiunta colonna soglia_minima a scatolette");
+    logger.info("Migrazione: aggiunta colonna soglia_minima a scatolette");
   }
 
   // ===== ETICHETTE =====
@@ -547,14 +545,14 @@ function runMigrations(db) {
     )
   `).run();
 
-  console.log("✅ Migrazione Scatolette/Etichette completata");
+  logger.info("Migrazione Scatolette/Etichette completata");
 }
 
 async function ensureDatabaseReady() {
   if (dbInstance) return dbInstance;
 
   const db = openDb();
-  console.log("📂 Database caricato da:", getDbPath());
+  logger.info({ dbPath: getDbPath() }, "Database caricato");
 
   dbInstance = db;
 

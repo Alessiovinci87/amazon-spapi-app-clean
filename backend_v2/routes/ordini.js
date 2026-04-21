@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 
 // 🧾 GET - Tutti gli ordini fornitori
 router.get("/", (req, res) => {
@@ -28,7 +29,7 @@ router.get("/", (req, res) => {
 
     res.json(ordini || []);
   } catch (err) {
-    console.error("❌ Errore caricamento ordini:", err);
+    logger.error({ err }, "Errore caricamento ordini");
     res.status(500).json({ error: "Errore interno del server" });
   }
 });

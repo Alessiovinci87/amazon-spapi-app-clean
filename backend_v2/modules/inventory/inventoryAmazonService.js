@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { sign } = require("aws4");
+const logger = require("../../utils/logger");
 
 const {
   AWS_ACCESS_KEY_ID,
@@ -42,14 +43,11 @@ async function getAmazonInventory(sku, accessToken, marketplaceId = "APJ6JRA9NG5
 
     return response.data;
     } catch (err) {
-    console.error("❌ Errore Inventory API Amazon:");
-    if (err.response) {
-      console.error("Status:", err.response.status);
-      console.error("Headers:", err.response.headers);
-      console.error("Data:", JSON.stringify(err.response.data, null, 2));
-    } else {
-      console.error(err.message);
-    }
+    logger.error({
+      err,
+      status: err.response?.status,
+      data: err.response?.data,
+    }, "Errore Inventory API Amazon");
     throw new Error("Impossibile recuperare inventario Amazon");
   }
 

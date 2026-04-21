@@ -3,6 +3,7 @@ const axios = require("axios");
 const { sign } = require("aws4");
 const { getAccessToken } = require("../auth/authService");
 const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 
 const HOST = "sellingpartnerapi-eu.amazon.com";
 const BASE_URL = `https://${HOST}`;
@@ -138,7 +139,7 @@ async function getCatalogDetails(asin) {
     } catch (err) {
       // Non bloccare l'intero ciclo: logga e continua
       if (err.response?.status !== 404) {
-        console.warn(`⚠️ ${mp.paese} – errore API: ${err.response?.status || err.code || err.message}`);
+        logger.warn(`${mp.paese} – errore API: ${err.response?.status || err.code || err.message}`);
       }
       if (err.response?.status === 429) await sleep(5000); // back-off su rate limit
     }
@@ -240,7 +241,7 @@ async function getAplusContent(asin, marketplaceId) {
   } catch (err) {
     const details = err.response?.data?.errors?.[0]?.details ?? err.message;
     const isPremiumAplus = details.includes("premium-module");
-    console.warn(`[A+] Documento non leggibile: ${details}`);
+    logger.warn(`[A+] Documento non leggibile: ${details}`);
     return {
       images: [],
       contentReferenceKey: key,
@@ -253,7 +254,7 @@ async function getAplusContent(asin, marketplaceId) {
 
   // La risposta wrappa il documento in contentRecord.contentDocument
   const contentDoc = doc?.contentRecord?.contentDocument ?? doc?.contentDocument;
-  console.log(`[A+] contentReferenceKey=${key}, moduli=${contentDoc?.contentModuleList?.length ?? 0}`);
+  logger.info(`[A+] contentReferenceKey=${key}, moduli=${contentDoc?.contentModuleList?.length ?? 0}`);
 
   // 3. Estrai tutti gli uploadDestinationId ricorsivamente → URL CDN Amazon
   const seen = new Set();
@@ -323,13 +324,13 @@ async function sincronizzaPrezziAsin(asin) {
     } catch (err) {
       const status = err?.response?.status;
       if (status === 429) {
-        console.warn(`⏳ [SyncPrezzi] 429 su ${mp.paese} per ${asin} — attendo 65s`);
+        logger.warn(`[SyncPrezzi] 429 su ${mp.paese} per ${asin} — attendo 65s`);
         await sleep(65000);
       } else if (err.code === 'ECONNRESET') {
-        console.warn(`⏳ [SyncPrezzi] ECONNRESET su ${mp.paese} per ${asin} — attendo 5s`);
+        logger.warn(`[SyncPrezzi] ECONNRESET su ${mp.paese} per ${asin} — attendo 5s`);
         await sleep(5000);
       } else if (status !== 400 && status !== 403 && status !== 404) {
-        console.warn(`⚠️ [SyncPrezzi] ${mp.paese}/${asin}: ${status ?? err.message}`);
+        logger.warn(`[SyncPrezzi] ${mp.paese}/${asin}: ${status ?? err.message}`);
       }
     }
     await sleep(2100); // Pricing API: max 0.5 req/s

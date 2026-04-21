@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-
+const logger = require("../utils/logger");
 const { getDb } = require("../db/database");
 
 router.get("/", (req, res) => {
@@ -38,7 +38,7 @@ router.get("/", (req, res) => {
             produzioniAttive,
         });
     } catch (err) {
-        console.error("Errore statistiche:", err);
+        logger.error({ err }, "Errore statistiche");
         res.status(500).json({ error: "Errore nel recupero statistiche" });
     }
 });

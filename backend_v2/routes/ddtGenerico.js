@@ -5,6 +5,7 @@ const pdf = require("html-pdf-node");
 const { getDb } = require("../db/database");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 const router = express.Router();
 
@@ -199,13 +200,13 @@ router.post("/generico/pdf", validate({ body: ddtPdfSchema }), async (req, res) 
 
     const db = getDb();
     const ddtId = salvaDdtNelDb(db, brand, fields, righe, totUnita, totColli);
-    console.log(`✅ DDT generico salvato con ID ${ddtId}`);
+    logger.info({ ddtId }, "DDT generico salvato");
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=ddt_generico_${numeroDDT}.pdf`);
     res.send(pdfBuffer);
   } catch (err) {
-    console.error("❌ Errore generazione DDT generico:", err.message);
+    logger.error({ err }, "Errore generazione DDT generico");
     res.status(500).json({ error: "Errore generazione PDF", details: err.message });
   }
 });
@@ -252,13 +253,13 @@ router.post("/pics-nails/pdf", validate({ body: picsNailsPdfSchema }), async (re
 
     const db = getDb();
     const ddtId = salvaDdtNelDb(db, "pics-nails", fields, righe, totUnita, totColli);
-    console.log(`✅ DDT Pics Nails salvato con ID ${ddtId}`);
+    logger.info({ ddtId }, "DDT Pics Nails salvato");
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=ddt_pics_nails_${numeroDDT || spedizioneProgressivo}.pdf`);
     res.send(pdfBuffer);
   } catch (err) {
-    console.error("❌ Errore generazione DDT Pics Nails:", err.message);
+    logger.error({ err }, "Errore generazione DDT Pics Nails");
     res.status(500).json({ error: "Errore generazione PDF", details: err.message });
   }
 });

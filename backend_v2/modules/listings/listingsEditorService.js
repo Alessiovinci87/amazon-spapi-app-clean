@@ -2,6 +2,7 @@
 // Service per l'editor dei listing Amazon: sync cache locale, lista, update.
 
 const { getDb } = require("../../db/database");
+const logger = require("../../utils/logger");
 const {
   createReport,
   getReportStatus,
@@ -61,10 +62,10 @@ async function syncListings(country) {
   const marketplaceId = MARKETPLACES[country];
   if (!marketplaceId) throw new Error(`Country ${country} non supportato`);
 
-  console.log(`📑 [${country}] Creazione report GET_MERCHANT_LISTINGS_ALL_DATA...`);
+  logger.info(`📑 [${country}] Creazione report GET_MERCHANT_LISTINGS_ALL_DATA...`);
   const report = await createReport([marketplaceId]);
   const reportId = report.reportId;
-  console.log(`   reportId = ${reportId}`);
+  logger.info(`   reportId = ${reportId}`);
 
   // Attendo DONE (max 10 minuti)
   let status = "IN_PROGRESS";
@@ -74,7 +75,7 @@ async function syncListings(country) {
     const st = await getReportStatus(reportId);
     status = st.processingStatus;
     reportDocumentId = st.reportDocumentId;
-    console.log(`   stato = ${status}`);
+    logger.info(`   stato = ${status}`);
     if (status === "DONE") break;
     if (["CANCELLED", "FATAL"].includes(status)) {
       throw new Error(`Report ${country} ${status}`);
@@ -84,9 +85,9 @@ async function syncListings(country) {
     throw new Error(`Report ${country} non completato`);
   }
 
-  console.log(`📥 [${country}] Download documento ${reportDocumentId}...`);
+  logger.info(`📥 [${country}] Download documento ${reportDocumentId}...`);
   const rows = await downloadReportDocument(reportDocumentId);
-  console.log(`📦 [${country}] ${rows.length} righe nel report`);
+  logger.info(`📦 [${country}] ${rows.length} righe nel report`);
 
   // Dedupe per ASIN: un'unica chiamata catalog per ASIN serve tutti gli SKU che lo condividono
   const asinToSkus = new Map();
@@ -98,7 +99,7 @@ async function syncListings(country) {
     if (!asinToSkus.has(asin)) asinToSkus.set(asin, []);
     asinToSkus.get(asin).push({ sku, fallbackTitle: itemName });
   }
-  console.log(`🧬 [${country}] ${asinToSkus.size} ASIN unici su ${rows.length} SKU`);
+  logger.info(`🧬 [${country}] ${asinToSkus.size} ASIN unici su ${rows.length} SKU`);
 
   const db = getDb();
   const upsert = db.prepare(`
@@ -124,8 +125,8 @@ async function syncListings(country) {
       const detail = await getCatalogForSync(asin, marketplaceId);
 
       if (!firstLogged) {
-        console.log(`🔍 [${country}] Esempio catalog ${asin}:`);
-        console.log(JSON.stringify(detail, null, 2).slice(0, 1500));
+        logger.info(`🔍 [${country}] Esempio catalog ${asin}:`);
+        logger.info(JSON.stringify(detail, null, 2).slice(0, 1500));
         firstLogged = true;
       }
 
@@ -151,7 +152,7 @@ async function syncListings(country) {
     } catch (err) {
       const status = err.response?.status;
       const amzMsg = err.response?.data?.errors?.[0]?.message;
-      console.warn(`⚠️ [${country}] ASIN ${asin} (${status || "?"}): ${amzMsg || err.message}`);
+      logger.warn(`⚠️ [${country}] ASIN ${asin} (${status || "?"}): ${amzMsg || err.message}`);
       // Salvo almeno il fallback dal report (title da item-name)
       for (const { sku, fallbackTitle } of skuList) {
         upsert.run({
@@ -171,7 +172,7 @@ async function syncListings(country) {
     }
   }
 
-  console.log(
+  logger.info(
     `✅ [${country}] sync completato: ${doneAsins} ASIN ok, ${failedAsins} ASIN falliti (fallback report), ${skuSaved} righe SKU salvate`
   );
   return {

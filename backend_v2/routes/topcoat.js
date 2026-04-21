@@ -10,6 +10,7 @@ const { sign } = require("aws4");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
 const { checkSottoSogliaTopcoat } = require("../services/stockAlerts.service");
+const logger = require("../utils/logger");
 
 // ─── Zod schemas ───────────────────────────────────────
 const asinParam = z.object({ asin: z.string().min(1).max(20) });
@@ -458,7 +459,7 @@ router.post("/ordini/:id/ricevi", validate({ params: idParam, body: riceviSchema
 
     res.json({ ok: true, modifiche, movimentiApplicati });
   } catch (err) {
-    console.error("❌ /ordini/:id/ricevi:", err);
+    logger.error({ err }, "/topcoat/ordini/:id/ricevi");
     res.status(500).json({ error: err.message });
   }
 });
@@ -549,10 +550,10 @@ router.post("/reset", validate({ body: resetSchema }), (req, res) => {
         db.prepare("DELETE FROM sqlite_sequence WHERE name IN ('topcoat_movimenti','topcoat_ordini','topcoat_ordini_righe')").run();
       } catch (_) { /* tabella sqlite_sequence può non esistere */ }
     })();
-    console.log("🧨 Reset Top Coat (ordini+movimenti):", stats);
+    logger.info({ stats }, "Reset Top Coat (ordini+movimenti)");
     res.json({ ok: true, eliminati: stats });
   } catch (err) {
-    console.error("❌ /reset Top Coat:", err);
+    logger.error({ err }, "/reset Top Coat");
     res.status(500).json({ error: err.message });
   }
 });
@@ -637,7 +638,7 @@ router.post("/sync-images", async (req, res) => {
 
         await sleep(800); // rispetta rate limit SP-API
       } catch (e) {
-        console.warn(`⚠️ [TopCoat sync-images] ${asin}: ${e.response?.status ?? e.message}`);
+        logger.warn({ asin, status: e.response?.status, err: e }, "[TopCoat sync-images] errore ASIN");
         errori.push(asin);
         if (e.response?.status === 429) await sleep(5000);
       }
@@ -645,7 +646,7 @@ router.post("/sync-images", async (req, res) => {
 
     res.json({ ok: true, aggiornati, totale: prodotti.length, errori });
   } catch (err) {
-    console.error("❌ sync-images:", err);
+    logger.error({ err }, "sync-images Top Coat");
     res.status(500).json({ error: err.message });
   }
 });

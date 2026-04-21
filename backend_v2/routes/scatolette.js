@@ -4,6 +4,7 @@ const router = express.Router();
 const { getDb } = require("../db/database");
 const { verifyPassword } = require("../utils/password");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 const storicoController = require("../controllers/scatoletteStorico.controller.js");
 
@@ -41,7 +42,7 @@ router.get("/", (req, res) => {
     const rows = db.prepare("SELECT * FROM scatolette ORDER BY nome_prodotto ASC").all();
     res.json(rows);
   } catch (err) {
-    console.error("❌ ERRORE SQL /scatolette:", err);
+    logger.error({ err }, "ERRORE SQL /scatolette");
     res.status(500).json({ message: "Errore nel recupero delle scatolette" });
   }
 });
@@ -105,7 +106,7 @@ router.patch("/:id", validate({ params: idParam, body: patchSchema }), (req, res
     });
 
   } catch (err) {
-    console.error("❌ Errore PATCH /api/scatolette/:id", err);
+    logger.error({ err }, "Errore PATCH /api/scatolette/:id");
     res.status(500).json({ message: "Errore nell'aggiornamento della quantità" });
   }
 });
@@ -134,7 +135,7 @@ router.post("/", validate({ body: createSchema }), (req, res) => {
       quantita,
     });
   } catch (err) {
-    console.error("❌ Errore POST /api/scatolette", err);
+    logger.error({ err }, "Errore POST /api/scatolette");
     res.status(500).json({ message: "Errore nella creazione della scatoletta" });
   }
 });
@@ -150,7 +151,7 @@ router.delete("/:id", validate({ params: idParam }), (req, res) => {
     db.prepare("DELETE FROM scatolette WHERE id = ?").run(id);
     res.json({ message: "Scatoletta eliminata" });
   } catch (err) {
-    console.error("❌ Errore DELETE /api/scatolette/:id", err);
+    logger.error({ err }, "Errore DELETE /api/scatolette/:id");
     res.status(500).json({ message: "Errore nella cancellazione" });
   }
 });
@@ -172,7 +173,7 @@ router.delete("/storico/reset", validate({ body: resetSchema }), (req, res) => {
 
     res.json({ ok: true, message: "Storico scatolette resettato con successo" });
   } catch (err) {
-    console.error("❌ Errore RESET storico scatolette:", err);
+    logger.error({ err }, "Errore RESET storico scatolette");
     res.status(500).json({ ok: false, error: "Errore reset storico" });
   }
 });

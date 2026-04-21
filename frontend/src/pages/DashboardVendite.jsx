@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -82,8 +82,9 @@ const DashboardVendite = () => {
   const [margins, setMargins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [tab, setTab] = useState("overview");
-  const [searchFilter, setSearchFilter] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => searchParams.get("tab") || "overview");
+  const [searchFilter, setSearchFilter] = useState(() => searchParams.get("q") || "");
 
   // Date range
   const [dateFrom, setDateFrom] = useState(() => {
@@ -91,6 +92,13 @@ const DashboardVendite = () => {
   });
   const [dateTo, setDateTo] = useState(() => toISO(new Date()));
   const [activePreset, setActivePreset] = useState(t("dashboardVendite.preset_30gg"));
+
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (tab && tab !== "overview") p.set("tab", tab);
+    if (searchFilter) p.set("q", searchFilter);
+    setSearchParams(p, { replace: true });
+  }, [tab, searchFilter]);
 
   const applyPreset = (preset) => {
     setActivePreset(preset.label);

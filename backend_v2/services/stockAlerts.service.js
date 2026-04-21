@@ -1,4 +1,5 @@
 // backend_v2/services/stockAlerts.service.js
+const logger = require("../utils/logger");
 // Helper per generare alert STOCK_LOW nella tabella alert_events
 // quando lo stock di un prodotto (One Step / Top Coat / modulo custom)
 // scende sotto la soglia minima configurata.
@@ -42,7 +43,7 @@ function checkSottoSogliaOnestep(db, asin) {
       "SELECT nome, codice_colore, quantita, soglia_minima FROM onestep_prodotti WHERE asin = ?"
     ).get(asin);
     _processCheck(db, { asin, prod, source: "onestep", modulo_label: "One Step" });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaOnestep:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaOnestep"); }
 }
 
 function checkSottoSogliaTopcoat(db, asin) {
@@ -51,7 +52,7 @@ function checkSottoSogliaTopcoat(db, asin) {
       "SELECT nome, codice_colore, quantita, soglia_minima FROM topcoat_prodotti WHERE asin = ?"
     ).get(asin);
     _processCheck(db, { asin, prod, source: "topcoat", modulo_label: "Top Coat" });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaTopcoat:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaTopcoat"); }
 }
 
 function checkSottoSogliaProdotti(db, asin) {
@@ -60,7 +61,7 @@ function checkSottoSogliaProdotti(db, asin) {
       "SELECT nome, pronto AS quantita, soglia_minima FROM prodotti WHERE asin = ?"
     ).get(asin);
     _processCheck(db, { asin, prod, source: "prodotti", modulo_label: "Prodotti" });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaProdotti:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaProdotti"); }
 }
 
 function checkSottoSogliaAccessori(db, asin_accessorio) {
@@ -70,7 +71,7 @@ function checkSottoSogliaAccessori(db, asin_accessorio) {
     ).get(asin_accessorio);
     if (!prod || !prod.soglia_minima) return;
     _processCheck(db, { asin: asin_accessorio, prod, source: "accessori", modulo_label: "Accessori" });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaAccessori:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaAccessori"); }
 }
 
 function checkSottoSogliaSfuso(db, id) {
@@ -80,7 +81,7 @@ function checkSottoSogliaSfuso(db, id) {
     ).get(id);
     if (!row || !row.soglia_minima) return;
     _processCheck(db, { asin: String(row.id), prod: row, source: "sfuso", modulo_label: "Sfuso" });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaSfuso:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaSfuso"); }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -142,7 +143,7 @@ function checkSfusoCopertura(db) {
       if (_checkSfusoInsufficiente(db, row)) insufficienti++;
     }
     return insufficienti;
-  } catch (e) { console.warn("⚠️ checkSfusoCopertura:", e.message); return 0; }
+  } catch (e) { logger.warn({ err: e }, "checkSfusoCopertura"); return 0; }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -199,7 +200,7 @@ function checkScadenzaLotto(db, sfusoId) {
         "UPDATE alert_events SET letto = 1 WHERE asin = ? AND tipo IN ('LOTTO_IN_SCADENZA', 'LOTTO_SCADUTO') AND letto = 0 AND source = ?"
       ).run(asin, source);
     }
-  } catch (e) { console.warn("⚠️ checkScadenzaLotto:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkScadenzaLotto"); }
 }
 
 function checkScadenzeTuttiLotti(db) {
@@ -222,7 +223,7 @@ function checkScadenzeTuttiLotti(db) {
     }
     return { scansionati: sfusoRows.length, inScadenza, scaduti };
   } catch (e) {
-    console.warn("⚠️ checkScadenzeTuttiLotti:", e.message);
+    logger.warn({ err: e }, "checkScadenzeTuttiLotti");
     return { scansionati: 0, inScadenza: 0, scaduti: 0 };
   }
 }
@@ -234,7 +235,7 @@ function checkSottoSogliaScatolette(db, id) {
     ).get(id);
     if (!prod || !prod.soglia_minima) return;
     _processCheck(db, { asin: `scatoletta:${prod.id}`, prod, source: "scatolette", modulo_label: "Scatolette" });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaScatolette:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaScatolette"); }
 }
 
 function checkSottoSogliaEtichette(db, id) {
@@ -244,7 +245,7 @@ function checkSottoSogliaEtichette(db, id) {
     ).get(id);
     if (!prod || !prod.soglia_minima) return;
     _processCheck(db, { asin: `etichetta:${prod.id}`, prod, source: "etichette", modulo_label: "Etichette" });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaEtichette:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaEtichette"); }
 }
 
 function checkSottoSogliaModulo(db, modulo_id, asin) {
@@ -255,7 +256,7 @@ function checkSottoSogliaModulo(db, modulo_id, asin) {
       "SELECT nome, codice_colore, quantita, soglia_minima FROM moduli_prodotti WHERE asin = ? AND modulo_id = ?"
     ).get(asin, modulo_id);
     _processCheck(db, { asin, prod, source: `modulo:${m.slug}`, modulo_label: m.label });
-  } catch (e) { console.warn("⚠️ checkSottoSogliaModulo:", e.message); }
+  } catch (e) { logger.warn({ err: e }, "checkSottoSogliaModulo"); }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -297,7 +298,7 @@ function rigeneraAlertSottoSoglia(db) {
         stats.prodotti.scansionati++;
         if (prod.quantita < prod.soglia_minima) stats.prodotti.sottoSoglia++;
       }
-    } catch (e) { console.warn("⚠️ rigenera prodotti:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera prodotti"); }
 
     // ── One Step ───────────────────────────────────────────────
     try {
@@ -309,7 +310,7 @@ function rigeneraAlertSottoSoglia(db) {
         stats.onestep.scansionati++;
         if (prod.quantita < prod.soglia_minima) stats.onestep.sottoSoglia++;
       }
-    } catch (e) { console.warn("⚠️ rigenera onestep:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera onestep"); }
 
     // ── Top Coat ───────────────────────────────────────────────
     try {
@@ -321,7 +322,7 @@ function rigeneraAlertSottoSoglia(db) {
         stats.topcoat.scansionati++;
         if (prod.quantita < prod.soglia_minima) stats.topcoat.sottoSoglia++;
       }
-    } catch (e) { console.warn("⚠️ rigenera topcoat:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera topcoat"); }
 
     // ── Moduli custom ──────────────────────────────────────────
     try {
@@ -336,7 +337,7 @@ function rigeneraAlertSottoSoglia(db) {
           if (prod.quantita < prod.soglia_minima) stats.moduli.sottoSoglia++;
         }
       }
-    } catch (e) { console.warn("⚠️ rigenera moduli custom:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera moduli custom"); }
 
     // ── Accessori ──────────────────────────────────────────────
     try {
@@ -348,7 +349,7 @@ function rigeneraAlertSottoSoglia(db) {
         stats.accessori.scansionati++;
         if (acc.quantita < acc.soglia_minima) stats.accessori.sottoSoglia++;
       }
-    } catch (e) { console.warn("⚠️ rigenera accessori:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera accessori"); }
 
     // ── Sfuso ──────────────────────────────────────────────────
     try {
@@ -360,7 +361,7 @@ function rigeneraAlertSottoSoglia(db) {
         stats.sfuso.scansionati++;
         if (row.quantita < row.soglia_minima) stats.sfuso.sottoSoglia++;
       }
-    } catch (e) { console.warn("⚠️ rigenera sfuso:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera sfuso"); }
 
     // ── Sfuso copertura ordini ─────────────────────────────────
     try {
@@ -370,7 +371,7 @@ function rigeneraAlertSottoSoglia(db) {
         stats.sfusoCopertura.scansionati++;
         if (insuff) stats.sfusoCopertura.insufficienti++;
       }
-    } catch (e) { console.warn("⚠️ rigenera sfuso copertura:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera sfuso copertura"); }
 
     // ── Scatolette ──────────────────────────────────────────────
     try {
@@ -382,7 +383,7 @@ function rigeneraAlertSottoSoglia(db) {
         stats.scatolette.scansionati++;
         if (row.quantita < row.soglia_minima) stats.scatolette.sottoSoglia++;
       }
-    } catch (e) { console.warn("⚠️ rigenera scatolette:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera scatolette"); }
 
     // ── Etichette ──────────────────────────────────────────────
     try {
@@ -394,12 +395,12 @@ function rigeneraAlertSottoSoglia(db) {
         stats.etichette.scansionati++;
         if (row.quantita < row.soglia_minima) stats.etichette.sottoSoglia++;
       }
-    } catch (e) { console.warn("⚠️ rigenera etichette:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera etichette"); }
 
     // ── Scadenze lotti ────────────────────────────────────────
     try {
       stats.lottiScadenza = checkScadenzeTuttiLotti(db);
-    } catch (e) { console.warn("⚠️ rigenera scadenze lotti:", e.message); }
+    } catch (e) { logger.warn({ err: e }, "rigenera scadenze lotti"); }
   })();
 
   stats.totaleScansionati = stats.prodotti.scansionati + stats.onestep.scansionati + stats.topcoat.scansionati + stats.moduli.scansionati + stats.accessori.scansionati + stats.sfuso.scansionati + stats.scatolette.scansionati + stats.etichette.scansionati + stats.sfusoCopertura.scansionati + stats.lottiScadenza.scansionati;

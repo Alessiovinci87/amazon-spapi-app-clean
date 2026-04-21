@@ -3,6 +3,7 @@
 
 const express = require("express");
 const router = express.Router();
+const logger = require("../../utils/logger");
 const { runBackup, listBackups, getLastBackup, BACKUP_DIR } = require("./backupService");
 
 // POST /api/v2/backup — esegue backup manuale
@@ -11,7 +12,7 @@ router.post("/", async (_req, res) => {
     const result = await runBackup(true);
     res.json({ ok: true, backup: result });
   } catch (err) {
-    console.error("❌ Errore backup manuale:", err);
+    logger.error({ err }, "Errore backup manuale");
     res.status(500).json({ ok: false, error: err.message });
   }
 });

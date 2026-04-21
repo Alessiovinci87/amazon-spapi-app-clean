@@ -6,6 +6,7 @@ const { open } = require("sqlite");
 const axios = require("axios");
 const { getAccessToken } = require("../auth/authService");
 const { getDbPath } = require("../../db/database");
+const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 const DB_PATH = getDbPath();
@@ -41,11 +42,11 @@ async function checkExistingReport(access_token, marketplaceId) {
       (a, b) => new Date(b.createdTime) - new Date(a.createdTime)
     )[0];
 
-    console.log(`🧾 Report FBA pronto: ${latest.reportId}`);
+    logger.info(`Report FBA pronto: ${latest.reportId}`);
 
     // ✅ se manca il documentId, rigenera token e rilegge il singolo report
     if (!latest.reportDocumentId) {
-      console.log(`🔄 Nessun documentId nel report ${latest.reportId}, aggiorno token...`);
+      logger.info(`Nessun documentId nel report ${latest.reportId}, aggiorno token...`);
       const { access_token: freshToken } = await getAccessToken();
       const r2 = await axios.get(
         `${BASE_URL}/reports/2021-06-30/reports/${latest.reportId}`,
@@ -57,7 +58,7 @@ async function checkExistingReport(access_token, marketplaceId) {
 
     return latest;
   } catch (err) {
-    console.warn("⚠️ checkExistingReport FBA:", err.message);
+    logger.warn({ err }, "checkExistingReport FBA");
     return null;
   }
 }
@@ -66,7 +67,7 @@ async function checkExistingReport(access_token, marketplaceId) {
 // 📦 AGGIORNAMENTO COMPLETO FBA STOCK
 // =====================================================
 async function aggiornaFBAStock(forceNew = false) {
-  console.log("📦 Avvio aggiornamento FBA stock…");
+  logger.info("Avvio aggiornamento FBA stock…");
 
   try {
     const db = await open({ filename: DB_PATH, driver: sqlite3.Database });
@@ -91,7 +92,7 @@ async function aggiornaFBAStock(forceNew = false) {
     let totalInserted = 0;
 
     for (const [country, marketplaceId] of Object.entries(MARKETPLACES)) {
-      console.log(`🌍 Marketplace: ${country}`);
+      logger.info(`Marketplace: ${country}`);
       let success = false;
       let attempt = 0;
       let lastError = null;
@@ -105,11 +106,11 @@ async function aggiornaFBAStock(forceNew = false) {
           const existing = await checkExistingReport(access_token, marketplaceId);
 
           if (existing && existing.reportDocumentId && !forceNew) {
-            console.log(`♻️ Riutilizzo report ${existing.reportId} (${country})`);
+            logger.info(`Riutilizzo report ${existing.reportId} (${country})`);
             reportId = existing.reportId;
             reportDocumentId = existing.reportDocumentId;
           } else {
-            console.log(forceNew ? "🔁 Rigenerazione forzata report..." : "🆕 Nessun report valido trovato, creazione nuovo...");
+            logger.info(forceNew ? "Rigenerazione forzata report..." : "Nessun report valido trovato, creazione nuovo...");
             const createRes = await axios.post(
               `${BASE_URL}/reports/2021-06-30/reports`,
               {
@@ -126,7 +127,7 @@ async function aggiornaFBAStock(forceNew = false) {
               }
             );
             reportId = createRes.data.reportId;
-            console.log(`📝 Creato nuovo report ${reportId} (${country})`);
+            logger.info(`Creato nuovo report ${reportId} (${country})`);
           }
 
           // ⏳ Attesa completamento
@@ -147,7 +148,7 @@ async function aggiornaFBAStock(forceNew = false) {
           }
 
           // 📥 Download documento con retry + rigenerazione token
-          console.log(`📥 Scarico documento ${reportDocumentId}...`);
+          logger.info(`Scarico documento ${reportDocumentId}...`);
           let fileBuffer = null;
           let lastDownloadError = null;
 
@@ -166,13 +167,13 @@ async function aggiornaFBAStock(forceNew = false) {
               if (compressionAlgorithm === "GZIP")
                 fileBuffer = zlib.gunzipSync(fileBuffer);
 
-              console.log("✅ Documento scaricato correttamente");
+              logger.info("Documento scaricato correttamente");
               break;
             } catch (err) {
               lastDownloadError = err;
               const status = err.response?.status;
               if (status === 403 || status === 429) {
-                console.warn(`⏳ Retry download (${i + 1}/3) dopo 60s...`);
+                logger.warn(`Retry download (${i + 1}/3) dopo 60s...`);
                 await sleep(60000);
                 continue;
               }
@@ -184,24 +185,37 @@ async function aggiornaFBAStock(forceNew = false) {
             throw new Error(`Download documento fallito: ${lastDownloadError?.message}`);
 
           const text = fileBuffer.toString("utf-8");
-          console.log("🧩 Anteprima TSV:", text.slice(0, 200));
+          logger.info("Anteprima TSV: %s", text.slice(0, 200));
 
           const lines = text.split("\n").filter((r) => r.trim());
           if (lines.length <= 1) {
-            console.warn(`⚠️ Report vuoto per ${country}`);
+            logger.warn(`Report vuoto per ${country}`);
             break;
           }
 
           const headers = lines.shift().split("\t").map((h) => h.trim().toLowerCase());
           const idx = (name) => headers.findIndex((h) => h === name.toLowerCase());
 
+          // UPSERT: se lo stesso ASIN×country esiste già, tieni la riga con stock_totale più alto
+          // Risolve il caso di ASIN con più SKU (uno attivo con stock, uno dismesso con qty=0)
           const stmt = await db.prepare(`
-            INSERT OR REPLACE INTO fba_stock (
+            INSERT INTO fba_stock (
               asin, sku, product_name, country,
               quantity, stock_totale,
               reserved_qty, inbound_working, inbound_shipped, inbound_receiving, unfulfillable_qty, updated_at
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(asin, country) DO UPDATE SET
+              sku = CASE WHEN excluded.stock_totale > stock_totale THEN excluded.sku ELSE sku END,
+              product_name = CASE WHEN excluded.stock_totale > stock_totale THEN excluded.product_name ELSE product_name END,
+              quantity = MAX(quantity, excluded.quantity),
+              stock_totale = MAX(stock_totale, excluded.stock_totale),
+              reserved_qty = MAX(reserved_qty, excluded.reserved_qty),
+              inbound_working = MAX(inbound_working, excluded.inbound_working),
+              inbound_shipped = MAX(inbound_shipped, excluded.inbound_shipped),
+              inbound_receiving = MAX(inbound_receiving, excluded.inbound_receiving),
+              unfulfillable_qty = MAX(unfulfillable_qty, excluded.unfulfillable_qty),
+              updated_at = CURRENT_TIMESTAMP
           `);
 
           let inserted = 0;
@@ -240,7 +254,7 @@ async function aggiornaFBAStock(forceNew = false) {
           }
 
           await stmt.finalize();
-          console.log(`✅ ${country}: ${inserted} righe salvate`);
+          logger.info(`${country}: ${inserted} righe salvate`);
           totalInserted += inserted;
           success = true;
         } catch (err) {
@@ -248,27 +262,27 @@ async function aggiornaFBAStock(forceNew = false) {
           const code = err.response?.status;
           if (code === 429 || code === 403) {
             const wait = 60000 * attempt * 2;
-            console.warn(`⏳ Limite o quota per ${country}. Attendo ${wait / 1000}s...`);
+            logger.warn(`Limite o quota per ${country}. Attendo ${wait / 1000}s...`);
             await sleep(wait);
           } else {
-            console.warn(`⚠️ Errore su ${country}:`, err.message);
+            logger.warn({ err }, `Errore su ${country}`);
             break;
           }
         }
       }
 
       if (!success)
-        console.error(`❌ Fallito ${country} dopo 3 tentativi:`, lastError?.message);
+        logger.error(`Fallito ${country} dopo 3 tentativi: ${lastError?.message}`);
 
-      console.log("🕒 Pausa 30s prima del prossimo marketplace...");
+      logger.info("Pausa 30s prima del prossimo marketplace...");
       await sleep(30000);
     }
 
     await db.close();
-    console.log(`🎯 Totale righe salvate: ${totalInserted}`);
+    logger.info(`Totale righe salvate: ${totalInserted}`);
     return { ok: true, record: totalInserted };
   } catch (err) {
-    console.error("❌ Errore aggiornaFBAStock:", err.message);
+    logger.error({ err }, "Errore aggiornaFBAStock");
     return { ok: false, error: err.message };
   }
 }

@@ -2,6 +2,7 @@
 const axios = require("axios");
 const zlib = require("zlib");
 const { getAccessToken } = require("../auth/authService");
+const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 
@@ -29,7 +30,7 @@ async function createReport(marketplaceIds) {
 
     return res.data; // 👈 QUI tornerà { reportId, ... }
   } catch (err) {
-    console.error("❌ Errore createReport:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore createReport");
     throw err;
   }
 }
@@ -50,7 +51,7 @@ async function getReportStatus(reportId) {
 
     return res.data;
   } catch (err) {
-    console.error("❌ Errore getReportStatus:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore getReportStatus");
     throw err;
   }
 }
@@ -71,7 +72,7 @@ async function getReportDocument(reportDocumentId) {
 
     return res.data;
   } catch (err) {
-    console.error("❌ Errore getReportDocument:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore getReportDocument");
     throw err;
   }
 }
@@ -102,7 +103,7 @@ async function downloadReportDocument(reportDocumentId) {
       return obj;
     });
   } catch (err) {
-    console.error("❌ Errore downloadReportDocument:", err.message);
+    logger.error({ err }, "Errore downloadReportDocument");
     throw err;
   }
 }
@@ -124,7 +125,7 @@ async function getCatalogItem(asin, marketplaceIds) {
 
     return res.data;
   } catch (err) {
-    console.error("❌ Errore getCatalogItem:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore getCatalogItem");
     throw err;
   }
 }
@@ -147,7 +148,7 @@ async function getListingItem(sku, token, marketplaceIds) {
 
     return res.data;
   } catch (err) {
-    console.error("❌ Errore getListingItem:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore getListingItem");
     throw err;
   }
 }
@@ -170,7 +171,7 @@ async function getMainImage(asin, marketplaceId = "APJ6JRA9NG5V4") {
 
     return mainImage ? mainImage.link : null;
   } catch (err) {
-    console.error("❌ Errore getMainImage:", err.response?.data || err.message);
+    logger.error({ err, data: err.response?.data }, "Errore getMainImage");
     return null;
   }
 }

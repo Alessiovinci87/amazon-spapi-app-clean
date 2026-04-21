@@ -1,5 +1,6 @@
 // backend_v2/modules/listings/listingsAmazonRoutes.js
 const express = require("express");
+const logger = require("../../utils/logger");
 const router = express.Router();
 const {
   getListingItem,
@@ -157,11 +158,11 @@ router.post("/feed-update", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Parametri obbligatori: sku, productType, attributes" });
     }
     const mpIds = marketplaceIds || ["APJ6JRA9NG5V4"];
-    console.log(`[Feed] Route feed-update: SKU=${sku}, productType=${productType}`);
+    logger.info(`[Feed] Route feed-update: SKU=${sku}, productType=${productType}`);
     const result = await updateListingViaFeed(sku, productType, attributes, mpIds);
     res.json({ ok: true, ...result });
   } catch (e) {
-    console.error("❌ Errore feed-update:", e.message);
+    logger.error("❌ Errore feed-update:", e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -181,7 +182,7 @@ router.post("/feed-test", async (req, res) => {
       return res.status(400).json({ ok: false, error: "Parametri: sku, title" });
     }
 
-    console.log(`[Feed] Test: SKU=${sku}, title="${title.substring(0, 50)}..."`);
+    logger.info(`[Feed] Test: SKU=${sku}, title="${title.substring(0, 50)}..."`);
 
     const attributes = {
       item_name: [{ value: title, marketplace_id: marketplaceId }],
@@ -190,7 +191,7 @@ router.post("/feed-test", async (req, res) => {
     const result = await updateListingViaFeed(sku, "PRODUCT", attributes, [marketplaceId]);
     res.json({ ok: true, ...result });
   } catch (e) {
-    console.error("❌ Errore feed-test:", e.message);
+    logger.error("❌ Errore feed-test:", e.message);
     res.status(500).json({ ok: false, error: e.message });
   }
 });
@@ -206,14 +207,14 @@ router.get("/:sku", async (req, res) => {
 
     const marketplaceIds = marketplaceId ? [marketplaceId] : ["APJ6JRA9NG5V4"]; // default Italia
 
-    console.log("👉 ROUTE GET /listings-amazon");
-    console.log("   SKU:", sku);
-    console.log("   marketplaceIds:", marketplaceIds);
+    logger.info("👉 ROUTE GET /listings-amazon");
+    logger.info("   SKU:", sku);
+    logger.info("   marketplaceIds:", marketplaceIds);
 
     const result = await getListingItem(sku, marketplaceIds);
     res.json(result);
   } catch (e) {
-    console.error("❌ Errore GET Listings:", e.message);
+    logger.error("❌ Errore GET Listings:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -231,15 +232,15 @@ router.patch("/:sku", async (req, res) => {
 
     const marketplaceIds = marketplaceId ? [marketplaceId] : ["APJ6JRA9NG5V4"];
 
-    console.log("👉 ROUTE PATCH /listings-amazon");
-    console.log("   SKU:", sku);
-    console.log("   marketplaceIds:", marketplaceIds);
-    console.log("   Payload:", JSON.stringify(payload, null, 2));
+    logger.info("👉 ROUTE PATCH /listings-amazon");
+    logger.info("   SKU:", sku);
+    logger.info("   marketplaceIds:", marketplaceIds);
+    logger.info("   Payload:", JSON.stringify(payload, null, 2));
 
     const result = await patchListingItem(sku, payload, marketplaceIds);
     res.json(result);
   } catch (e) {
-    console.error("❌ Errore PATCH Listings:", e.message);
+    logger.error("❌ Errore PATCH Listings:", e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -255,14 +256,14 @@ router.delete("/:sku", async (req, res) => {
 
     const marketplaceIds = marketplaceId ? [marketplaceId] : ["APJ6JRA9NG5V4"];
 
-    console.log("👉 ROUTE DELETE /listings-amazon");
-    console.log("   SKU:", sku);
-    console.log("   marketplaceIds:", marketplaceIds);
+    logger.info("👉 ROUTE DELETE /listings-amazon");
+    logger.info("   SKU:", sku);
+    logger.info("   marketplaceIds:", marketplaceIds);
 
     const result = await deleteListingItem(sku, marketplaceIds);
     res.json(result);
   } catch (e) {
-    console.error("❌ Errore DELETE Listings:", e.message);
+    logger.error("❌ Errore DELETE Listings:", e.message);
     res.status(500).json({ error: e.message });
   }
 });

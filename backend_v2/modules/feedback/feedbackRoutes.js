@@ -1,5 +1,6 @@
 // backend_v2/modules/feedback/feedbackRoutes.js
 const express = require("express");
+const logger = require("../../utils/logger");
 const router = express.Router();
 const {
   MARKETPLACES,
@@ -49,7 +50,7 @@ router.get("/", (req, res) => {
       feedback,
     });
   } catch (err) {
-    console.error("❌ /feedback GET:", err.message);
+    logger.error("❌ /feedback GET:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -57,20 +58,20 @@ router.get("/", (req, res) => {
 // POST /api/v2/feedback/sync  body: { marketplace: "IT", days: 365 }
 // Sincronizza il report SP-API per il marketplace richiesto.
 router.post("/sync", async (req, res) => {
-  console.log(`📨 [POST /sync] richiesta ricevuta:`, req.body);
+  logger.info(`📨 [POST /sync] richiesta ricevuta:`, req.body);
   const marketplace = req.body?.marketplace || req.query?.marketplace;
   const days = req.body?.days || req.query?.days;
   if (!marketplace) {
     return res.status(400).json({ ok: false, error: "Marketplace richiesto" });
   }
   try {
-    console.log(`🔄 Sync seller feedback per ${marketplace} (${days || 365}gg)…`);
+    logger.info(`🔄 Sync seller feedback per ${marketplace} (${days || 365}gg)…`);
     const result = await syncMarketplaceFeedback(marketplace, { days });
-    console.log(`✅ Sync ${marketplace}: ${result.records} record — invio risposta`);
+    logger.info(`✅ Sync ${marketplace}: ${result.records} record — invio risposta`);
     res.json({ ok: true, ...result });
-    console.log(`📤 [POST /sync] risposta inviata`);
+    logger.info(`📤 [POST /sync] risposta inviata`);
   } catch (err) {
-    console.error(`❌ Sync feedback ${marketplace}:`, err.response?.data || err.message);
+    logger.error(`❌ Sync feedback ${marketplace}:`, err.response?.data || err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -80,35 +81,35 @@ router.post("/sync", async (req, res) => {
 // uno alla volta (i report SP-API non sono parallelizzabili in modo sicuro).
 router.post("/sync-all", async (req, res) => {
   const days = req.body?.days || req.query?.days;
-  console.log(`🔄 Sync feedback per tutti i marketplace EU…`);
+  logger.info(`🔄 Sync feedback per tutti i marketplace EU…`);
   const results = [];
   const errors = [];
   for (let i = 0; i < MARKETPLACES.length; i++) {
     const mp = MARKETPLACES[i];
     try {
-      console.log(`  → ${mp.code}`);
+      logger.info(`  → ${mp.code}`);
       const r = await syncMarketplaceFeedback(mp.code, { days });
-      console.log(`  ✅ ${mp.code}: ${r.records} record`);
+      logger.info(`  ✅ ${mp.code}: ${r.records} record`);
       results.push({ marketplace: mp.code, records: r.records });
     } catch (err) {
       const status = err.response?.status;
       const msg = err.response?.data?.errors?.[0]?.message || err.message;
-      console.warn(`  ⚠️ ${mp.code}: ${msg}`);
+      logger.warn(`  ⚠️ ${mp.code}: ${msg}`);
       errors.push({ marketplace: mp.code, error: msg });
       // Quota esaurita: aspetta più a lungo prima di proseguire
       if (status === 429 || /quota/i.test(msg)) {
-        console.log(`  ⏳ Quota esaurita, attendo 60s…`);
+        logger.info(`  ⏳ Quota esaurita, attendo 60s…`);
         await sleep(60000);
       }
     }
     // Pausa tra marketplace per evitare rate-limit (Reports API: ~0.0167 req/s)
     if (i < MARKETPLACES.length - 1) {
-      console.log(`  ⏳ Pausa 15s prima del prossimo marketplace…`);
+      logger.info(`  ⏳ Pausa 15s prima del prossimo marketplace…`);
       await sleep(15000);
     }
   }
   const total = results.reduce((s, r) => s + r.records, 0);
-  console.log(`✅ Sync completato: ${total} feedback totali (${errors.length} errori)`);
+  logger.info(`✅ Sync completato: ${total} feedback totali (${errors.length} errori)`);
   res.json({ ok: true, total, results, errors });
 });
 
@@ -121,7 +122,7 @@ router.post("/cache/clear", (req, res) => {
     const db = getDb();
     const before = db.prepare("SELECT COUNT(*) as c FROM amazon_order_cache").get().c;
     db.prepare("DELETE FROM amazon_order_cache").run();
-    console.log(`🧹 Cache ordini svuotata: ${before} record cancellati`);
+    logger.info(`🧹 Cache ordini svuotata: ${before} record cancellati`);
     res.json({ ok: true, deleted: before });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -138,7 +139,7 @@ router.post("/reset", (req, res) => {
     const before = db.prepare("SELECT COUNT(*) as c FROM seller_feedback").get().c;
     db.prepare("DELETE FROM seller_feedback").run();
     db.prepare("DELETE FROM seller_feedback_sync").run();
-    console.log(`🧹 Reset feedback: cancellati ${before} record`);
+    logger.info(`🧹 Reset feedback: cancellati ${before} record`);
     res.json({ ok: true, deleted: before });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -178,7 +179,7 @@ router.get("/diagnose", async (req, res) => {
       })),
     });
   } catch (err) {
-    console.error("❌ /feedback/diagnose:", err.response?.data || err.message);
+    logger.error("❌ /feedback/diagnose:", err.response?.data || err.message);
     res.status(500).json({
       ok: false,
       error: err.response?.data?.errors?.[0]?.message || err.message,
@@ -197,7 +198,7 @@ router.get("/catalog", (req, res) => {
     const items = getCatalogWithFeedback({ marketplace });
     res.json({ ok: true, marketplace, items });
   } catch (err) {
-    console.error("❌ /feedback/catalog:", err.message);
+    logger.error("❌ /feedback/catalog:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });

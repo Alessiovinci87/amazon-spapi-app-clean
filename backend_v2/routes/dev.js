@@ -9,6 +9,7 @@ const { getDb, getDbPath } = require('../db/database');
 const { verifyPassword } = require('../utils/password');
 const { z } = require('zod');
 const { validate } = require('../middleware/validate');
+const logger = require("../utils/logger");
 
 const router = express.Router();
 
@@ -107,7 +108,7 @@ router.get('/backup', (req, res) => {
 
     return res.json({ ok: true, file: filename, path: `backups/${filename}` });
   } catch (err) {
-    console.error('❌ [DEV][backup] errore:', err);
+    logger.error({ err }, '[DEV][backup] errore');
     return res.status(500).json({ ok: false, message: 'Errore durante il backup.' });
   }
 });
@@ -126,7 +127,7 @@ router.get('/backup/db', (req, res) => {
     fs.copyFileSync(dbFile, dest);
     return res.json({ ok: true, file: filename, path: `backups/${filename}` });
   } catch (err) {
-    console.error('❌ [DEV][backup/db] errore:', err);
+    logger.error({ err }, '[DEV][backup/db] errore');
     return res.status(500).json({ ok: false, message: 'Errore durante il backup del DB.' });
   }
 });
@@ -200,7 +201,7 @@ router.post('/restore/:filename', validate({ params: filenameParam, body: restor
     tx();
     return res.json({ ok: true, restored_from: path.basename(file), mode });
   } catch (err) {
-    console.error('❌ [DEV][restore] errore:', err);
+    logger.error({ err }, '[DEV][restore] errore');
     return res.status(500).json({ ok: false, message: 'Errore durante il ripristino.' });
   }
 });
@@ -222,7 +223,7 @@ router.post('/restore/db/:filename', validate({ params: filenameParam, body: res
     if (fs.existsSync(dest)) {
       const backupPre = path.join(backupsDir(), `pre_restore_${Date.now()}.db`);
       fs.copyFileSync(dest, backupPre);
-      console.log(`📦 [DEV] Backup pre-restore salvato in: ${backupPre}`);
+      logger.info({ backupPre }, '[DEV] Backup pre-restore salvato');
     }
 
     fs.copyFileSync(src, dest);
@@ -233,7 +234,7 @@ router.post('/restore/db/:filename', validate({ params: filenameParam, body: res
       file: path.basename(src),
     });
   } catch (err) {
-    console.error('❌ [DEV][restore/db] errore:', err);
+    logger.error({ err }, '[DEV][restore/db] errore');
     return res.status(500).json({ ok: false, message: 'Errore durante il ripristino del DB.' });
   }
 });

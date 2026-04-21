@@ -5,6 +5,7 @@ const { getDb } = require("../db/database");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
 const { checkSottoSogliaSfuso } = require("../services/stockAlerts.service");
+const logger = require("../utils/logger");
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const rettificaSchema = z.object({
@@ -33,7 +34,7 @@ router.get("/", (req, res) => {
     const sfuso = db.prepare("SELECT * FROM sfuso").all();
     res.json(sfuso);
   } catch (err) {
-    console.error("❌ Errore GET /sfuso-inventario:", err);
+    logger.error({ err }, "Errore GET /sfuso-inventario");
     res.status(500).json({ error: "Errore nel caricamento sfuso" });
   }
 });
@@ -102,7 +103,7 @@ router.patch("/:id/rettifica", validate({ params: idParam, body: rettificaSchema
       updated,
     });
   } catch (err) {
-    console.error("❌ Errore PATCH /sfuso-inventario/:id/rettifica:", err);
+    logger.error({ err }, "Errore PATCH /sfuso-inventario/:id/rettifica");
     res.status(500).json({ error: "Errore nella rettifica sfuso (Inventario)" });
   }
 });
@@ -162,7 +163,7 @@ router.patch("/:id/rettifica-lotto", validate({ params: idParam, body: rettifica
       updated,
     });
   } catch (err) {
-    console.error("❌ Errore PATCH /sfuso-inventario/:id/rettifica-lotto:", err);
+    logger.error({ err }, "Errore PATCH /sfuso-inventario/:id/rettifica-lotto");
     res.status(500).json({ error: "Errore nella rettifica lotto" });
   }
 });
@@ -184,7 +185,7 @@ router.patch("/:id/soglia", validate({ params: idParam, body: sogliaSchema }), (
 
     res.json({ ok: true, id, soglia_minima });
   } catch (err) {
-    console.error("❌ Errore PATCH /sfuso-inventario/:id/soglia:", err);
+    logger.error({ err }, "Errore PATCH /sfuso-inventario/:id/soglia");
     res.status(500).json({ error: "Errore nell'aggiornamento soglia sfuso" });
   }
 });

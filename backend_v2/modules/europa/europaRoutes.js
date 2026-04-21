@@ -9,6 +9,7 @@ const { checkAndFireAlerts, getFBAStockForAsin, salvaStockNelDB, MP_TO_COUNTRY, 
 const { setManualSyncActive } = require("./alertCron");
 const { rigeneraAlertSottoSoglia } = require("../../services/stockAlerts.service");
 
+const logger = require("../../utils/logger");
 const router = express.Router();
 
 // Aggiunge image_count a product_catalog se non esiste (gestisce installazioni precedenti)
@@ -171,7 +172,7 @@ router.post("/alert-events/rigenera-stock", (req, res) => {
     const stats = rigeneraAlertSottoSoglia(db);
     res.json({ ok: true, ...stats });
   } catch (err) {
-    console.error("❌ /alert-events/rigenera-stock:", err);
+    logger.error("❌ /alert-events/rigenera-stock:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -602,11 +603,11 @@ router.post("/sync-prezzi", (req, res) => {
           const r = await sincronizzaPrezziAsin(asin);
           if (r.marketplacesChecked > 0) prezziJob.aggiornati++;
         } catch (err) {
-          console.warn(`⚠️ [SyncPrezzi] ASIN ${asin} fallito: ${err.message}`);
+          logger.warn(`⚠️ [SyncPrezzi] ASIN ${asin} fallito: ${err.message}`);
         }
         prezziJob.done++;
         if (prezziJob.done % 10 === 0 || prezziJob.done === asins.length)
-          console.log(`💶 [SyncPrezzi] ${prezziJob.done}/${asins.length} ASIN — aggiornati: ${prezziJob.aggiornati}`);
+          logger.info(`💶 [SyncPrezzi] ${prezziJob.done}/${asins.length} ASIN — aggiornati: ${prezziJob.aggiornati}`);
       }
     } catch (err) {
       prezziJob.error = err.message;

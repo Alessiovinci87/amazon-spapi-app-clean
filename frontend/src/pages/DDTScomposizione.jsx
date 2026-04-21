@@ -94,7 +94,7 @@ const DDTScomposizione = () => {
         setAssegnazioni(dataAss.assegnazioni || []);
         setDdtCount(1);
       }
-    } catch {}
+    } catch { toast.error(t("ddtScomposizione.toast_error_init", "Errore creazione assegnazioni iniziali")); }
   };
 
   const aggiungiDDT = () => setDdtCount((p) => p + 1);
@@ -112,7 +112,7 @@ const DDTScomposizione = () => {
           setDdtCount(Math.max(ddtCount, maxDdt));
         }
       }
-    } catch {} finally { setSaving(false); }
+    } catch { toast.error(t("ddtScomposizione.toast_error_sposta", "Errore spostamento prodotto")); } finally { setSaving(false); }
   };
 
   const apriDividiModal = (assegnazione) => {
@@ -141,7 +141,7 @@ const DDTScomposizione = () => {
         setDdtCount(Math.max(ddtCount, dividiDdtDestinazione));
         setShowDividiModal(false);
       }
-    } catch {} finally { setSaving(false); }
+    } catch { toast.error(t("ddtScomposizione.toast_error_dividi", "Errore divisione prodotto")); } finally { setSaving(false); }
   };
 
   const resetAssegnazioni = async () => {
@@ -151,7 +151,7 @@ const DDTScomposizione = () => {
       await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/reset`, { method: "DELETE" });
       await creaAssegnazioniIniziali();
       setDdtCount(1);
-    } catch {} finally { setSaving(false); }
+    } catch { toast.error(t("ddtScomposizione.toast_error_reset", "Errore reset assegnazioni")); } finally { setSaving(false); }
   };
 
   const vaiADettaglio = (ddtNumero) => navigate(`/uffici/ddt/${idSpedizione}/${ddtNumero}`);

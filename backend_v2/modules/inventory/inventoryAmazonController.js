@@ -1,5 +1,6 @@
 // backend_v2/modules/inventory/inventoryAmazonController.js
 const express = require("express");
+const logger = require("../../utils/logger");
 const { getAccessToken } = require("../auth/authService");
 const { spApiGet } = require("../amazon/spApiClient"); // nuovo client firmato
 
@@ -52,7 +53,7 @@ router.get("/inventory/:asin", async (req, res) => {
             }
           };
         } catch (err) {
-          console.error(`Errore marketplace ${mp.paese}:`, err.response?.data || err.message);
+          logger.error({ err, data: err.response?.data }, `Errore marketplace ${mp.paese}`);
           return { paese: mp.paese, marketplaceId: mp.marketplaceId, stock: "errore" };
         }
       })
@@ -60,7 +61,7 @@ router.get("/inventory/:asin", async (req, res) => {
 
     res.json({ asin, marketplaces: results });
   } catch (err) {
-    console.error("Errore API Inventory:", err);
+    logger.error({ err }, "Errore API Inventory");
     res.status(500).json({ error: "Errore interno" });
   }
 });

@@ -12,6 +12,7 @@ const { sign } = require("aws4");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
 const { checkSottoSogliaModulo } = require("../services/stockAlerts.service");
+const logger = require("../utils/logger");
 
 // ─── Zod schemas ───────────────────────────────────────
 const slugParam = z.object({ slug: z.string().regex(/^[a-z0-9-]+$/).max(60) });
@@ -525,7 +526,7 @@ router.post("/:slug/ordini/:id/ricevi", validate({ params: slugIdParam, body: ri
 
     res.json({ ok: true, modifiche, movimentiApplicati });
   } catch (err) {
-    console.error("❌ /moduli/:slug/ordini/:id/ricevi:", err);
+    logger.error({ err }, "/moduli/:slug/ordini/:id/ricevi");
     res.status(500).json({ error: err.message });
   }
 });

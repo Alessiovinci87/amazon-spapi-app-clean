@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDb } = require("../db/database");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
+const logger = require("../utils/logger");
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
 const idFornitoreParam = z.object({ idFornitore: z.coerce.number().int().positive() });
@@ -41,7 +42,7 @@ router.get("/:idFornitore/prodotti", (req, res) => {
 
         res.json(rows);
     } catch (err) {
-        console.error("❌ Errore GET fornitori_prodotti:", err);
+        logger.error({ err }, "Errore GET fornitori_prodotti");
         res.status(500).json({ error: "Errore nel recupero prodotti fornitore" });
     }
 });
@@ -81,7 +82,7 @@ router.get("/:idFornitore/catalogo", (req, res) => {
 
     res.json({ associati, disponibili });
   } catch (err) {
-    console.error("❌ Errore GET catalogo fornitore:", err);
+    logger.error({ err }, "Errore GET catalogo fornitore");
     res.status(500).json({ error: "Errore nel caricamento catalogo fornitore" });
   }
 });
@@ -104,7 +105,7 @@ router.post("/:idFornitore/prodotti", validate({ params: idFornitoreParam, body:
             id: result.lastInsertRowid,
         });
     } catch (err) {
-        console.error("❌ Errore POST fornitori_prodotti:", err);
+        logger.error({ err }, "Errore POST fornitori_prodotti");
         res.status(500).json({ error: "Errore nel salvataggio associazione" });
     }
 });
@@ -123,7 +124,7 @@ router.patch("/:id", validate({ params: idParam, body: patchSchema }), (req, res
 
         res.json({ success: true });
     } catch (err) {
-        console.error("❌ Errore PATCH fornitori_prodotti:", err);
+        logger.error({ err }, "Errore PATCH fornitori_prodotti");
         res.status(500).json({ error: "Errore nell'aggiornamento" });
     }
 });
@@ -137,7 +138,7 @@ router.delete("/:id", validate({ params: idParam }), (req, res) => {
         db.prepare("DELETE FROM fornitori_prodotti WHERE id = ?").run(id);
         res.json({ success: true });
     } catch (err) {
-        console.error("❌ Errore DELETE fornitori_prodotti:", err);
+        logger.error({ err }, "Errore DELETE fornitori_prodotti");
         res.status(500).json({ error: "Errore nella rimozione associazione" });
     }
 });

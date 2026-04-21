@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 
 /*
 ===========================================================
@@ -31,7 +32,7 @@ router.get("/", (req, res) => {
     res.json(rows);
 
   } catch (err) {
-    console.error("❌ Errore GET /storico:", err.message);
+    logger.error({ err }, "Errore GET /storico");
     res.status(500).json({ error: "Errore recupero storico globale" });
   }
 });
@@ -70,7 +71,7 @@ router.get("/:asin", (req, res) => {
     res.json(movimenti);
 
   } catch (err) {
-    console.error("❌ Errore GET /storico/:asin:", err.message);
+    logger.error({ err }, "Errore GET /storico/:asin");
     res.status(500).json({ error: "Errore recupero storico prodotto" });
   }
 });
@@ -99,7 +100,7 @@ router.get("/sfuso/storico_produzioni/:asin", (req, res) => {
     res.json(rows);
 
   } catch (err) {
-    console.error("❌ Errore GET /sfuso/storico_produzioni:", err.message);
+    logger.error({ err }, "Errore GET /sfuso/storico_produzioni");
     res.status(500).json({ error: "Errore recupero storico produzioni" });
   }
 });

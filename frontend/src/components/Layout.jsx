@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import SidebarUffici from "./SidebarUffici";
 import SidebarMagazzino from "./SidebarMagazzino";
 import GlobalAlertBell from "./GlobalAlertBell";
+import ErrorBoundary from "./ErrorBoundary";
 
 const Layout = () => {
   // 🔹 Determina quale sidebar mostrare in base all'accesso
@@ -17,7 +18,9 @@ const Layout = () => {
         className="flex-1 bg-transparent overflow-auto transition-margin duration-300"
         style={{ marginLeft: "4rem" }} // per sidebar chiusa
       >
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       {/* 🔔 Campana alert globale — visibile in qualsiasi sezione */}

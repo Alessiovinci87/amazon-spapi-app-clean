@@ -5,6 +5,7 @@ const { getDb } = require("../db/database");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
 const { verifyPassword } = require("../utils/password");
+const logger = require("../utils/logger");
 
 const resetSchema = z.object({ password: z.string().min(1).max(200) });
 
@@ -25,10 +26,10 @@ router.delete("/storico-inventario/reset", validate({ body: resetSchema }), (req
 
   try {
     db.prepare("DELETE FROM storico_sfuso").run();
-    console.log("✅ Storico sfuso inventario svuotato con successo");
+    logger.info("Storico sfuso inventario svuotato con successo");
     res.json({ ok: true, message: "Storico cancellato con successo" });
   } catch (err) {
-    console.error("❌ Errore reset storico:", err.message);
+    logger.error({ err }, "Errore reset storico");
     res.status(500).json({ ok: false, message: "Errore nel reset dello storico", error: err.message });
   }
 });

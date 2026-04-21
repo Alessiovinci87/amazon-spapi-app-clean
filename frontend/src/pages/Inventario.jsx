@@ -19,7 +19,8 @@ import {
 } from "../utils/gestioneInventario";
 import { classificaProdotto } from "../utils/classificaProdotto";
 import NuovoProdottoModal from "../components/inventario/NuovoProdottoModal";
-import { Package, ArrowLeft, Plus, FileText, AlertCircle, Search, LayoutGrid, History, FolderTree, LogOut } from "lucide-react";
+import { Package, ArrowLeft, Plus, FileText, AlertCircle, Search, LayoutGrid, History, FolderTree, LogOut, Download } from "lucide-react";
+import { downloadCSV } from "../utils/exportCSV";
 
 const STORAGE_KEY = "inventario_prodotti";
 const STORAGE_KEY_ACCESSORI = "inventario_accessori";
@@ -129,7 +130,7 @@ const Inventario = () => {
 
   window.prodottiDebug = prodotti;
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => new URLSearchParams(location.search).get("search") || "");
   const [storico, setStorico] = useState([]);
   const [modificheInCorso, setModificheInCorso] = useState(false);
   const [mostraStoricoAsin, setMostraStoricoAsin] = useState(null);
@@ -148,6 +149,16 @@ const Inventario = () => {
   const [nuovoModuloIcona, setNuovoModuloIcona] = useState("📦");
   const [nuovoModuloStile, setNuovoModuloStile] = useState("numerico");
   const [creandoModulo, setCreandoModulo] = useState(false);
+
+  // Sincronizza filtri nell'URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (sezioneAttiva && sezioneAttiva !== "12ml") params.set("sezione", sezioneAttiva);
+    if (search) params.set("search", search);
+    const qs = params.toString();
+    const newUrl = qs ? `?${qs}` : location.pathname;
+    window.history.replaceState(null, "", newUrl);
+  }, [sezioneAttiva, search]);
 
   const fetchAccessori = useCallback(async () => {
     try {
@@ -446,6 +457,30 @@ const Inventario = () => {
       ? accessoriFiltrati.length
       : elementiPerSezione.length;
 
+  const esportaInventarioCSV = () => {
+    const oggi = new Date().toISOString().slice(0, 10);
+    if (sezioneAttiva === "accessori") {
+      downloadCSV(
+        accessoriFiltrati,
+        ["nome", "asin_accessorio", "quantita", "soglia_minima"],
+        { nome: "Nome", asin_accessorio: "ASIN", quantita: "Stock", soglia_minima: "Soglia minima" },
+        `accessori_${oggi}.csv`
+      );
+    } else {
+      downloadCSV(
+        elementiPerSezione.map(p => ({
+          nome: p.nome, asin: p.asin, sku: p.sku,
+          pronto: p.pronto ?? 0, formato: p.formato || sezioneAttiva,
+          soglia_minima: p.soglia_minima ?? "",
+        })),
+        ["nome", "asin", "sku", "pronto", "formato", "soglia_minima"],
+        { nome: "Nome", asin: "ASIN", sku: "SKU", pronto: "Stock", formato: "Formato", soglia_minima: "Soglia" },
+        `inventario_${sezioneAttiva}_${oggi}.csv`
+      );
+    }
+    toast.success(`CSV ${sezioneAttiva} esportato`);
+  };
+
   // === Icone per sezioni ===
   const getSezioneIcon = () => {
     switch (sezioneAttiva) {
@@ -521,6 +556,15 @@ const Inventario = () => {
               <History className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Storico globale</span>
               <span className="sm:hidden">Storico</span>
+            </button>
+            <button
+              onClick={esportaInventarioCSV}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400/60 text-amber-300 hover:text-amber-200 text-[12px] font-medium transition-all"
+              type="button"
+              title="Esporta CSV"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Esporta CSV</span>
             </button>
           </div>
         </div>

@@ -2,6 +2,7 @@ const express = require("express");
 
 const router = express.Router();
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
 const { calcolaLitriDaProduzione } = require("../utils/calcolaLitri");
@@ -109,7 +110,7 @@ router.get("/", (req, res) => {
 
     res.json(normalized);
   } catch (err) {
-    console.error("❌ Errore GET /sfuso:", err);
+    logger.error({ err }, "Errore GET /sfuso");
     res.status(500).json({ error: "Errore nel recupero sfuso" });
   }
 });
@@ -146,7 +147,7 @@ router.get("/scadenze", (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error("❌ Errore GET /sfuso/scadenze:", err);
+    logger.error({ err }, "Errore GET /sfuso/scadenze");
     res.status(500).json({ error: "Errore nel recupero scadenze lotti" });
   }
 });
@@ -183,7 +184,7 @@ router.get("/prenotazioni", (req, res) => {
 
     res.json(prenotazioni);
   } catch (err) {
-    console.error("❌ Errore GET /prenotazioni:", err);
+    logger.error({ err }, "Errore GET /prenotazioni");
     res.status(500).json({ error: "Errore caricamento prenotazioni" });
   }
 });
@@ -287,7 +288,7 @@ router.get("/storico", (req, res) => {
 
     res.json(Object.values(grouped));
   } catch (err) {
-    console.error("❌ Errore GET /storico:", err);
+    logger.error({ err }, "Errore GET /sfuso/storico");
     res.status(500).json({ error: "Errore nel recupero storico sfuso" });
   }
 });
@@ -341,7 +342,7 @@ router.get("/storico-inventario", (req, res) => {
 
     res.json(mapped);
   } catch (err) {
-    console.error("❌ Errore GET /sfuso/storico-inventario:", err);
+    logger.error({ err }, "Errore GET /sfuso/storico-inventario");
     res.status(500).json({ error: "Errore nel recupero storico sfuso inventario" });
   }
 });
@@ -449,7 +450,7 @@ router.post("/prenotazione", validate({ body: prenotazioneSchema }), (req, res) 
     try {
       impegnaAccessori(sfusoRow.formato, pezzi, db);
     } catch (errAcc) {
-      console.warn("⚠️ Impossibile impegnare accessori:", errAcc.message);
+      logger.warn({ err: errAcc }, "Impossibile impegnare accessori");
     }
 
     // 🔔 Verifica copertura sfuso per ordini aperti
@@ -486,7 +487,7 @@ router.post("/prenotazione", validate({ body: prenotazioneSchema }), (req, res) 
       prenotazione: prenotazioneCompleta,
     });
   } catch (err) {
-    console.error("❌ Errore POST /prenotazione:", err.message);
+    logger.error({ err }, "Errore POST /prenotazione");
     res.status(500).json({ error: err.message });
   }
 });
@@ -503,7 +504,7 @@ router.get("/prenotazione/:id", (req, res) => {
 
     res.json({ ok: true, data: row });
   } catch (err) {
-    console.error("❌ Errore GET prenotazione/:id", err);
+    logger.error({ err }, "Errore GET prenotazione/:id");
     res.status(500).json({ ok: false, message: err.message });
   }
 });
@@ -593,8 +594,7 @@ router.post("/popola-default", (req, res) => {
       totali: countAfter,
     });
   } catch (err) {
-    console.error("🔍 Stack errore:", err.stack);
-    console.error("❌ Errore /popola-default:", err);
+    logger.error({ err }, "Errore /popola-default");
     res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -637,7 +637,7 @@ router.post("/", validate({ body: sfusoCreateSchema }), (req, res) => {
 
     res.json(newSfuso);
   } catch (err) {
-    console.error("❌ Errore POST /sfuso:", err);
+    logger.error({ err }, "Errore POST /sfuso");
     res.status(500).json({ error: "Errore durante la creazione dello sfuso." });
   }
 });
@@ -656,7 +656,7 @@ router.patch("/:id/asin", validate({ params: idParam, body: setAsinSchema }), (r
       .run(asin, id);
 
     if (result.changes === 0) {
-      console.warn(`⚠️ Nessun sfuso trovato con ID ${id}`);
+      logger.warn({ id }, "Nessun sfuso trovato con ID");
       return res.status(404).json({ ok: false, message: "Sfuso non trovato" });
     }
 
@@ -668,7 +668,7 @@ router.patch("/:id/asin", validate({ params: idParam, body: setAsinSchema }), (r
       updated,
     });
   } catch (err) {
-    console.error("❌ Errore PATCH /api/v2/sfuso/:id/asin:", err.message);
+    logger.error({ err }, "Errore PATCH /api/v2/sfuso/:id/asin");
     res.status(500).json({ ok: false, message: "Errore aggiornamento asin_collegato" });
   }
 });
@@ -722,7 +722,7 @@ router.patch("/ricevi/:id", validate({ params: idParam }), (req, res) => {
       throw err;
     }
   } catch (err) {
-    console.error("❌ Errore PATCH /sfuso/ricevi/:id:", err);
+    logger.error({ err }, "Errore PATCH /sfuso/ricevi/:id");
     return res.status(500).json({ error: "Errore durante la ricezione dello sfuso" });
   }
 });
@@ -789,7 +789,7 @@ router.patch("/:id/rettifica", validate({ params: idParam, body: rettificaSchema
       updated,
     });
   } catch (err) {
-    console.error("❌ Errore PATCH /sfuso/:id/rettifica:", err);
+    logger.error({ err }, "Errore PATCH /sfuso/:id/rettifica");
     res.status(500).json({ error: "Errore nella rettifica sfuso" });
   }
 });
@@ -833,7 +833,7 @@ router.patch("/:id/rettifica-old", validate({ params: idParam, body: rettificaOl
 
       // Se non esiste davvero nel DB, impostiamo NULL
       if (!idSfusoValido) {
-        console.warn("⚠️ Nessun sfuso valido trovato → imposto NULL per sicurezza");
+        logger.warn("Nessun sfuso valido trovato, imposto NULL per sicurezza");
       }
 
       db.prepare(`
@@ -850,10 +850,7 @@ router.patch("/:id/rettifica-old", validate({ params: idParam, body: rettificaOl
       );
 
     } catch (insertErr) {
-      console.error(
-        "❌ Errore inserimento storico_sfuso (rettifica-old):",
-        insertErr.message
-      );
+      logger.error({ err: insertErr }, "Errore inserimento storico_sfuso (rettifica-old)");
       return res.status(500).json({
         error: "Errore inserimento storico_sfuso: " + insertErr.message,
       });
@@ -869,9 +866,7 @@ router.patch("/:id/rettifica-old", validate({ params: idParam, body: rettificaOl
 
     res.json({ success: true, updated });
   } catch (err) {
-    console.error("❌ Errore PATCH /rettifica-old dettagliato:");
-    console.error("➡️ Messaggio:", err.message);
-    console.error("➡️ Stack:", err.stack);
+    logger.error({ err }, "Errore PATCH /rettifica-old");
     res
       .status(500)
       .json({ error: "Errore nella rettifica sfuso: " + err.message });
@@ -936,7 +931,7 @@ router.patch("/:id/rettifica-lotto", validate({ params: idParam, body: rettifica
       updated,
     });
   } catch (err) {
-    console.error("❌ Errore PATCH /sfuso/:id/rettifica-lotto:", err);
+    logger.error({ err }, "Errore PATCH /sfuso/:id/rettifica-lotto");
     res.status(500).json({ error: "Errore nella rettifica del lotto" });
   }
 });
@@ -1000,7 +995,7 @@ router.patch("/:id/rettifica-lotto-old", validate({ params: idParam, body: retti
       updated,
     });
   } catch (err) {
-    console.error("❌ Errore PATCH /rettifica-lotto-old:", err);
+    logger.error({ err }, "Errore PATCH /rettifica-lotto-old");
     res.status(500).json({ error: "Errore nella rettifica del lotto OLD" });
   }
 });
@@ -1099,7 +1094,7 @@ router.patch("/:id", validate({ params: idParam, body: patchSfusoSchema }), (req
 
     res.json(updated);
   } catch (err) {
-    console.error("❌ Errore PATCH /sfuso/:id:", err);
+    logger.error({ err }, "Errore PATCH /sfuso/:id");
     res.status(500).json({ error: "Errore nella rettifica sfuso" });
   }
 });
@@ -1222,7 +1217,7 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
         } catch (err) {
           if (err.code === "SQLITE_BUSY" && attempts < maxRetries) {
             attempts++;
-            console.warn(`⚠️ DB locked, retry ${attempts}/${maxRetries}`);
+            logger.warn({ attempts, maxRetries }, "DB locked, retry");
             Atomics.wait(_retryBuf, 0, 0, delay);
           } else {
             throw err;
@@ -1440,7 +1435,7 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
           .get(id);
 
         if (!prenAgg) {
-          console.error("❌ prenAgg mancante durante annullamento!");
+          logger.error("prenAgg mancante durante annullamento!");
           return res.status(500).json({ error: "Prenotazione non trovata durante annullamento" });
         }
 
@@ -1539,7 +1534,7 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
         try {
           rilasciaImpegno(prenAgg.formato, prenAgg.prodotti, db);
         } catch (errAcc) {
-          console.warn("⚠️ Errore rilascio impegno accessori:", errAcc.message);
+          logger.warn({ err: errAcc }, "Errore rilascio impegno accessori");
         }
 
         // 🔔 Ricalcola copertura sfuso
@@ -1604,7 +1599,7 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
           try {
             scalaAccessori(prenAgg.formato, qtaProdotta, db);
           } catch (errAcc) {
-            console.warn("⚠️ Errore scala accessori:", errAcc.message);
+            logger.warn({ err: errAcc }, "Errore scala accessori");
           }
 
           // 🔔 Ricalcola copertura sfuso
@@ -1633,7 +1628,7 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
               )
             );
           } else {
-            console.warn("⚠️ Nessun prodotto trovato per:", prenAgg.nome_prodotto);
+            logger.warn({ nome_prodotto: prenAgg.nome_prodotto }, "Nessun prodotto trovato per conferma produzione");
           }
 
           // Produzione parziale: rimetti in lavorazione con la rimanenza
@@ -1653,7 +1648,7 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
             });
           }
         } catch (err) {
-          console.error("❌ Errore aggiornamento inventario pronto:", err);
+          logger.error({ err }, "Errore aggiornamento inventario pronto");
         }
       }
 
@@ -1724,7 +1719,7 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
     // 🔹 Se non c'era nulla da fare
     return res.json({ ok: true, message: "Nessuna modifica applicata", id });
   } catch (err) {
-    console.error("❌ Errore PATCH prenotazione:", err);
+    logger.error({ err }, "Errore PATCH prenotazione");
     res.status(500).json({ error: "Errore aggiornamento prenotazione" });
   }
 }); // ✅ chiusura corretta della route PATCH /prenotazione/:id
@@ -1750,7 +1745,7 @@ router.patch("/prenotazione/:id/conferma", validate({ params: idParam }), (req, 
 
     // 🔹 Verifica asin_prodotto valido
     if (!prenotazione.asin_prodotto) {
-      console.warn("⚠️ Nessun ASIN associato, provo a recuperarlo dallo sfuso...");
+      logger.warn("Nessun ASIN associato, provo a recuperarlo dallo sfuso");
       const sfusoRow = db.prepare("SELECT asin_collegati FROM sfuso WHERE id = ?").get(prenotazione.id_sfuso);
       if (sfusoRow && sfusoRow.asin_collegati) {
         const asinFallback = JSON.parse(sfusoRow.asin_collegati || "[]")[0] || null;
@@ -1759,10 +1754,10 @@ router.patch("/prenotazione/:id/conferma", validate({ params: idParam }), (req, 
           // aggiorno anche la prenotazione nel DB
           db.prepare("UPDATE prenotazioni_sfuso SET asin_prodotto = ? WHERE id = ?").run(asinFallback, prenotazione.id);
         } else {
-          console.warn("⚠️ Nessun ASIN trovato nello sfuso, procedo comunque con conferma.");
+          logger.warn("Nessun ASIN trovato nello sfuso, procedo comunque con conferma");
         }
       } else {
-        console.warn("⚠️ Nessuna riga sfuso valida trovata per recupero ASIN.");
+        logger.warn("Nessuna riga sfuso valida trovata per recupero ASIN");
       }
     }
 
@@ -1809,7 +1804,7 @@ router.patch("/prenotazione/:id/conferma", validate({ params: idParam }), (req, 
       dettagli: { asin: prenotazione.asin_prodotto, aggiunti: prenotazione.prodotti, result },
     });
   } catch (err) {
-    console.error("❌ Errore PATCH /prenotazione/:id/conferma dettagliato:", err.message, err.stack);
+    logger.error({ err }, "Errore PATCH /prenotazione/:id/conferma");
     res.status(500).json({ error: err.message });
   }
 });
@@ -1828,7 +1823,7 @@ router.delete("/:id", validate({ params: idParam }), (req, res) => {
     // Verifica se esiste
     const sfuso = db.prepare("SELECT * FROM sfuso WHERE id = ?").get(id);
     if (!sfuso) {
-      console.warn("⚠️ Nessun record sfuso trovato con id:", id);
+      logger.warn({ id }, "Nessun record sfuso trovato con id");
       return res.status(404).json({ error: "Record sfuso non trovato" });
     }
 
@@ -1847,7 +1842,7 @@ router.delete("/:id", validate({ params: idParam }), (req, res) => {
       message: `Sfuso "${sfuso.nome_prodotto}" eliminato correttamente.`,
     });
   } catch (err) {
-    console.error("❌ Errore DELETE /sfuso/:id:", err);
+    logger.error({ err }, "Errore DELETE /sfuso/:id");
     return res
       .status(500)
       .json({ error: "Errore durante l'eliminazione dello sfuso." });
@@ -1874,7 +1869,7 @@ router.delete("/storico-inventario/reset", validate({ body: resetStoricoSchema }
     db.prepare("DELETE FROM storico_sfuso").run();
     res.json({ ok: true, message: "Storico cancellato con successo" });
   } catch (err) {
-    console.error("❌ Errore reset storico:", err.message);
+    logger.error({ err }, "Errore reset storico");
     res.status(500).json({ ok: false, message: "Errore nel reset dello storico", error: err.message });
   }
 });
@@ -1921,7 +1916,7 @@ router.get("/ordini/:asin", (req, res) => {
       ordini,
     });
   } catch (err) {
-    console.error("❌ Errore GET /sfuso/ordini/:asin:", err.message);
+    logger.error({ err }, "Errore GET /sfuso/ordini/:asin");
     res.status(500).json({ error: "Errore nel recupero ordini fornitori" });
   }
 });
@@ -1944,7 +1939,7 @@ router.get("/liberi", (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error("❌ Errore GET /sfuso/liberi:", err);
+    logger.error({ err }, "Errore GET /sfuso/liberi");
     res.status(500).json({ error: "Errore nel recupero sfusi liberi" });
   }
 });

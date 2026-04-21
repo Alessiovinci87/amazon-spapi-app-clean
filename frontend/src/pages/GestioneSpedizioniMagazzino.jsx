@@ -5,6 +5,7 @@ import SpedizioneCard from "../components/spedizioni/SpedizioneCard";
 import ExportCSVButton from "../components/ui/ExportCSVButton";
 import { cleanText } from "../utils/gestioneSpedizioni";
 import { fetchJSON } from "../utils/api";
+import { toast } from "sonner";
 import {
   ArrowLeft,
   Truck,
@@ -92,21 +93,21 @@ const GestioneSpedizioniMagazzino = () => {
         body: JSON.stringify(dati),
       });
       setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
-    } catch {}
+    } catch { toast.error("Errore aggiornamento spedizione"); }
   };
 
   const confermaSpedizione = async (id) => {
     try {
       const aggiornata = await fetchJSON(`spedizioni/${id}/conferma`, { method: "PATCH" });
       setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
-    } catch {}
+    } catch { toast.error("Errore conferma spedizione"); }
   };
 
   const eliminaSpedizione = async (id) => {
     try {
       await fetchJSON(`spedizioni/${id}`, { method: "DELETE" });
       setSpedizioni((p) => p.filter((s) => s.id !== id));
-    } catch {}
+    } catch { toast.error("Errore eliminazione spedizione"); }
   };
 
   const handleExportCSV = (spedizione) => {

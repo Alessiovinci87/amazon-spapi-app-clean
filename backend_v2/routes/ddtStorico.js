@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const pdf = require("html-pdf-node");
 const { getDb } = require("../db/database");
+const logger = require("../utils/logger");
 
 const router = express.Router();
 
@@ -41,7 +42,7 @@ router.get("/storico", (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error("❌ Errore recupero storico DDT:", err);
+    logger.error({ err }, "Errore recupero storico DDT");
     res.status(500).json({ error: "Errore recupero storico DDT" });
   }
 });
@@ -55,7 +56,7 @@ router.get("/storico/:id", (req, res) => {
     const righe = db.prepare(`SELECT * FROM ddt_generici_righe WHERE ddt_id = ? ORDER BY id`).all(req.params.id);
     res.json({ ...ddt, righe });
   } catch (err) {
-    console.error("❌ Errore recupero DDT:", err);
+    logger.error({ err }, "Errore recupero DDT");
     res.status(500).json({ error: "Errore recupero DDT" });
   }
 });
@@ -102,7 +103,7 @@ router.put("/storico/:id", (req, res) => {
     tx();
     res.json({ ok: true, id: Number(id) });
   } catch (err) {
-    console.error("❌ Errore aggiornamento DDT:", err);
+    logger.error({ err }, "Errore aggiornamento DDT");
     res.status(500).json({ error: "Errore aggiornamento DDT", details: err.message });
   }
 });
@@ -173,7 +174,7 @@ router.get("/storico/:id/pdf", async (req, res) => {
     res.setHeader("Content-Disposition", `inline; filename=ddt_storico_${ddt.numeroDDT}.pdf`);
     res.send(pdfBuffer);
   } catch (err) {
-    console.error("❌ Errore generazione PDF storico:", err);
+    logger.error({ err }, "Errore generazione PDF storico");
     res.status(500).json({ error: "Errore generazione PDF storico" });
   }
 });
