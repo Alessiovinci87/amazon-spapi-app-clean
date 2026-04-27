@@ -319,10 +319,17 @@ async function bootstrap() {
   // =========================================================
   // 🧭 STATIC FILES + HEALTHCHECK
   // =========================================================
+  // Static "fissi" dal repo (manifest, icone, mock dati): sempre da frontend/public
   app.use("/static", express.static(path.join(__dirname, "../frontend/public")));
-  app.use("/onestep-images", express.static(path.join(__dirname, "../frontend/public/onestep-images")));
-  app.use("/topcoat-images", express.static(path.join(__dirname, "../frontend/public/topcoat-images")));
-  app.use("/moduli-images", express.static(path.join(__dirname, "../frontend/public/moduli-images")));
+
+  // Immagini upload — risolte da UPLOAD_DIR env (produzione) o frontend/public (dev)
+  const { getUploadBase } = require("./utils/uploadPaths");
+  const UPLOAD_BASE = getUploadBase();
+  app.use("/accessori-images", express.static(path.join(UPLOAD_BASE, "accessori-images")));
+  app.use("/onestep-images", express.static(path.join(UPLOAD_BASE, "onestep-images")));
+  app.use("/topcoat-images", express.static(path.join(UPLOAD_BASE, "topcoat-images")));
+  app.use("/moduli-images", express.static(path.join(UPLOAD_BASE, "moduli-images")));
+
   app.get("/api/v2/health", (_req, res) => res.json({ ok: true }));
 
   // =========================================================
@@ -359,6 +366,27 @@ async function bootstrap() {
 
 
   
+  // =========================================================
+  // 🎨 SPA — serve il frontend buildato in produzione
+  // Se esiste frontend/dist, lo serve con fallback a index.html per react-router.
+  // In sviluppo (dist assente) lascia gestire al dev server Vite via proxy.
+  // =========================================================
+  const fs = require("fs");
+  const distPath = path.join(__dirname, "../frontend/dist");
+  if (fs.existsSync(path.join(distPath, "index.html"))) {
+    app.use(express.static(distPath));
+    app.get("*", (req, res, next) => {
+      // Lascia passare API e static già montati
+      if (req.path.startsWith("/api/")) return next();
+      if (req.path.startsWith("/static/")) return next();
+      if (req.path.endsWith("-images") || req.path.includes("-images/")) return next();
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+    logger.info({ distPath }, "Frontend SPA servita da Express");
+  } else {
+    logger.info("Frontend dist non trovato — modalità sviluppo (usa npm run dev su frontend)");
+  }
+
   app.use(notFoundHandler);
   app.use(errorHandler);
 

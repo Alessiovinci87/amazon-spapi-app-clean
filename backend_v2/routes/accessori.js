@@ -13,10 +13,9 @@ const { validate } = require("../middleware/validate");
 const asinParam = z.object({ asin_accessorio: z.string().min(1).max(50) });
 
 // ── Upload immagine accessorio ────────────────────────────
-// Le immagini vengono salvate in frontend/public/accessori-images/
-// così sono servite come statiche sotto /accessori-images/<asin>.<ext>.
-const UPLOAD_DIR = path.join(__dirname, "../../frontend/public/accessori-images");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+// Path risolto da UPLOAD_DIR env (produzione) o frontend/public (dev).
+const { getUploadDir } = require("../utils/uploadPaths");
+const UPLOAD_DIR = getUploadDir("accessori");
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),

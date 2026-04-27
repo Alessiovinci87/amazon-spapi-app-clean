@@ -85,8 +85,8 @@ const riceviSchema = z.object({
 const resetSchema = z.object({ conferma: z.literal("RESET") });
 
 // ─── UPLOAD SETUP ──────────────────────────────────────────
-const UPLOAD_BASE = path.join(__dirname, "../../frontend/public/moduli-images");
-if (!fs.existsSync(UPLOAD_BASE)) fs.mkdirSync(UPLOAD_BASE, { recursive: true });
+const { getUploadDir } = require("../utils/uploadPaths");
+const UPLOAD_BASE = getUploadDir("moduli");
 
 const storage = multer.diskStorage({
   destination: (req, _file, cb) => {

@@ -73,8 +73,8 @@ const scaricoDdtSchema = z.object({
 const resetSchema = z.object({ conferma: z.literal("RESET") });
 
 // Cartella dove salvare le immagini Top Coat
-const UPLOAD_DIR = path.join(__dirname, "../../frontend/public/topcoat-images");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const { getUploadDir } = require("../utils/uploadPaths");
+const UPLOAD_DIR = getUploadDir("topcoat");
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),

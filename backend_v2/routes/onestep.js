@@ -73,8 +73,8 @@ const scaricoDdtSchema = z.object({
 const resetSchema = z.object({ conferma: z.literal("RESET") });
 
 // Cartella dove salvare le immagini One Step
-const UPLOAD_DIR = path.join(__dirname, "../../frontend/public/onestep-images");
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const { getUploadDir } = require("../utils/uploadPaths");
+const UPLOAD_DIR = getUploadDir("onestep");
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
