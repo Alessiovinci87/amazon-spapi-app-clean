@@ -23,12 +23,22 @@ const MARKETPLACES = {
   SE: "A2NODRKZP88ZB9",
 };
 
+// Accetta sia GB (ISO-3166 e convenzione fba_stock/catalogo) sia UK (convenzione
+// storica listings-editor + feedback/catalog). Normalizza su UK per compatibilità DB.
+const COUNTRY_ALIAS = { GB: "UK" };
+function normalizeCountry(code) {
+  const up = (code || "").toUpperCase();
+  return COUNTRY_ALIAS[up] || up;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ============================================================
-// 🏗️ TABELLA CACHE
+// 🏗️ TABELLA CACHE — esegue il CREATE/INDEX una sola volta per processo
 // ============================================================
+let _tableEnsured = false;
 function ensureTable() {
+  if (_tableEnsured) return;
   const db = getDb();
   db.exec(`
     CREATE TABLE IF NOT EXISTS amazon_listings (
@@ -50,6 +60,7 @@ function ensureTable() {
     CREATE INDEX IF NOT EXISTS idx_amazon_listings_asin ON amazon_listings(asin);
     CREATE INDEX IF NOT EXISTS idx_amazon_listings_parent ON amazon_listings(parent_asin);
   `);
+  _tableEnsured = true;
 }
 
 // ============================================================
@@ -375,4 +386,5 @@ module.exports = {
   updateListing,
   fetchSubmissionStatus,
   MARKETPLACES,
+  normalizeCountry,
 };

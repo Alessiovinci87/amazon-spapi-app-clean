@@ -70,9 +70,20 @@ const DDTNuovo = () => {
   const [trasportatoreCustom, setTrasportatoreCustom] = useState("");
   const [tracking, setTracking] = useState("");
 
+  const newRigaId = () => `riga-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const [righe, setRighe] = useState([
-    { asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "", lotto: "" },
+    { _id: newRigaId(), asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "", lotto: "", tracking: "" },
   ]);
+  const [trackingOpen, setTrackingOpen] = useState(new Set());
+
+  const toggleTracking = (id) => {
+    setTrackingOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!editId) return;
@@ -97,10 +108,15 @@ const DDTNuovo = () => {
         }
         setTracking(d.tracking || "");
         if (Array.isArray(d.righe) && d.righe.length) {
-          setRighe(d.righe.map((r) => ({
+          const nuoveRighe = d.righe.map((r) => ({
+            _id: newRigaId(),
             asin: r.asin || "", sku: r.sku || "", prodottoNome: r.prodottoNome || "",
             quantita: r.quantita ?? "", cartone: r.cartone || "", pacco: r.pacco || "", lotto: r.lotto || "",
-          })));
+            tracking: r.tracking || "",
+          }));
+          setRighe(nuoveRighe);
+          const openIds = new Set(nuoveRighe.filter((r) => r.tracking).map((r) => r._id));
+          setTrackingOpen(openIds);
         }
       } catch {
         toast.error(t("ddtNuovo.toast_error_load", "Errore caricamento DDT"));
@@ -109,7 +125,7 @@ const DDTNuovo = () => {
   }, [editId, t]);
 
   const aggiungiRiga = () => {
-    setRighe([...righe, { asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "", lotto: "" }]);
+    setRighe([...righe, { _id: newRigaId(), asin: "", sku: "", prodottoNome: "", quantita: "", cartone: "", pacco: "", lotto: "", tracking: "" }]);
   };
 
   const rimuoviRiga = (index) => {
@@ -310,7 +326,7 @@ const DDTNuovo = () => {
           >
             <div className="space-y-3">
               {righe.map((r, i) => (
-                <div key={i} className="relative bg-slate-800/40 border border-slate-700/60 rounded-md p-4">
+                <div key={r._id} className="relative bg-slate-800/40 border border-slate-700/60 rounded-md p-4">
                   {righe.length > 1 && (
                     <button type="button" onClick={() => rimuoviRiga(i)} className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-colors" title={t("ddtNuovo.title_rimuovi")}>
                       <X className="w-4 h-4" />
@@ -326,6 +342,36 @@ const DDTNuovo = () => {
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input type="text" placeholder={t("ddtNuovo.ph_pacco")} className={rowInputCls} value={r.pacco} onChange={(e) => aggiornaRiga(i, "pacco", e.target.value)} />
                     <input type="text" placeholder={t("ddtNuovo.ph_lotto")} className={rowInputCls} value={r.lotto} onChange={(e) => aggiornaRiga(i, "lotto", e.target.value)} />
+                  </div>
+                  <div className="mt-3">
+                    {(trackingOpen.has(r._id) || r.tracking) ? (
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-violet-400 flex-shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Tracking UPS (specifico per questa riga)"
+                          className={`flex-1 ${rowInputCls}`}
+                          value={r.tracking}
+                          onChange={(e) => aggiornaRiga(i, "tracking", e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => { aggiornaRiga(i, "tracking", ""); toggleTracking(r._id); }}
+                          className="w-8 h-8 flex items-center justify-center rounded-md text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                          title="Rimuovi tracking"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => toggleTracking(r._id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Aggiungi tracking UPS
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

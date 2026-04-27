@@ -199,6 +199,11 @@ function runMigrations(db) {
     db.prepare("ALTER TABLE ddt_generici_righe ADD COLUMN lotto TEXT").run();
     logger.info("Migrazione: aggiunta colonna lotto a ddt_generici_righe");
   }
+  // Aggiunge tracking a ddt_generici_righe se mancante (tracking UPS per singola riga)
+  if (colsDdtRighe.length > 0 && !colsDdtRighe.some(c => c.name === "tracking")) {
+    db.prepare("ALTER TABLE ddt_generici_righe ADD COLUMN tracking TEXT").run();
+    logger.info("Migrazione: aggiunta colonna tracking a ddt_generici_righe");
+  }
 
   // ===== ONE STEP =====
   db.prepare(`
@@ -478,12 +483,59 @@ function runMigrations(db) {
 
   logger.info("Migrazione Scadenze Lotti completata");
 
-  // ===== ORDINI FORNITORI: aggiungi quantita_ricevuta se mancante =====
+  // ===== ORDINI FORNITORI: aggiungi colonne mancanti =====
   const colsOrdForn = db.pragma("table_info(ordini_fornitori)");
   if (colsOrdForn.length > 0 && !colsOrdForn.some(c => c.name === "quantita_ricevuta")) {
     db.prepare("ALTER TABLE ordini_fornitori ADD COLUMN quantita_ricevuta REAL").run();
     logger.info("Migrazione: aggiunta colonna quantita_ricevuta a ordini_fornitori");
   }
+  if (colsOrdForn.length > 0 && !colsOrdForn.some(c => c.name === "pagamento")) {
+    db.prepare("ALTER TABLE ordini_fornitori ADD COLUMN pagamento TEXT").run();
+    logger.info("Migrazione: aggiunta colonna pagamento a ordini_fornitori");
+  }
+  if (colsOrdForn.length > 0 && !colsOrdForn.some(c => c.name === "prezzo_unitario")) {
+    db.prepare("ALTER TABLE ordini_fornitori ADD COLUMN prezzo_unitario REAL DEFAULT 0").run();
+    logger.info("Migrazione: aggiunta colonna prezzo_unitario a ordini_fornitori");
+  }
+  if (colsOrdForn.length > 0 && !colsOrdForn.some(c => c.name === "costo_totale")) {
+    db.prepare("ALTER TABLE ordini_fornitori ADD COLUMN costo_totale REAL DEFAULT 0").run();
+    logger.info("Migrazione: aggiunta colonna costo_totale a ordini_fornitori");
+  }
+
+  // ===== TRACKING 17TRACK: tabella cache stati spedizioni =====
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS tracking_17track (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tracking_number TEXT NOT NULL UNIQUE,
+      carrier INTEGER,
+      status TEXT,
+      sub_status TEXT,
+      latest_event_json TEXT,
+      milestone_json TEXT,
+      ddt_id INTEGER,
+      spedizione_id INTEGER,
+      nota TEXT,
+      registered_at TEXT DEFAULT (datetime('now','localtime')),
+      last_update TEXT DEFAULT (datetime('now','localtime')),
+      error TEXT,
+      FOREIGN KEY (ddt_id) REFERENCES ddt_generici(id) ON DELETE SET NULL,
+      FOREIGN KEY (spedizione_id) REFERENCES spedizioni(id) ON DELETE SET NULL
+    )
+  `).run();
+  db.prepare("CREATE INDEX IF NOT EXISTS idx_tracking17_ddt ON tracking_17track(ddt_id)").run();
+  db.prepare("CREATE INDEX IF NOT EXISTS idx_tracking17_status ON tracking_17track(status)").run();
+
+  // Aggiunte successive: events_json (timeline completa) + provider_name
+  const colsT17 = db.pragma("table_info(tracking_17track)");
+  if (colsT17.length > 0 && !colsT17.some(c => c.name === "events_json")) {
+    db.prepare("ALTER TABLE tracking_17track ADD COLUMN events_json TEXT").run();
+    logger.info("Migrazione: aggiunta colonna events_json a tracking_17track");
+  }
+  if (colsT17.length > 0 && !colsT17.some(c => c.name === "provider_name")) {
+    db.prepare("ALTER TABLE tracking_17track ADD COLUMN provider_name TEXT").run();
+    logger.info("Migrazione: aggiunta colonna provider_name a tracking_17track");
+  }
+  logger.info("Migrazione tracking_17track completata");
 
   // ===== PRODUZIONI_SFUSO: FK CASCADE se mancante =====
   try {
@@ -546,6 +598,25 @@ function runMigrations(db) {
   `).run();
 
   logger.info("Migrazione Scatolette/Etichette completata");
+
+  // ===== EUROPA: product_catalog.image_count + tabella listing_hidden =====
+  // (spostate qui dal middleware runtime di europaRoutes.js)
+  try {
+    const colsPC = db.pragma("table_info(product_catalog)");
+    if (colsPC.length > 0 && !colsPC.some(c => c.name === "image_count")) {
+      db.prepare("ALTER TABLE product_catalog ADD COLUMN image_count INTEGER DEFAULT 0").run();
+      logger.info("Migrazione: aggiunta colonna image_count a product_catalog");
+    }
+  } catch (_) { /* product_catalog non esiste ancora: nessun problema */ }
+
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS listing_hidden (
+      asin TEXT PRIMARY KEY,
+      hidden_at TEXT DEFAULT (datetime('now'))
+    )
+  `).run();
+
+  logger.info("Migrazione Europa (image_count / listing_hidden) completata");
 }
 
 async function ensureDatabaseReady() {

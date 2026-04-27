@@ -132,22 +132,38 @@ const CentroAlert = () => {
   useEffect(() => { fetchAlerts(); }, [fetchAlerts]);
 
   const segnaLetto = async (id) => {
-    await fetch(`/api/v2/europa/alert-events/${id}/letto`, { method: "PATCH" });
-    setAlerts((prev) => prev.filter((a) => a.id !== id));
+    try {
+      const res = await fetch(`/api/v2/europa/alert-events/${id}/letto`, { method: "PATCH" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      console.error("segnaLetto:", err);
+      toast.error(t("centroAlert.toast_error_letto", "Errore marcatura alert"));
+    }
   };
 
   const segnaTuttiLetti = async () => {
-    await fetch("/api/v2/europa/alert-events/leggi-tutti", { method: "PATCH" });
-    setAlerts([]);
-    toast.success(t("centroAlert.toast_tutti_letti"));
+    try {
+      const res = await fetch("/api/v2/europa/alert-events/leggi-tutti", { method: "PATCH" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setAlerts([]);
+      toast.success(t("centroAlert.toast_tutti_letti"));
+    } catch (err) {
+      console.error("segnaTuttiLetti:", err);
+      toast.error(t("centroAlert.toast_error_letto", "Errore marcatura alert"));
+    }
   };
 
   const rigeneraAlert = async () => {
     setRigenerando(true);
     try {
       const res = await fetch("/api/v2/europa/alert-events/rigenera-stock", { method: "POST" });
+      if (!res.ok) {
+        let errMsg = `HTTP ${res.status}`;
+        try { const j = await res.json(); if (j?.error) errMsg = j.error; } catch {}
+        throw new Error(errMsg);
+      }
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Errore");
       toast.success(t("centroAlert.toast_scansione", { tot: json.totaleScansionati, nuovi: json.alertAperti?.delta ?? 0 }));
       await fetchAlerts();
     } catch (e) {
@@ -353,7 +369,7 @@ const CentroAlert = () => {
                             </div>
                             {!alert.letto && (
                               <button
-                                onClick={() => segnaLetto(alert.id)}
+                                onClick={(e) => { e.stopPropagation(); segnaLetto(alert.id); }}
                                 className="flex-shrink-0 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-emerald-400 transition-all mt-0.5"
                                 title={t("centroAlert.title_segna_letto")}
                               >

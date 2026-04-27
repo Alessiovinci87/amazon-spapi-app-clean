@@ -10,7 +10,7 @@ const idParam = z.object({ id: z.coerce.number().int().positive() });
 const rigaSchema = z.object({
   asin: z.string().max(50).nullish(),
   sku: z.string().max(100).nullish(),
-  nome_prodotto: z.string().max(500).nullish(),
+  prodotto_nome: z.string().max(500).nullish(),
   quantita: z.coerce.number().int().min(0),
 }).passthrough();
 
@@ -25,11 +25,9 @@ const aggiungiRigheSchema = z.object({
 
 /* ============================================================
    📦 SPEDIZIONI — ROUTER DEFINITIVO
-   Ordine corretto per evitare conflitti con /:id
+   Nota: GET /storico è gestito da routes/storicoSpedizioni.js
+   montato su /api/v2/spedizioni/storico (vedi index.js).
 ============================================================ */
-
-// 🟫 GET storico (DEVE STARE PRIMA DI /:id)
-router.get("/storico", controller.getStorico);
 
 // 🟦 GET tutte le spedizioni
 router.get("/", controller.getSpedizioni);

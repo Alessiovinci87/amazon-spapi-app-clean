@@ -281,7 +281,7 @@ const InserimentoOrdine = () => {
                   </thead>
                   <tbody>
                     {ordineProdotti.map((p, i) => (
-                      <tr key={i} className="border-t border-slate-700 text-center">
+                      <tr key={`${p.id_sfuso}-${i}`} className="border-t border-slate-700 text-center">
                         <td className="p-2 text-left text-slate-200">{p.nome_prodotto}</td>
                         <td className="p-2 tabular-nums">{p.quantita_litri}</td>
                         <td className="p-2 tabular-nums">{p.prezzo_unitario.toFixed(2)}</td>

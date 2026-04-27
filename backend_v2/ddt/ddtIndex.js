@@ -144,14 +144,17 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
     }
     const browser = await puppeteer.launch(launchOptions);
 
-    const page = await browser.newPage();
-    await page.setContent(html, {
-      waitUntil: "networkidle0",
-      charset: "utf-8"
-    });
-
-    const pdfBuffer = await page.pdf({ format: "A4" });
-    await browser.close();
+    let pdfBuffer;
+    try {
+      const page = await browser.newPage();
+      await page.setContent(html, {
+        waitUntil: "networkidle0",
+        charset: "utf-8"
+      });
+      pdfBuffer = await page.pdf({ format: "A4" });
+    } finally {
+      await browser.close().catch(() => {});
+    }
 
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(

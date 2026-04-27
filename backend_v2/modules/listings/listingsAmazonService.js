@@ -147,6 +147,46 @@ async function deleteListingItem(sku, marketplaceIds = ["APJ6JRA9NG5V4"]) {
   });
 }
 
+/**
+ * 💶 Aggiorna il prezzo di un listing Amazon (solo `purchasable_offer`).
+ * Usa PATCH Listings Items 2021-08-01. Costruisce il payload `our_price` → `value_with_tax`.
+ *
+ * @param {string} sku
+ * @param {object} opts
+ * @param {number} opts.price - prezzo IVA inclusa (es. 19.99)
+ * @param {string} opts.marketplaceId - es. APJ6JRA9NG5V4
+ * @param {string} [opts.currency="EUR"]
+ * @param {string} [opts.productType="PRODUCT"]
+ * @returns {Promise<object>} risposta SP-API (include submissionId)
+ */
+async function updateListingPrice(sku, { price, marketplaceId, currency = "EUR", productType = "PRODUCT" }) {
+  if (!sku) throw new Error("sku obbligatorio");
+  if (!marketplaceId) throw new Error("marketplaceId obbligatorio");
+  const priceNum = Number(price);
+  if (!Number.isFinite(priceNum) || priceNum <= 0) throw new Error("prezzo non valido");
+
+  const payload = {
+    productType,
+    patches: [
+      {
+        op: "replace",
+        path: "/attributes/purchasable_offer",
+        value: [
+          {
+            marketplace_id: marketplaceId,
+            currency,
+            our_price: [
+              { schedule: [{ value_with_tax: priceNum }] },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  logger.info(`[Price] PATCH purchasable_offer: sku=${sku} mkt=${marketplaceId} price=${priceNum} ${currency}`);
+  return await patchListingItem(sku, payload, [marketplaceId]);
+}
+
 // ═══════════════════════════════════════════════════════════
 // WORKAROUND: JSON_LISTINGS_FEED via Feeds API
 // Usato finché Listings Items API dà 400 (problema lato Amazon)
@@ -300,6 +340,7 @@ module.exports = {
   getSubmissionStatus,
   patchListingItem,
   deleteListingItem,
+  updateListingPrice,
   updateListingViaFeed,
   sendSignedRequest,
 };

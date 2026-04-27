@@ -24,6 +24,9 @@ import {
   ShieldAlert,
   RefreshCw,
   Eye,
+  FileSpreadsheet,
+  Percent,
+  Truck,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -38,10 +41,12 @@ const MENU = [
 
   { divider: true, label: "Gestione uffici" },
   { to: "/uffici/listing",     label: "Listing Amazon",       icon: ListChecks },
+  { to: "/uffici/prezzi",      label: "Prezzi Amazon",        icon: DollarSign },
   { to: "/uffici/inventario",  label: "Inventario merce",     icon: Boxes },
   { to: "/uffici/produzione",  label: "Produzione",           icon: Factory },
   { to: "/uffici/spedizioni",  label: "Gestione spedizioni",  icon: Package },
   { to: "/uffici/ddt",         label: "Genera DDT",           icon: FileText },
+  { to: "/uffici/tracking17",  label: "Tracking 17TRACK",     icon: Truck },
 
   { divider: true, label: "Fornitori e ordini" },
   { to: "/uffici/fornitori",   label: "Fornitori e ordini",   icon: Users },
@@ -57,8 +62,11 @@ const MENU = [
   { to: "/uffici/vendite",         label: "Dashboard Vendite",   icon: TrendingUp },
   { to: "/uffici/profittabilita",  label: "Profittabilità",      icon: DollarSign },
   { to: "/uffici/copertura-fba",  label: "Copertura FBA",       icon: ShieldAlert },
+  { to: "/uffici/previsione",     label: "Previsione domanda",  icon: TrendingUp },
   { to: "/uffici/competitor",     label: "Competitor Watch",    icon: Eye },
   { to: "/uffici/resi-fba",       label: "Resi FBA",            icon: Package },
+  { to: "/uffici/pl-mensile",     label: "P&L mensile",         icon: FileSpreadsheet },
+  { to: "/uffici/commissioni",    label: "Commissioni Amazon",  icon: Percent },
 
   { divider: true, label: "Storici e report" },
   { to: "/uffici/storici/movimenti", label: "Storico movimenti", icon: Archive },

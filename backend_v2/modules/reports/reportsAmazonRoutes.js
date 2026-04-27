@@ -39,7 +39,7 @@ const path = require("path"); // ✅ AGGIUNTO IMPORT
 const { getDbPath } = require("../../db/database");
 
 
-const { aggiornaFBAFees, getFBAFees } = require("./fbaFeesService");
+const { aggiornaFBAFees, getFBAFees, fetchFeesEstimateForAsin, salvaFeeConfermate, ensureFbaFeesSchema, MKT_TO_COUNTRY } = require("./fbaFeesService");
 const { aggiornaSalesTraffic, getSalesTraffic, getAsinSalesForPeriod, syncAsinDaily, backfillAsinDaily } = require("./salesTrafficService");
 
 // 🔄 POST → genera o aggiorna report vendite
@@ -522,6 +522,84 @@ router.get("/profitability", (req, res) => {
   }
 });
 
+// 📊 GET → P&L mensile
+// Query: ?year=2026&country=IT,DE (country opzionale, più paesi separati da virgola)
+// Ritorna una riga per mese con ricavi / costi prodotto / fee Amazon / margine.
+router.get("/pl-monthly", (req, res) => {
+  try {
+    const { getDb } = require("../../db/database");
+    const db = getDb();
+    const year = String(req.query.year || new Date().getFullYear());
+    const countryFilter = req.query.country
+      ? String(req.query.country).split(",").map(c => c.trim().toUpperCase()).filter(Boolean)
+      : [];
+
+    const params = [year];
+    let countryWhere = "";
+    if (countryFilter.length > 0) {
+      countryWhere = ` AND st.country IN (${countryFilter.map(() => "?").join(",")})`;
+      params.push(...countryFilter);
+    }
+
+    const rows = db.prepare(`
+      SELECT strftime('%Y-%m', st.date) AS mese,
+        SUM(st.units_ordered) AS unita,
+        SUM(st.ordered_product_sales) AS ricavi,
+        SUM(COALESCE(bc.costo, 0) * st.units_ordered) AS costi_prodotto,
+        SUM(COALESCE(ff.total_fee, 0) * st.units_ordered) AS fee_amazon,
+        COUNT(DISTINCT st.asin) AS asin_count
+      FROM sales_traffic st
+      LEFT JOIN prodotti p ON p.asin = st.asin
+      LEFT JOIN bilancio_catalogo bc ON bc.tipo = 'prodotto' AND bc.id_riferimento = p.id
+      LEFT JOIN (SELECT asin, AVG(total_fee) AS total_fee FROM fba_fees GROUP BY asin) ff ON ff.asin = st.asin
+      WHERE strftime('%Y', st.date) = ? AND st.units_ordered > 0 ${countryWhere}
+      GROUP BY mese
+      ORDER BY mese ASC
+    `).all(...params);
+
+    // Normalizza tutti i mesi dell'anno (anche quelli senza vendite)
+    const monthsMap = new Map();
+    for (const r of rows) monthsMap.set(r.mese, r);
+    const items = [];
+    for (let m = 1; m <= 12; m++) {
+      const key = `${year}-${String(m).padStart(2, "0")}`;
+      const r = monthsMap.get(key);
+      const ricavi = +(r?.ricavi || 0).toFixed(2);
+      const costi = +(r?.costi_prodotto || 0).toFixed(2);
+      const fee = +(r?.fee_amazon || 0).toFixed(2);
+      const margine = +(ricavi - costi - fee).toFixed(2);
+      const margine_pct = ricavi > 0 ? +(margine / ricavi * 100).toFixed(1) : 0;
+      items.push({
+        mese: key,
+        mese_label: new Date(`${key}-01`).toLocaleDateString("it-IT", { month: "long", year: "numeric" }),
+        unita: r?.unita || 0,
+        asin_count: r?.asin_count || 0,
+        ricavi,
+        costi_prodotto: costi,
+        fee_amazon: fee,
+        costi_totali: +(costi + fee).toFixed(2),
+        margine_netto: margine,
+        margine_pct,
+      });
+    }
+
+    const totali = items.reduce((acc, r) => ({
+      unita: acc.unita + r.unita,
+      ricavi: +(acc.ricavi + r.ricavi).toFixed(2),
+      costi_prodotto: +(acc.costi_prodotto + r.costi_prodotto).toFixed(2),
+      fee_amazon: +(acc.fee_amazon + r.fee_amazon).toFixed(2),
+      costi_totali: +(acc.costi_totali + r.costi_totali).toFixed(2),
+      margine_netto: +(acc.margine_netto + r.margine_netto).toFixed(2),
+    }), { unita: 0, ricavi: 0, costi_prodotto: 0, fee_amazon: 0, costi_totali: 0, margine_netto: 0 });
+    totali.margine_pct = totali.ricavi > 0 ? +(totali.margine_netto / totali.ricavi * 100).toFixed(1) : 0;
+
+    res.json({ ok: true, year: Number(year), country: countryFilter.length ? countryFilter : null, items, totali });
+  } catch (err) {
+    logger.error({ err }, "Errore pl-monthly");
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 // GET → margine per prodotto (legacy, usato da DashboardVendite)
 router.get("/sales-traffic/margins", (req, res) => {
   try {
@@ -609,6 +687,101 @@ router.get("/fba-fees", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "Errore getFBAFees");
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 📋 GET /fba-fees/candidates?country=IT — lista ASIN candidati per fetch API (ASIN con prezzo in snapshot)
+router.get("/fba-fees/candidates", (req, res) => {
+  try {
+    const { getDb } = require("../../db/database");
+    const db = getDb();
+    ensureFbaFeesSchema(); // garantisce esistenza colonne source/price_used
+
+    const country = req.query.country ? String(req.query.country).toUpperCase() : "IT";
+    const mktId = Object.entries(MKT_TO_COUNTRY).find(([, c]) => c === country)?.[0];
+    if (!mktId) return res.status(400).json({ ok: false, error: "Country non valido" });
+
+    // product_catalog potrebbe non avere image_url in installazioni vecchie: fallback sicuro
+    const pcCols = db.pragma("table_info(product_catalog)");
+    const pcHasImage = pcCols.some(c => c.name === "image_url");
+    const imageSelect = pcHasImage
+      ? `(SELECT image_url FROM product_catalog WHERE asin = ls.asin LIMIT 1)`
+      : `NULL`;
+
+    const rows = db.prepare(`
+      SELECT ls.asin, ls.prezzo, ls.currency, ls.titolo,
+        (SELECT sku FROM amazon_listings WHERE asin = ls.asin LIMIT 1) AS sku,
+        ${imageSelect} AS image_url,
+        (SELECT total_fee FROM fba_fees WHERE asin = ls.asin AND country = ? LIMIT 1) AS fee_attuale,
+        (SELECT total_fee_net FROM fba_fees WHERE asin = ls.asin AND country = ? LIMIT 1) AS fee_attuale_net,
+        (SELECT source FROM fba_fees WHERE asin = ls.asin AND country = ? LIMIT 1) AS source_attuale,
+        (SELECT updated_at FROM fba_fees WHERE asin = ls.asin AND country = ? LIMIT 1) AS updated_at
+      FROM listings_snapshot ls
+      WHERE ls.marketplace_id = ? AND ls.prezzo IS NOT NULL AND ls.prezzo > 0
+      ORDER BY ls.asin
+    `).all(country, country, country, country, mktId);
+
+    // Fallback: se fee_attuale_net non è salvato (fee legacy o da formula), lo calcolo al volo
+    // dividendo il lordo per (1 + vat_rate) del marketplace corrente.
+    const VAT = { IT: 0.22, DE: 0.19, FR: 0.20, ES: 0.21, UK: 0.20, NL: 0.21, BE: 0.21, PL: 0.23, IE: 0.23 };
+    const rate = VAT[country] ?? 0.22;
+    for (const r of rows) {
+      if (r.fee_attuale != null && r.fee_attuale_net == null) {
+        r.fee_attuale_net = +(r.fee_attuale / (1 + rate)).toFixed(2);
+        r.fee_attuale_net_computed = true; // flag informativo: è calcolato, non salvato
+      }
+    }
+
+    res.json({ ok: true, country, marketplaceId: mktId, vat_rate: rate, total: rows.length, items: rows });
+  } catch (e) {
+    logger.error({ err: e }, "Errore fba-fees/candidates");
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// 🎯 POST /fba-fees/fetch — interroga Product Fees API per un batch di ASIN
+// Body: { items: [{asin, price, marketplaceId}] } — NON salva, solo preview.
+router.post("/fba-fees/fetch", async (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (items.length === 0) return res.status(400).json({ ok: false, error: "items vuoto" });
+    if (items.length > 50) return res.status(400).json({ ok: false, error: "max 50 ASIN per batch" });
+
+    const results = [];
+    for (const it of items) {
+      try {
+        const r = await fetchFeesEstimateForAsin({
+          asin: it.asin, price: it.price, marketplaceId: it.marketplaceId, currency: it.currency || "EUR",
+        });
+        results.push({ ok: true, sku: it.sku || null, ...r });
+      } catch (e) {
+        results.push({
+          ok: false, asin: it.asin, marketplaceId: it.marketplaceId, sku: it.sku || null,
+          error: e.message, status: e.status || null,
+        });
+      }
+      // Rate-limit Product Fees API: ~1 req/s
+      await new Promise(r => setTimeout(r, 1100));
+    }
+    const okCount = results.filter(r => r.ok).length;
+    res.json({ ok: true, total: items.length, ok_count: okCount, ko_count: items.length - okCount, results });
+  } catch (e) {
+    logger.error({ err: e }, "Errore fba-fees/fetch");
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// 💾 POST /fba-fees/confirm — salva le fee ricevute nella tabella fba_fees (source='api')
+// Body: { items: [{asin, sku?, marketplaceId, referral_fee, fulfillment_fee, total_fee, price_used}] }
+router.post("/fba-fees/confirm", (req, res) => {
+  try {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    if (items.length === 0) return res.status(400).json({ ok: false, error: "items vuoto" });
+    const result = salvaFeeConfermate(items);
+    res.json(result);
+  } catch (e) {
+    logger.error({ err: e }, "Errore fba-fees/confirm");
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
 

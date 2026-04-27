@@ -132,6 +132,8 @@ CREATE TABLE IF NOT EXISTS ddt_generici_righe (
   quantita INTEGER,
   cartone TEXT,
   pacco TEXT,
+  lotto TEXT,
+  tracking TEXT,
   FOREIGN KEY (ddt_id) REFERENCES ddt_generici(id) ON DELETE CASCADE
 );
 

@@ -120,6 +120,15 @@ function ChangeRow({ change }) {
           <a href={`https://www.amazon.${change.marketplace === "UK" ? "co.uk" : change.marketplace === "IT" ? "it" : change.marketplace.toLowerCase()}/dp/${change.asin}`} target="_blank" rel="noreferrer" className="text-[10px] font-mono text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-0.5">
             {change.asin} <ExternalLink className="w-2.5 h-2.5" />
           </a>
+          {change.best_posizione != null && (
+            <span
+              title={change.best_keyword ? `Posizione migliore fra le keyword monitorate: #${change.best_posizione} su "${change.best_keyword}"` : `Posizione attuale: #${change.best_posizione}`}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/40 text-amber-300 font-semibold inline-flex items-center gap-1"
+            >
+              #{change.best_posizione}
+              {change.best_keyword && <span className="text-amber-400/70 font-normal normal-case">· {change.best_keyword}</span>}
+            </span>
+          )}
         </div>
         {change.titolo_attuale && <div className="text-xs text-slate-300 truncate mt-0.5">{change.titolo_attuale}</div>}
         {detail}
@@ -350,16 +359,25 @@ const CompetitorStorico = () => {
     } catch { toast.error("Errore aggiornamento", { id: t }); }
   };
 
-  const runSnapshotAll = async () => {
+  const runSnapshotAll = async (force = false) => {
     setSnapshotting(true);
+    const t = toast.loading(force ? "Aggiornamento forzato tutti gli ASIN…" : "Aggiornamento ASIN non ancora controllati oggi…");
     try {
-      const res = await fetch("/api/v2/competitor/tracked/snapshot", { method: "POST" });
+      const res = await fetch("/api/v2/competitor/tracked/snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      });
       const json = await res.json();
       if (json.ok) {
-        toast.success(`Snapshot completo: ${json.count} ASIN, ${json.changes} modifiche rilevate`);
+        const parts = [`${json.count} ASIN aggiornati`];
+        if (json.skipped) parts.push(`${json.skipped} già fatti oggi`);
+        if (json.errori) parts.push(`${json.errori} errori`);
+        parts.push(`${json.changes} modifiche`);
+        toast.success(parts.join(" · "), { id: t });
         load();
-      } else toast.error(json.error);
-    } catch { toast.error("Errore snapshot"); }
+      } else toast.error(json.error || json.message, { id: t });
+    } catch { toast.error("Errore snapshot", { id: t }); }
     finally { setSnapshotting(false); }
   };
 
@@ -401,10 +419,16 @@ const CompetitorStorico = () => {
               <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Modifiche, sparizioni, nuovi ingressi</span>
             </div>
           </div>
-          <button onClick={runSnapshotAll} disabled={snapshotting} type="button" className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${snapshotting ? "bg-slate-800 border border-slate-700 text-slate-500" : "bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 text-violet-300 hover:text-violet-200"}`}>
-            {snapshotting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-            {snapshotting ? "In corso..." : "Aggiorna tutti"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => runSnapshotAll(false)} disabled={snapshotting} type="button" title="Aggiorna solo gli ASIN non ancora controllati oggi (veloce)" className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${snapshotting ? "bg-slate-800 border border-slate-700 text-slate-500" : "bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 text-violet-300 hover:text-violet-200"}`}>
+              {snapshotting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              {snapshotting ? "In corso..." : "Aggiorna tutti"}
+            </button>
+            <button onClick={() => runSnapshotAll(true)} disabled={snapshotting} type="button" title="Ri-scansiona TUTTI gli ASIN anche se già controllati oggi" className={`flex items-center gap-1.5 px-2.5 py-2 rounded-md text-xs font-medium transition-colors ${snapshotting ? "bg-slate-800 border border-slate-700 text-slate-500" : "bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-slate-200"}`}>
+              <RefreshCw className="w-3.5 h-3.5" />
+              Forza
+            </button>
+          </div>
         </div>
       </header>
 
@@ -559,7 +583,13 @@ const CompetitorStorico = () => {
                                 <div className="border-t border-slate-700/30 px-3 py-3 space-y-2">
                                   {g.items
                                     .slice()
-                                    .sort((a, b) => (b.last_checked_at || "").localeCompare(a.last_checked_at || ""))
+                                    .sort((a, b) => {
+                                      const pa = a.posizione, pb = b.posizione;
+                                      if (pa != null && pb != null) return pa - pb;
+                                      if (pa != null) return -1;
+                                      if (pb != null) return 1;
+                                      return (b.last_checked_at || "").localeCompare(a.last_checked_at || "");
+                                    })
                                     .map(t => {
                                       const key = `${t.asin}-${t.marketplace}`;
                                       const isOpen = expandedAsin === key;
@@ -569,6 +599,9 @@ const CompetitorStorico = () => {
                                       return (
                                         <div key={t.id} className={`rounded-lg border transition-all ${sparito ? "border-rose-500/30 bg-rose-500/5" : "border-slate-700/50 bg-slate-800/20"}`}>
                                           <div className="flex items-center gap-3 px-4 py-3">
+                                            {t.posizione != null && (
+                                              <span className="w-8 text-center text-[11px] font-bold text-amber-400 tabular-nums flex-shrink-0">#{t.posizione}</span>
+                                            )}
                                             {t.image_url ? (
                                               <img src={t.image_url} alt="" className="w-12 h-12 rounded object-cover border border-slate-700/50 flex-shrink-0" onError={e => e.currentTarget.style.display = "none"} />
                                             ) : (

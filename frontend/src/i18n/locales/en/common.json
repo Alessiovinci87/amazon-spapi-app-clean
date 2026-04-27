@@ -91,7 +91,19 @@
     "mod_copertura_fba_label": "FBA Coverage",
     "mod_copertura_fba_desc": "Stockout risk per product",
     "mod_competitor_label": "Competitor Watch",
-    "mod_competitor_desc": "Category and competitor monitoring"
+    "mod_competitor_desc": "Category and competitor monitoring",
+    "mod_prezzi_label": "Amazon Prices",
+    "mod_prezzi_desc": "Update prices via SP-API · single or bulk",
+    "mod_commissioni_label": "Amazon Fees",
+    "mod_commissioni_desc": "Official fees via Product Fees API",
+    "mod_tracking17_label": "17TRACK Tracking",
+    "mod_tracking17_desc": "Shipment status and event timeline",
+    "group_marketplace": "Amazon Marketplace",
+    "group_analytics": "Sales & Analytics",
+    "group_logistica": "Logistics & Shipping",
+    "group_operazioni": "Operations & Management",
+    "layout_groups": "Groups",
+    "layout_grid": "Grid"
   },
   "dashboardVendite": {
     "topbar_title": "Dashboard Vendite",

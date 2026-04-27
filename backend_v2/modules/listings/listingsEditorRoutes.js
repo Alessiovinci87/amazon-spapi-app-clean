@@ -10,6 +10,7 @@ const {
   updateListing,
   fetchSubmissionStatus,
   MARKETPLACES,
+  normalizeCountry,
 } = require("./listingsEditorService");
 
 // Stato sync in memoria (per evitare sync concorrenti sullo stesso country)
@@ -27,7 +28,7 @@ router.get("/countries", (req, res) => {
 // Avvia sync in background e risponde subito
 // ============================================================
 router.post("/sync", (req, res) => {
-  const country = (req.query.country || req.body?.country || "").toUpperCase();
+  const country = normalizeCountry(req.query.country || req.body?.country || "");
   if (!country || !MARKETPLACES[country]) {
     return res.status(400).json({ ok: false, error: "country non valido" });
   }
@@ -78,7 +79,7 @@ router.post("/sync", (req, res) => {
 // GET /api/v2/listings-editor/sync/status?country=IT
 // ============================================================
 router.get("/sync/status", (req, res) => {
-  const country = (req.query.country || "").toUpperCase();
+  const country = normalizeCountry(req.query.country || "");
   if (!country || !MARKETPLACES[country]) {
     return res.status(400).json({ ok: false, error: "country non valido" });
   }
@@ -90,7 +91,7 @@ router.get("/sync/status", (req, res) => {
 // ============================================================
 router.get("/list", (req, res) => {
   try {
-    const country = (req.query.country || "").toUpperCase();
+    const country = normalizeCountry(req.query.country || "");
     if (!country || !MARKETPLACES[country]) {
       return res.status(400).json({ ok: false, error: "country non valido" });
     }
@@ -111,7 +112,7 @@ router.get("/list", (req, res) => {
 // ============================================================
 router.get("/item", (req, res) => {
   try {
-    const country = (req.query.country || "").toUpperCase();
+    const country = normalizeCountry(req.query.country || "");
     const sku = req.query.sku;
     if (!sku || !country) {
       return res.status(400).json({ ok: false, error: "sku e country obbligatori" });
@@ -131,7 +132,7 @@ router.get("/item", (req, res) => {
 // ============================================================
 router.patch("/item", async (req, res) => {
   try {
-    const country = (req.query.country || "").toUpperCase();
+    const country = normalizeCountry(req.query.country || "");
     const sku = req.query.sku;
     if (!sku || !country) {
       return res.status(400).json({ ok: false, error: "sku e country obbligatori" });
@@ -150,7 +151,7 @@ router.patch("/item", async (req, res) => {
 // ============================================================
 router.get("/status", async (req, res) => {
   try {
-    const country = (req.query.country || "").toUpperCase();
+    const country = normalizeCountry(req.query.country || "");
     const sku = req.query.sku;
     if (!sku || !country) {
       return res.status(400).json({ ok: false, error: "sku e country obbligatori" });

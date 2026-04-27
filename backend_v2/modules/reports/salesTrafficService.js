@@ -22,7 +22,9 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+let _tableEnsured = false;
 function ensureTable() {
+  if (_tableEnsured) return;
   const db = getDb();
   // Tabella per dettaglio ASIN (aggregato periodo intero)
   db.prepare(`
@@ -56,6 +58,7 @@ function ensureTable() {
       PRIMARY KEY (country, date)
     );
   `).run();
+  _tableEnsured = true;
 }
 
 // Cerca report vendite gia completato (ultime 24h)

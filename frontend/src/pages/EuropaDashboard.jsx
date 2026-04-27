@@ -4,7 +4,8 @@ import { useTranslation } from "react-i18next";
 import {
   ArrowLeft, Search, RefreshCw, Bell, Package,
   TrendingUp, ChevronDown, ChevronUp,
-  Settings, Image, Star, FileText, Globe, LogOut
+  Settings, Image, Star, FileText, Globe, LogOut,
+  EyeOff, RotateCcw,
 } from "lucide-react";
 import AlertsPanel from "../components/europa/AlertsPanel";
 import { toast } from "sonner";
@@ -13,16 +14,14 @@ const Flag = ({ code, className = "h-4 w-auto inline-block align-middle" }) => (
   <img src={`https://flagcdn.com/24x18/${code.toLowerCase()}.png`} alt={code} className={className} />
 );
 
-// Tassi di cambio verso EUR (aggiornare periodicamente)
-const TO_EUR = { EUR: 1, GBP: 1.17, PLN: 0.23, SEK: 0.087 };
+// Fallback tassi verso EUR se il fetch live fallisce (Frankfurter/ECB via /api/v2/europa/fx-rates)
+const FALLBACK_TO_EUR = { EUR: 1, GBP: 1.17, PLN: 0.23, SEK: 0.087 };
 const CURRENCY_SYMBOL = { EUR: '€', GBP: '£', PLN: 'zł', SEK: 'kr' };
-function formatPrice(prezzo, currency) {
+function formatPrice(prezzo, currency, rates = FALLBACK_TO_EUR) {
   const sym = CURRENCY_SYMBOL[currency] ?? currency;
-  const nativeStr = currency === 'EUR'
-    ? `${sym}${prezzo.toFixed(2)}`
-    : `${sym}${prezzo.toFixed(2)}`;
+  const nativeStr = `${sym}${prezzo.toFixed(2)}`;
   if (currency === 'EUR') return { native: nativeStr, eur: null };
-  const eur = (prezzo * (TO_EUR[currency] ?? 1)).toFixed(2);
+  const eur = (prezzo * (rates[currency] ?? FALLBACK_TO_EUR[currency] ?? 1)).toFixed(2);
   return { native: nativeStr, eur: `≈€${eur}` };
 }
 
@@ -39,6 +38,72 @@ export default function EuropaDashboard() {
   const [syncingImmagini, setSyncingImmagini] = useState(false);
   const [syncingLedger, setSyncingLedger] = useState(false);
   const [syncingPrezzi, setSyncingPrezzi] = useState(false);
+  // Versione cache immagini per-card: aumentata dopo "Sync immagini" così le card espanse refetchano
+  const [imagesVersion, setImagesVersion] = useState(0);
+
+  // Listing nascosti
+  const [hiddenOpen, setHiddenOpen] = useState(false);
+  const [hiddenList, setHiddenList] = useState([]);
+  const [hiddenLoading, setHiddenLoading] = useState(false);
+
+  async function caricaHidden() {
+    setHiddenLoading(true);
+    try {
+      const r = await fetch("/api/v2/europa/catalogo/hidden");
+      const j = await r.json();
+      setHiddenList(Array.isArray(j) ? j : []);
+    } catch {
+      toast.error("Errore caricamento listing nascosti");
+    } finally {
+      setHiddenLoading(false);
+    }
+  }
+
+  async function ripristinaHidden(asin) {
+    try {
+      const r = await fetch("/api/v2/europa/catalogo/unhide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asin }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || "errore");
+      setHiddenList(prev => prev.filter(h => h.asin !== asin));
+      toast.success(`ASIN ${asin} ripristinato`);
+      caricaCatalogo();
+    } catch (err) {
+      toast.error(`Ripristino fallito: ${err.message}`);
+    }
+  }
+
+  async function nascondiAsin(asin) {
+    try {
+      const r = await fetch("/api/v2/europa/catalogo/hide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asin }),
+      });
+      if (!r.ok) throw new Error((await r.json()).error || "errore");
+      toast.success(`ASIN ${asin} nascosto`);
+      caricaCatalogo();
+    } catch (err) {
+      toast.error(`Operazione fallita: ${err.message}`);
+    }
+  }
+
+  useEffect(() => { if (hiddenOpen) caricaHidden(); }, [hiddenOpen]);
+
+  // Tassi di cambio verso EUR (live dal backend, cache 24h)
+  const [fxRates, setFxRates] = useState(FALLBACK_TO_EUR);
+  const [fxInfo, setFxInfo]   = useState(null); // { fetchedAt, stale, source }
+  useEffect(() => {
+    fetch("/api/v2/europa/fx-rates")
+      .then(r => r.json())
+      .then(j => {
+        if (j?.rates) setFxRates(j.rates);
+        setFxInfo({ fetchedAt: j?.fetchedAt, stale: !!j?.stale, source: j?.source });
+      })
+      .catch(() => {/* usa fallback */});
+  }, []);
 
   // Catalogo (da DB)
   const [catalogo, setCatalogo] = useState([]);
@@ -52,6 +117,22 @@ export default function EuropaDashboard() {
   const [syncingCatalogo, setSyncingCatalogo] = useState(false);
   const [syncProgress, setSyncProgress] = useState(null); // { done, total, label }
   const [syncLabel, setSyncLabel] = useState("");
+
+  // Timestamp ultimo sync (stock / prezzi / immagini)
+  // Dichiarato DOPO gli useState dei sync, altrimenti TDZ nel useEffect di refresh.
+  const [lastSync, setLastSync] = useState({ stock: null, prezzi: null, immagini: null });
+  async function caricaLastSync() {
+    try {
+      const r = await fetch("/api/v2/europa/last-sync");
+      const j = await r.json();
+      setLastSync({ stock: j?.stock, prezzi: j?.prezzi, immagini: j?.immagini });
+    } catch { /* ignore */ }
+  }
+  useEffect(() => { caricaLastSync(); }, []);
+  // Aggiorna dopo ogni sync manuale
+  useEffect(() => {
+    if (!syncingCatalogo && !syncingLedger && !syncingImmagini && !syncingPrezzi) caricaLastSync();
+  }, [syncingCatalogo, syncingLedger, syncingImmagini, syncingPrezzi]);
 
   async function caricaCatalogo() {
     setCatalogoLoading(true);
@@ -156,6 +237,7 @@ export default function EuropaDashboard() {
         (stato) => {
           toast.success(t("europaDashboard.toast_immagini_ok", { a: stato.aggiornati, t: stato.total }));
           caricaCatalogo();
+          setImagesVersion(v => v + 1);
           setSyncingImmagini(false);
           setSyncProgress(null);
         },
@@ -214,6 +296,12 @@ export default function EuropaDashboard() {
         const json = await res.json();
         if (!res.ok) throw new Error(json.error);
         toast.success(t("europaDashboard.toast_import_ok", { n: json.totaleAsins }));
+        if (json.panEuNormalizzati > 0) {
+          toast.info(
+            `${json.panEuNormalizzati} ASIN Pan-EU: totale su IT come pool. Lancia "Stock/paese" per la distribuzione fisica reale.`,
+            { duration: 10000 }
+          );
+        }
         await caricaCatalogo();
       } catch (err) {
         toast.error(`${t("europaDashboard.toast_import_failed")}: ${err.message}`);
@@ -230,6 +318,24 @@ export default function EuropaDashboard() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error);
       toast.success(t("europaDashboard.toast_stock_ok", { n: json.stockAggiornato, a: json.alertsFired }));
+
+      // Se qualche marketplace è fallito, mostra toast warning dedicato per ciascuno
+      if (Array.isArray(json.marketplaceErrori) && json.marketplaceErrori.length > 0) {
+        for (const mpErr of json.marketplaceErrori) {
+          toast.warning(`${mpErr.country}: ${mpErr.error}`, { duration: 8000 });
+        }
+      }
+      // Se ci sono ASIN con errori alert, mostra un summary aggregato
+      if (Array.isArray(json.alertErrori) && json.alertErrori.length > 0) {
+        toast.warning(`Alert non verificati per ${json.alertErrori.length} ASIN`, { duration: 6000 });
+      }
+      // Se rilevato Pan-EU pool: invito a lanciare il Ledger per distribuzione fisica
+      if (json.panEuNormalizzati > 0) {
+        toast.info(
+          `${json.panEuNormalizzati} ASIN Pan-EU: totale su IT come pool. Lancia "Stock/paese" per la distribuzione fisica reale.`,
+          { duration: 10000 }
+        );
+      }
       await caricaCatalogo();
     } catch (err) {
       toast.error(`${t("europaDashboard.toast_sync_failed")}: ${err.message}`);
@@ -285,6 +391,23 @@ export default function EuropaDashboard() {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-5">
+            {fxInfo && (
+              <div
+                className={`hidden md:inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-mono ${
+                  fxInfo.stale
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                    : "bg-slate-900/60 border-slate-800 text-slate-500"
+                }`}
+                title={`Fonte: ${fxInfo.source}${fxInfo.fetchedAt ? " · " + new Date(fxInfo.fetchedAt).toLocaleString("it-IT") : ""}`}
+              >
+                <span>£ {(fxRates.GBP ?? 0).toFixed(3)}</span>
+                <span>·</span>
+                <span>zł {(fxRates.PLN ?? 0).toFixed(3)}</span>
+                <span>·</span>
+                <span>kr {(fxRates.SEK ?? 0).toFixed(3)}</span>
+                {fxInfo.stale && <span className="ml-1">stale</span>}
+              </div>
+            )}
             <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/30">
               <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
               <span className="text-[11px] uppercase tracking-[0.12em] text-blue-400 font-medium">{t("europaDashboard.badge_9_paesi")}</span>
@@ -314,6 +437,13 @@ export default function EuropaDashboard() {
           <p className="mt-3 text-sm sm:text-[15px] text-slate-400 leading-relaxed max-w-2xl">
             {t("europaDashboard.hero_desc")}
           </p>
+
+          {/* Ultimo sync per tipologia */}
+          <div className="mt-4 flex flex-wrap gap-2 text-[10px] font-mono">
+            <LastSyncChip label="Stock"    ts={lastSync.stock} />
+            <LastSyncChip label="Prezzi"   ts={lastSync.prezzi} />
+            <LastSyncChip label="Immagini" ts={lastSync.immagini} />
+          </div>
         </div>
       </section>
 
@@ -402,6 +532,18 @@ export default function EuropaDashboard() {
                   : t("europaDashboard.btn_sync_prezzi")}
               </button>
               <button
+                onClick={() => setHiddenOpen(o => !o)}
+                title="Mostra listing nascosti"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md border text-xs font-medium transition-all ${
+                  hiddenOpen
+                    ? "bg-slate-800 border-slate-600 text-slate-100"
+                    : "bg-slate-900 border-slate-800 hover:bg-slate-800 hover:border-slate-700 text-slate-400 hover:text-white"
+                }`}
+              >
+                <EyeOff className="w-3.5 h-3.5" />
+                Nascosti
+              </button>
+              <button
                 onClick={caricaCatalogo}
                 title={t("europaDashboard.title_reload")}
                 className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
@@ -409,6 +551,53 @@ export default function EuropaDashboard() {
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
+
+            {/* Pannello listing nascosti */}
+            {hiddenOpen && (
+              <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-600/60" />
+                <div className="pl-5 pr-4 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <EyeOff className="w-4 h-4 text-slate-500" />
+                      <span className="text-[11px] uppercase tracking-[0.14em] text-slate-400 font-medium">
+                        Listing nascosti
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-600">
+                        {hiddenList.length}
+                      </span>
+                    </div>
+                  </div>
+                  {hiddenLoading ? (
+                    <p className="text-xs text-slate-500">Caricamento…</p>
+                  ) : hiddenList.length === 0 ? (
+                    <p className="text-xs text-slate-500">Nessun listing nascosto.</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {hiddenList.map(h => (
+                        <div
+                          key={h.asin}
+                          className="flex items-center gap-3 px-3 py-2 rounded bg-slate-950/40 border border-slate-800"
+                        >
+                          <span className="font-mono text-xs text-emerald-400">{h.asin}</span>
+                          <span className="text-[11px] text-slate-600 font-mono flex-1 truncate">
+                            nascosto il {new Date(h.hidden_at).toLocaleString("it-IT")}
+                          </span>
+                          <button
+                            onClick={() => ripristinaHidden(h.asin)}
+                            className="flex items-center gap-1 px-2 py-1 rounded border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 hover:text-emerald-200 text-[11px] font-medium transition-colors"
+                            type="button"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Ripristina
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Barra di avanzamento sync */}
             {syncProgress && (
@@ -480,6 +669,9 @@ export default function EuropaDashboard() {
                       onToggle={() => setEspanso(prev => prev === item.asin ? null : item.asin)}
                       navigate={navigate}
                       t={t}
+                      imagesVersion={imagesVersion}
+                      fxRates={fxRates}
+                      onHide={nascondiAsin}
                     />
                   ))}
                 </div>
@@ -502,6 +694,45 @@ export default function EuropaDashboard() {
         </div>
       </footer>
     </div>
+  );
+}
+
+// === Chip per l'ultimo sync (verde < 24h, ambra < 7gg, rosso > 7gg, grigio mai) ===
+function LastSyncChip({ label, ts }) {
+  const now = Date.now();
+  const t = ts ? new Date(ts).getTime() : null;
+  const ageMs = t ? now - t : null;
+  const ageH = ageMs != null ? ageMs / 3600000 : null;
+
+  let color = "slate";
+  let ageLabel = "mai";
+  if (ageH != null) {
+    if (ageH < 1)        ageLabel = `${Math.max(1, Math.round(ageH * 60))} min fa`;
+    else if (ageH < 24)  ageLabel = `${Math.round(ageH)} h fa`;
+    else if (ageH < 168) ageLabel = `${Math.round(ageH / 24)} g fa`;
+    else                 ageLabel = `${Math.round(ageH / 24)} g fa`;
+
+    if (ageH < 24)       color = "emerald";
+    else if (ageH < 168) color = "amber";
+    else                 color = "rose";
+  }
+
+  const cls = {
+    slate:   "bg-slate-900/60 border-slate-800 text-slate-500",
+    emerald: "bg-emerald-500/10 border-emerald-500/30 text-emerald-300",
+    amber:   "bg-amber-500/10 border-amber-500/30 text-amber-300",
+    rose:    "bg-rose-500/10 border-rose-500/30 text-rose-300",
+  }[color];
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border ${cls}`}
+      title={ts ? new Date(ts).toLocaleString("it-IT") : "Nessun dato"}
+    >
+      <span className="uppercase tracking-[0.12em] opacity-80">{label}</span>
+      <span className="opacity-60">·</span>
+      <span>{ageLabel}</span>
+    </span>
   );
 }
 
@@ -532,7 +763,7 @@ function StatCardEU({ label, value, accent, code, icon: Icon }) {
 // ---------------------------------------------------------------
 // Riga del catalogo (compatta con espansione stock per paese)
 // ---------------------------------------------------------------
-function CatalogoRow({ item, espanso, onToggle, navigate, t }) {
+function CatalogoRow({ item, espanso, onToggle, navigate, t, imagesVersion = 0, fxRates = FALLBACK_TO_EUR, onHide }) {
   const PAESE_MP = { IT:"APJ6JRA9NG5V4", FR:"A13V1IB3VIYZZH", DE:"A1PA6795UKMFR9", ES:"A1RKKUPIHCS9HS", GB:"A1F83G8C2ARO7P", NL:"A1805IZSGTT6HS", BE:"AMEN7PMS3EDWL", SE:"A2NODRKZP88ZB9", PL:"A1C3SOZRARQ6R3" };
 
   const [catalogImages, setCatalogImages] = useState(null);
@@ -540,16 +771,16 @@ function CatalogoRow({ item, espanso, onToggle, navigate, t }) {
 
   const primaCountry = item.countries?.[0]?.country ?? "IT";
 
+  // Refetch quando: (1) la card viene espansa per la prima volta, (2) imagesVersion cambia (post sync immagini)
   useEffect(() => {
-    if (espanso && catalogImages === null) {
-      setLoadingImages(true);
-      fetch(`/api/v2/europa/catalog-images/${item.asin}`)
-        .then(r => r.json())
-        .then(data => { setCatalogImages(Array.isArray(data) ? data : []); })
-        .catch(() => setCatalogImages([]))
-        .finally(() => setLoadingImages(false));
-    }
-  }, [espanso]);
+    if (!espanso) return;
+    setLoadingImages(true);
+    fetch(`/api/v2/europa/catalog-images/${item.asin}`)
+      .then(r => r.json())
+      .then(data => { setCatalogImages(Array.isArray(data) ? data : []); })
+      .catch(() => setCatalogImages([]))
+      .finally(() => setLoadingImages(false));
+  }, [espanso, imagesVersion, item.asin]);
 
   // Stock totale per indicatore stato
   const totalStock = (item.countries ?? []).reduce((s, c) => s + (c.quantity ?? 0), 0);
@@ -606,6 +837,17 @@ function CatalogoRow({ item, espanso, onToggle, navigate, t }) {
           <Settings className="w-3 h-3" />
           {t("europaDashboard.btn_alert")}
         </button>
+        {onHide && (
+          <button
+            onClick={() => onHide(item.asin)}
+            title="Nascondi dalla dashboard"
+            type="button"
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-400 hover:text-slate-200 text-[11px] font-medium transition-all"
+          >
+            <EyeOff className="w-3 h-3" />
+            Nascondi
+          </button>
+        )}
       </div>
 
       {/* Header riga */}
@@ -659,9 +901,12 @@ function CatalogoRow({ item, espanso, onToggle, navigate, t }) {
             )}
           </div>
 
-          {/* Stock totale */}
+          {/* Stock totale — EU (exclude GB) e GB separati per coerenza con stock_eu_pool */}
           {item.countries?.length > 0 && (() => {
-            const total = item.countries.reduce((s, c) => s + (c.quantity ?? 0), 0);
+            const eu = item.countries.filter(c => c.country !== 'GB');
+            const gb = item.countries.find(c => c.country === 'GB');
+            const totalEU = eu.reduce((s, c) => s + (c.quantity ?? 0), 0);
+            const totalGB = gb?.quantity ?? 0;
             const poolRow = item.countries.find(c => (c.reserved_qty ?? 0) > 0 || (c.inbound_receiving ?? 0) > 0);
             const res = poolRow?.reserved_qty ?? 0;
             const inb = poolRow?.inbound_receiving ?? 0;
@@ -671,10 +916,18 @@ function CatalogoRow({ item, espanso, onToggle, navigate, t }) {
                   <Flag code="eu" /> {t("europaDashboard.totale_eu")}
                 </div>
                 <div className={`text-2xl sm:text-3xl font-semibold tabular-nums ${
-                  total > 0 ? (stockBasso ? "text-amber-400" : "text-emerald-400") : "text-rose-400"
+                  totalEU > 0 ? (stockBasso ? "text-amber-400" : "text-emerald-400") : "text-rose-400"
                 }`}>
-                  {total.toLocaleString("it-IT")}
+                  {totalEU.toLocaleString("it-IT")}
                 </div>
+                {gb && (
+                  <div className="text-[11px] text-slate-500 mt-1 tabular-nums flex items-center gap-1 justify-end">
+                    <Flag code="gb" className="h-3 w-auto" />
+                    <span className={totalGB > 0 ? "text-slate-300" : "text-slate-600"}>
+                      {totalGB.toLocaleString("it-IT")}
+                    </span>
+                  </div>
+                )}
                 {(res > 0 || inb > 0) && (
                   <div className="text-[11px] text-slate-500 mt-1 tabular-nums">
                     {res > 0 && <span>+{res} {t("europaDashboard.res_abbr")}</span>}
@@ -760,7 +1013,7 @@ function CatalogoRow({ item, espanso, onToggle, navigate, t }) {
                   const qty = stock?.quantity ?? 0;
                   const stockColor = stockColorClass(cc, qty);
                   const sc = STOCK_COLORS[stockColor];
-                  const { native } = prezzo ? formatPrice(prezzo.prezzo, prezzo.currency) : { native: null };
+                  const { native } = prezzo ? formatPrice(prezzo.prezzo, prezzo.currency, fxRates) : { native: null };
 
                   return (
                     <div
@@ -853,7 +1106,11 @@ function CatalogoRow({ item, espanso, onToggle, navigate, t }) {
             );
           })()}
           {item.prezzi?.length > 0 && (
-            <p className="text-[11px] font-mono text-slate-700 mt-3">{t("europaDashboard.tassi_fissi")}</p>
+            <p className="text-[11px] font-mono text-slate-700 mt-3">
+              {`Tassi: £1=€${(fxRates.GBP ?? FALLBACK_TO_EUR.GBP).toFixed(3)}`}
+              {` · zł1=€${(fxRates.PLN ?? FALLBACK_TO_EUR.PLN).toFixed(3)}`}
+              {` · kr1=€${(fxRates.SEK ?? FALLBACK_TO_EUR.SEK).toFixed(3)}`}
+            </p>
           )}
 
           <p className="text-[11px] font-mono text-slate-700 mt-2">

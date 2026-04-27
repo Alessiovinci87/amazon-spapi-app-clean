@@ -8,26 +8,13 @@ const { aggiornaLedgerStock } = require("../reports/ledgerStockService");
 const { checkAndFireAlerts, getFBAStockForAsin, salvaStockNelDB, MP_TO_COUNTRY, importaInventarioCompleto, runAlertCycle } = require("./alertEngine");
 const { setManualSyncActive } = require("./alertCron");
 const { rigeneraAlertSottoSoglia } = require("../../services/stockAlerts.service");
+const { getRates: getFxRates } = require("../../services/fxRatesService");
 
 const logger = require("../../utils/logger");
 const router = express.Router();
 
-// Aggiunge image_count a product_catalog se non esiste (gestisce installazioni precedenti)
-// Eseguito al primo request, non al caricamento del modulo (DB non ancora pronto al load)
-let _imageCountColChecked = false;
-router.use((req, res, next) => {
-  if (!_imageCountColChecked) {
-    _imageCountColChecked = true;
-    try { getDb().exec("ALTER TABLE product_catalog ADD COLUMN image_count INTEGER DEFAULT 0"); } catch {}
-    try {
-      getDb().exec(`CREATE TABLE IF NOT EXISTS listing_hidden (
-        asin TEXT PRIMARY KEY,
-        hidden_at TEXT DEFAULT (datetime('now'))
-      )`);
-    } catch {}
-  }
-  next();
-});
+// NOTA: le migration per product_catalog.image_count e listing_hidden sono in
+// backend_v2/db/database.js (runMigrations), eseguite al boot prima di montare le rotte.
 
 // =====================================================================
 // ALERT RULES — configurazione per ASIN
@@ -56,7 +43,7 @@ router.post("/alert-rules", (req, res) => {
   try {
     const { asin, tipo, marketplace_id = null, soglia = 0, abilitato = 1, nome = null } = req.body;
     if (!asin || !tipo) return res.status(400).json({ error: "asin e tipo sono obbligatori" });
-    const TIPI_VALIDI = ["STOCK_LOW", "BUYBOX_LOST", "LISTING_CHANGED"];
+    const TIPI_VALIDI = ["STOCK_LOW", "BUYBOX_LOST", "LISTING_CHANGED", "PRICE_CHANGED"];
     if (!TIPI_VALIDI.includes(tipo)) return res.status(400).json({ error: `tipo non valido. Valori: ${TIPI_VALIDI.join(", ")}` });
 
     const db = getDb();
@@ -78,6 +65,8 @@ router.post("/alert-rules", (req, res) => {
 });
 
 // PATCH /api/v2/europa/alert-rules/:id
+const ALERT_RULES_UPDATABLE = new Set(["soglia", "abilitato", "nome"]);
+
 router.patch("/alert-rules/:id", (req, res) => {
   try {
     const db = getDb();
@@ -91,10 +80,12 @@ router.patch("/alert-rules/:id", (req, res) => {
     if (abilitato !== undefined) updates.abilitato = abilitato ? 1 : 0;
     if (nome !== undefined) updates.nome = nome;
 
-    if (!Object.keys(updates).length) return res.status(400).json({ error: "Nessun campo da aggiornare" });
+    const cols = Object.keys(updates).filter((k) => ALERT_RULES_UPDATABLE.has(k));
+    if (!cols.length) return res.status(400).json({ error: "Nessun campo da aggiornare" });
 
-    const setClauses = Object.keys(updates).map(k => `${k} = ?`).join(", ");
-    db.prepare(`UPDATE alert_rules SET ${setClauses} WHERE id = ?`).run(...Object.values(updates), id);
+    const setClauses = cols.map((k) => `${k} = ?`).join(", ");
+    const values = cols.map((k) => updates[k]);
+    db.prepare(`UPDATE alert_rules SET ${setClauses} WHERE id = ?`).run(...values, id);
 
     const updated = db.prepare("SELECT * FROM alert_rules WHERE id = ?").get(id);
     res.json(updated);
@@ -296,13 +287,15 @@ router.get("/dashboard/:asin", async (req, res) => {
 // CATALOGO — tutti gli ASIN nel DB (da fba_stock)
 // =====================================================================
 
-// GET /api/v2/europa/catalogo?search=XXX
+// GET /api/v2/europa/catalogo?search=XXX&limit=N&offset=N
 // Restituisce tutti gli ASIN presenti in fba_stock con stock per paese
 router.get("/catalogo", (req, res) => {
   try {
     const db = getDb();
     const { search, includeHidden } = req.query;
     const showHidden = includeHidden === "1" || includeHidden === "true";
+    const limit  = Math.min(Number(req.query.limit)  || 0, 2000); // 0 = tutto
+    const offset = Math.max(Number(req.query.offset) || 0, 0);
 
     const whereParts = [];
     let params = [];
@@ -314,6 +307,7 @@ router.get("/catalogo", (req, res) => {
       whereParts.push("f.asin NOT IN (SELECT asin FROM listing_hidden)");
     }
     const whereClause = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
+    const limitSql = limit > 0 ? ` LIMIT ${limit} OFFSET ${offset}` : "";
 
     const asins = db.prepare(`
       SELECT
@@ -336,6 +330,7 @@ router.get("/catalogo", (req, res) => {
       ${whereClause}
       GROUP BY f.asin
       ORDER BY stock_eu_pool DESC NULLS LAST, f.asin
+      ${limitSql}
     `).all(...params);
 
     const MP_TO_COUNTRY_LOCAL = {
@@ -344,44 +339,101 @@ router.get("/catalogo", (req, res) => {
       "AMEN7PMS3EDWL":  "BE", "A2NODRKZP88ZB9":  "SE", "A1C3SOZRARQ6R3":  "PL",
     };
 
-    // Per ogni ASIN aggiungi breakdown per paese e info snapshot/rules
-    const catalogo = asins.map(row => {
-      const countries = db.prepare(
-        "SELECT country, quantity, stock_totale, reserved_qty, inbound_receiving, unfulfillable_qty, updated_at FROM fba_stock WHERE asin = ? ORDER BY CASE country WHEN 'IT' THEN 0 WHEN 'DE' THEN 1 WHEN 'FR' THEN 2 WHEN 'ES' THEN 3 WHEN 'GB' THEN 8 ELSE 4 END"
-      ).all(row.asin);
+    // ===== Bulk prefetch: 5 query aggregate al posto di 5*N =====
+    const asinList = asins.map(a => a.asin);
+    const countriesByAsin = {};
+    const prezziByAsin    = {};
+    const rulesByAsin     = {}; // { asin: { rulesCount, stockRules } }
+    const unreadByAsin    = {};
+    let hiddenSet = new Set();
 
-      const snapshotRows = db.prepare(
-        "SELECT marketplace_id, prezzo, currency, buybox_won, stato, snapshot_at FROM listings_snapshot WHERE asin = ? AND prezzo IS NOT NULL"
-      ).all(row.asin);
+    // Chunk a 900 per restare sotto il limite SQLite (999 parametri)
+    function chunk(arr, size) {
+      const out = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    }
 
-      const prezzi = snapshotRows
-        .map(s => ({
-          country:    MP_TO_COUNTRY_LOCAL[s.marketplace_id] ?? null,
-          prezzo:     s.prezzo,
-          currency:   s.currency ?? 'EUR',
-          buybox_won: s.buybox_won === 1,
-          stato:      s.stato,
-        }))
-        .filter(s => s.country)
-        .sort((a, b) => {
-          const ord = ['IT','DE','FR','ES','NL','BE','SE','PL','GB'];
-          return ord.indexOf(a.country) - ord.indexOf(b.country);
+    for (const group of chunk(asinList, 900)) {
+      const ph = group.map(() => "?").join(",");
+
+      // 1) breakdown stock per paese
+      const stockRows = db.prepare(`
+        SELECT asin, country, quantity, stock_totale, reserved_qty, inbound_receiving, unfulfillable_qty, updated_at
+        FROM fba_stock
+        WHERE asin IN (${ph})
+        ORDER BY CASE country WHEN 'IT' THEN 0 WHEN 'DE' THEN 1 WHEN 'FR' THEN 2 WHEN 'ES' THEN 3 WHEN 'GB' THEN 8 ELSE 4 END
+      `).all(...group);
+      for (const r of stockRows) {
+        (countriesByAsin[r.asin] ||= []).push({
+          country: r.country, quantity: r.quantity, stock_totale: r.stock_totale,
+          reserved_qty: r.reserved_qty, inbound_receiving: r.inbound_receiving,
+          unfulfillable_qty: r.unfulfillable_qty, updated_at: r.updated_at,
         });
+      }
 
-      const rulesCount = db.prepare(
-        "SELECT COUNT(*) as n FROM alert_rules WHERE asin = ? AND abilitato = 1"
-      ).get(row.asin)?.n ?? 0;
+      // 2) snapshot prezzi
+      const snapshotRows = db.prepare(`
+        SELECT asin, marketplace_id, prezzo, currency, buybox_won, stato, snapshot_at
+        FROM listings_snapshot
+        WHERE prezzo IS NOT NULL AND asin IN (${ph})
+      `).all(...group);
+      for (const s of snapshotRows) {
+        const country = MP_TO_COUNTRY_LOCAL[s.marketplace_id];
+        if (!country) continue;
+        (prezziByAsin[s.asin] ||= []).push({
+          country,
+          prezzo: s.prezzo,
+          currency: s.currency ?? 'EUR',
+          buybox_won: s.buybox_won === 1,
+          stato: s.stato,
+        });
+      }
 
-      const unreadAlerts = db.prepare(
-        "SELECT COUNT(*) as n FROM alert_events WHERE asin = ? AND letto = 0"
-      ).get(row.asin)?.n ?? 0;
+      // 3) alert_rules: rulesCount + stockRules in un colpo solo
+      const ruleRows = db.prepare(`
+        SELECT asin, tipo, marketplace_id, soglia
+        FROM alert_rules
+        WHERE abilitato = 1 AND asin IN (${ph})
+      `).all(...group);
+      for (const r of ruleRows) {
+        const entry = (rulesByAsin[r.asin] ||= { rulesCount: 0, stockRules: [] });
+        entry.rulesCount++;
+        if (r.tipo === "STOCK_LOW") {
+          entry.stockRules.push({ marketplace_id: r.marketplace_id, soglia: r.soglia });
+        }
+      }
 
-      const stockRules = db.prepare(
-        "SELECT marketplace_id, soglia FROM alert_rules WHERE asin = ? AND tipo = 'STOCK_LOW' AND abilitato = 1"
-      ).all(row.asin);
+      // 4) alert_events non letti
+      const unreadRows = db.prepare(`
+        SELECT asin, COUNT(*) AS n
+        FROM alert_events
+        WHERE letto = 0 AND asin IN (${ph})
+        GROUP BY asin
+      `).all(...group);
+      for (const r of unreadRows) unreadByAsin[r.asin] = r.n;
+    }
 
-      const hidden = db.prepare("SELECT 1 FROM listing_hidden WHERE asin = ?").get(row.asin) ? true : false;
-      return { ...row, countries, prezzi, stockRules, rulesCount, unreadAlerts, hidden };
+    // 5) listing hidden (una sola query totale)
+    if (showHidden) {
+      hiddenSet = new Set(db.prepare("SELECT asin FROM listing_hidden").all().map(x => x.asin));
+    }
+
+    const ord = ['IT','DE','FR','ES','NL','BE','SE','PL','GB'];
+    const catalogo = asins.map(row => {
+      const prezzi = (prezziByAsin[row.asin] ?? []).sort(
+        (a, b) => ord.indexOf(a.country) - ord.indexOf(b.country)
+      );
+      const r = rulesByAsin[row.asin];
+      return {
+        ...row,
+        countries:    countriesByAsin[row.asin] ?? [],
+        prezzi,
+        stockRules:   r?.stockRules ?? [],
+        rulesCount:   r?.rulesCount ?? 0,
+        unreadAlerts: unreadByAsin[row.asin] ?? 0,
+        hidden:       hiddenSet.has(row.asin),
+      };
     });
 
     res.json(catalogo);
@@ -536,7 +588,13 @@ router.post("/import-inventario", async (req, res) => {
   try {
     const risultati = await importaInventarioCompleto();
     const totaleAsins = risultati.reduce((s, r) => s + (r.asins ?? 0), 0);
-    res.json({ ok: true, risultati, totaleAsins });
+    const infoPanEu = risultati.find(r => r.info === "panEuNormalizzati");
+    res.json({
+      ok: true,
+      risultati: risultati.filter(r => r.country),
+      totaleAsins,
+      panEuNormalizzati: infoPanEu?.count ?? 0,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
@@ -554,6 +612,15 @@ router.post("/sync-all", async (req, res) => {
     const stockRisultati = await importaInventarioCompleto();
     const totaleAsins = stockRisultati.reduce((s, r) => s + (r.asins ?? 0), 0);
 
+    // Entry speciali (non sono marketplace)
+    const infoPanEu = stockRisultati.find(r => r.info === "panEuNormalizzati");
+    const soloMarketplace = stockRisultati.filter(r => r.country);
+
+    // Separa marketplace con successo da quelli falliti (per feedback frontend)
+    const marketplaceOk      = soloMarketplace.filter(r => !r.error);
+    const marketplaceErrori  = soloMarketplace.filter(r =>  r.error)
+      .map(r => ({ country: r.country, error: r.error }));
+
     // Fase 2: alert solo per ASIN con regole attive (di solito pochi)
     const db = getDb();
     const asinsConRegole = db.prepare(
@@ -561,15 +628,28 @@ router.post("/sync-all", async (req, res) => {
     ).all().map(r => r.asin);
 
     let alertsFired = 0;
+    const alertErrori = [];
     for (const asin of asinsConRegole) {
       try {
         const r = await checkAndFireAlerts(asin);
         alertsFired += r.alertsFired?.length ?? 0;
-      } catch { /* skip */ }
+        if (r.error) alertErrori.push({ asin, error: r.error });
+      } catch (err) {
+        alertErrori.push({ asin, error: err.message });
+      }
       await new Promise(r => setTimeout(r, 2000));
     }
 
-    res.json({ ok: true, stockAggiornato: totaleAsins, alertChecked: asinsConRegole.length, alertsFired });
+    res.json({
+      ok: true,
+      stockAggiornato: totaleAsins,
+      alertChecked: asinsConRegole.length,
+      alertsFired,
+      marketplaceOk: marketplaceOk.map(r => ({ country: r.country, asins: r.asins, azzerati: r.azzerati ?? 0 })),
+      marketplaceErrori,
+      alertErrori,
+      panEuNormalizzati: infoPanEu?.count ?? 0,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
@@ -616,6 +696,80 @@ router.post("/sync-prezzi", (req, res) => {
       setManualSyncActive(false);
     }
   });
+});
+
+// =====================================================================
+// LAST SYNC — timestamp ultimo aggiornamento stock / prezzi / immagini
+// =====================================================================
+router.get("/last-sync", (req, res) => {
+  try {
+    const db = getDb();
+    const safe = (sql) => { try { return db.prepare(sql).get()?.ts ?? null; } catch { return null; } };
+    const stock    = safe("SELECT MAX(updated_at) AS ts FROM fba_stock");
+    const prezzi   = safe("SELECT MAX(snapshot_at) AS ts FROM listings_snapshot");
+    const immagini = safe("SELECT MAX(updated_at) AS ts FROM product_catalog");
+    res.json({ stock, prezzi, immagini });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =====================================================================
+// STATS — panoramica per il menu Europa (valori aggregati, una sola query ciascuno)
+// =====================================================================
+router.get("/stats", (req, res) => {
+  try {
+    const db = getDb();
+
+    const asinTotali = db.prepare(
+      "SELECT COUNT(DISTINCT asin) AS n FROM fba_stock WHERE asin NOT IN (SELECT asin FROM listing_hidden)"
+    ).get()?.n ?? 0;
+
+    // Listing "attivi": presente in listings_snapshot con stato buyable/discoverable o buybox vinta
+    let listingAttivi = 0;
+    try {
+      listingAttivi = db.prepare(`
+        SELECT COUNT(DISTINCT asin) AS n FROM listings_snapshot
+        WHERE (UPPER(COALESCE(stato,'')) IN ('BUYABLE','DISCOVERABLE')) OR buybox_won = 1
+      `).get()?.n ?? 0;
+    } catch (_) { /* listings_snapshot non popolata */ }
+
+    // Marketplace con almeno un ASIN con stock > 0
+    const marketplaceAttivi = db.prepare(
+      "SELECT COUNT(DISTINCT country) AS n FROM fba_stock WHERE quantity > 0"
+    ).get()?.n ?? 0;
+
+    // Feedback recenti 30gg (se la tabella esiste)
+    let feedbackRecenti = 0;
+    try {
+      feedbackRecenti = db.prepare(
+        "SELECT COUNT(*) AS n FROM seller_feedback WHERE date >= date('now','-30 day')"
+      ).get()?.n ?? 0;
+    } catch (_) { /* tabella inesistente */ }
+
+    // Alert non letti (tutta l'app, non solo Europa)
+    let alertNonLetti = 0;
+    try {
+      alertNonLetti = db.prepare("SELECT COUNT(*) AS n FROM alert_events WHERE letto = 0").get()?.n ?? 0;
+    } catch (_) {}
+
+    res.json({ asinTotali, listingAttivi, marketplaceAttivi, feedbackRecenti, alertNonLetti });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// =====================================================================
+// FX RATES — tassi di cambio verso EUR (cache 24h, fonte Frankfurter/ECB)
+// =====================================================================
+router.get("/fx-rates", async (req, res) => {
+  try {
+    const force = req.query.refresh === "1" || req.query.refresh === "true";
+    const result = await getFxRates({ forceRefresh: force });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

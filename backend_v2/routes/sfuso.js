@@ -1125,6 +1125,9 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
       case "CONFERMATA":
       case "CONFERMATO":
       case "COMPLETATA":
+      case "COMPLETATO":
+      case "COMPLETATE":
+      case "COMPLETATI":
         return "Confermata";
 
       case "ANNULLATA":
@@ -1133,23 +1136,6 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
       case "CANCEL":
       case "ANNULLA":
         return "Annullata";
-
-      case "COMPLETATO":       // maschile
-        return "Confermata";
-
-      case "COMPLETATE":
-      case "COMPLETATI":
-        return "Confermata";
-
-      case "CONFERMATA":
-      case "CONFERMATO":
-      case "COMPLETATA":
-      case "COMPLETATO":
-      case "COMPLETATI":
-      case "COMPLETATE":
-        return "Confermata";
-
-
 
       default:
         return null;

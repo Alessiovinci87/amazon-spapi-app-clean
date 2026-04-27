@@ -828,7 +828,7 @@ const Inventario = () => {
                 const lista = Array.isArray(data) ? data : data?.data ?? [];
                 setProdotti(lista);
                 setProdottiOriginali(lista.map((item) => ({ ...item })));
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(lista));
               } catch (err) {
                 console.error("❌ Errore reload prodotti:", err);
               }

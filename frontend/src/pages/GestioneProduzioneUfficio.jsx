@@ -27,7 +27,7 @@ import {
 import ProduzioneCard from "../components/produzione/ProduzioneCard";
 import { triggerReloadInventario } from "../utils/globalEvents";
 import { fetchJSON, buildUrl } from "../utils/api";
-import { normalizeState, getStateLabel } from "../utils/statoUtils";
+import { normalizeState } from "../utils/statoUtils";
 
 /* ── Shared UI ──────────────────────────────────────────── */
 
@@ -123,7 +123,6 @@ const GestioneProduzione = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const [prodotti, setProdotti] = useState([]);
     const [filterSearchTerm, setFilterSearchTerm] = useState("");
-    const [produzioneCounter, setProduzioneCounter] = useState(0);
 
     // ========== FETCH DATI ==========
     const fetchSfuso = async () => {
@@ -153,15 +152,6 @@ const GestioneProduzione = () => {
         }
     };
 
-    const fetchProduzioneCounter = async () => {
-        try {
-            const data = await fetchJSON("config/produzione-counter");
-            setProduzioneCounter(data.value ?? 0);
-        } catch (err) {
-            console.error("Errore fetch contatore produzione:", err);
-        }
-    };
-
     const ricaricaDati = async () => {
         await Promise.all([fetchPrenotazioni(), fetchSfuso()]);
     };
@@ -170,7 +160,6 @@ const GestioneProduzione = () => {
         fetchSfuso();
         fetchPrenotazioni();
         fetchProdotti();
-        fetchProduzioneCounter();
     }, []);
 
     const normalizzaAzione = (val) => {
@@ -185,9 +174,13 @@ const GestioneProduzione = () => {
     // ========== STORICO PRODUZIONI ==========
     const registraStoricoProduzione = async (p, evento) => {
         try {
+            const idProduzione = Number(p.id_produzione ?? p.id);
+            if (!Number.isFinite(idProduzione) || idProduzione <= 0) {
+                console.warn("registraStoricoProduzione: id_produzione mancante, skip");
+                return;
+            }
             const payload = {
-                id_produzione: p.id_produzione || null,
-                id_prenotazione: p.id || null,
+                id_produzione: idProduzione,
                 id_sfuso: p.id_sfuso || null,
                 asin_prodotto: p.asin_prodotto || null,
                 nome_prodotto: p.nome_prodotto || null,
@@ -199,7 +192,7 @@ const GestioneProduzione = () => {
                 operatore: "admin"
             };
 
-            const res = await fetch(buildUrl("storico-produzioni-sfuso"), {
+            const res = await fetch(buildUrl("produzioni-sfuso/storico"), {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -234,33 +227,31 @@ const GestioneProduzione = () => {
                 }),
             });
 
-            const data = await res.json();
-
             if (!res.ok) {
-                console.error("Errore aggiornamento stato:", data);
+                let errDetail = `HTTP ${res.status}`;
+                try { const j = await res.json(); if (j?.error) errDetail = j.error; } catch {}
+                console.error("Errore aggiornamento stato:", errDetail);
                 throw new Error("Errore aggiornamento stato");
             }
 
             if (statoNormalizzato === "annullato") {
-                const prenotazione = prenotazioni.find(p => p.id === id);
-                if (prenotazione) {
-                    const pren = prenotazioni.find(p => p.id === id);
-                    if (pren) {
-                        await fetch(buildUrl("storico-prenotazioni"), {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                id_prenotazione: id,
-                                asin_prodotto: pren.asin_prodotto,
-                                nome_prodotto: pren.nome_prodotto,
-                                formato: pren.formato,
-                                quantita: pren.prodotti || pren.quantita || 0,
-                                evento: "AGGIORNATA",
-                                operatore: "admin",
-                                note: "Modifica quantita prenotazione"
-                            })
-                        });
-                    }
+                const pren = prenotazioni.find(p => p.id === id);
+                if (pren) {
+                    await fetch(buildUrl("produzioni-sfuso/storico"), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            id_produzione: pren.id_produzione || id,
+                            id_sfuso: pren.id_sfuso ?? null,
+                            asin_prodotto: pren.asin_prodotto,
+                            nome_prodotto: pren.nome_prodotto,
+                            formato: pren.formato,
+                            quantita: pren.prodotti || pren.quantita || 0,
+                            evento: "ANNULLATA",
+                            operatore: "admin",
+                            note: "Prenotazione annullata"
+                        })
+                    });
                 }
             }
 
@@ -281,6 +272,10 @@ const GestioneProduzione = () => {
             }
 
             const oldRes = await fetch(buildUrl(`sfuso/prenotazione/${id}`));
+            if (!oldRes.ok) {
+                toast.error(t("gestioneProduzioneUfficio.toast_err_recupero_prenotazione"));
+                return;
+            }
             const oldData = await oldRes.json();
 
             if (!oldData || !oldData.data) {
@@ -302,6 +297,10 @@ const GestioneProduzione = () => {
             if (!res.ok) throw new Error("Errore modifica quantita");
 
             const resPren = await fetch(buildUrl(`sfuso/prenotazione/${id}`));
+            if (!resPren.ok) {
+                toast.error(t("gestioneProduzioneUfficio.toast_err_recupero_aggiornata"));
+                return;
+            }
             const prenAgg = await resPren.json();
 
             if (!prenAgg || !prenAgg.data) {
@@ -333,6 +332,10 @@ const GestioneProduzione = () => {
     const handleConfermaProduzione = async (prenotazione) => {
         try {
             const resPren = await fetch(buildUrl(`sfuso/prenotazione/${prenotazione.id}`));
+            if (!resPren.ok) {
+                toast.error(t("gestioneProduzioneUfficio.toast_err_recupero_aggiornata"));
+                return;
+            }
             const prenAgg = await resPren.json();
 
             if (!prenAgg || !prenAgg.data) {
@@ -378,13 +381,18 @@ const GestioneProduzione = () => {
             }
 
             const resPrenUpdated = await fetch(buildUrl(`sfuso/prenotazione/${prenotazione.id}`));
+            if (!resPrenUpdated.ok) {
+                toast.error(t("gestioneProduzioneUfficio.toast_err_ricarica_prenotazione"));
+                return;
+            }
             const prenAggUpdated = await resPrenUpdated.json();
-            const prenUpdated = prenAggUpdated.data;
 
             if (!prenAggUpdated || !prenAggUpdated.data) {
                 toast.error(t("gestioneProduzioneUfficio.toast_err_ricarica_prenotazione"));
                 return;
             }
+
+            const prenUpdated = prenAggUpdated.data;
 
             await registraStoricoProduzione(
                 {
@@ -406,25 +414,12 @@ const GestioneProduzione = () => {
         }
     };
 
-    // ========== NUOVA PRENOTAZIONE ==========
-    const handleNewPrenotazione = async (newRow) => {
-        setPrenotazioni((prev) => [...prev, newRow]);
-        try {
-            await fetchSfuso();
-        } catch (err) {
-            console.error("Errore aggiornamento dati sfuso:", err);
-        }
-    };
-
     const handlePrenota = async (prenotazione) => {
         try {
             const res = await fetch("/api/v2/sfuso/prenotazione", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...prenotazione,
-                    stato: normalizeState("prenotazione"),
-                }),
+                body: JSON.stringify(prenotazione),
             });
 
             if (!res.ok) throw new Error("Errore creazione prenotazione");

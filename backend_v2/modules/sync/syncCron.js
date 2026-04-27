@@ -104,9 +104,11 @@ async function syncCompetitorSnapshot() {
 }
 
 // ─── Competitor Tracked ASINs (snapshot dettagliati + diff) ──
-async function syncCompetitorTrackedAsins() {
+// force=true nei passaggi successivi al primo della giornata: sovrascrive lo snapshot
+// di oggi con dati più recenti (utile per cron multi-orario).
+async function syncCompetitorTrackedAsins({ force = false } = {}) {
   const { runTrackedAsinsSnapshot } = require("../competitor/competitorService");
-  await runTrackedAsinsSnapshot();
+  await runTrackedAsinsSnapshot({ force });
 }
 
 // ─── FBA Fees (commissioni per ASIN, tutti i marketplace) ──
@@ -162,11 +164,14 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 5:00: FBA Fees (commissioni per ASIN) ──
   cron.schedule("0 5 * * *", () => runSafe("fba-fees", syncFBAFees));
 
-  // ── OGNI GIORNO alle 8:00: Competitor Watch ──
-  cron.schedule("0 8 * * *", () => runSafe("competitor-snapshot", syncCompetitorSnapshot));
+  // ── 09:00 e 14:00: Competitor Watch (conteggi keyword + top-20) ──
+  cron.schedule("0 9,14 * * *", () => runSafe("competitor-snapshot", syncCompetitorSnapshot));
 
-  // ── OGNI GIORNO alle 8:30: Competitor ASIN tracciati (dettagli + diff) ──
-  cron.schedule("30 8 * * *", () => runSafe("competitor-tracked", syncCompetitorTrackedAsins));
+  // ── 09:30: Competitor ASIN tracciati — primo passaggio giornaliero ──
+  cron.schedule("30 9 * * *", () => runSafe("competitor-tracked-am", () => syncCompetitorTrackedAsins({ force: false })));
+
+  // ── 14:30: secondo passaggio (force=true) per aggiornare lo snapshot di oggi coi dati pomeridiani ──
+  cron.schedule("30 14 * * *", () => runSafe("competitor-tracked-pm", () => syncCompetitorTrackedAsins({ force: true })));
 
   // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
   cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));

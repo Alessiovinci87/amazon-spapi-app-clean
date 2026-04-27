@@ -411,8 +411,6 @@ export default function EuropaListingItemEditor() {
           {/* Immagini (read-only) */}
           {(() => {
             const cleanImages = pickLargestImages(data.images);
-            console.log("[DEBUG v2] raw:", (data.images || []).length, "filtered:", cleanImages.length);
-            console.log("[DEBUG v2] filtered URLs:\n" + cleanImages.join("\n"));
             if (!cleanImages.length) return null;
             return (
               <Section icon={ImageIcon} accent="cyan" title={t("europaListingItemEditor.sec_immagini")} eyebrow={t("europaListingItemEditor.n_immagini", { n: cleanImages.length })}>

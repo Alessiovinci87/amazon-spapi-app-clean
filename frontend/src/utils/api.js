@@ -45,6 +45,25 @@ function isRetryable(status) {
          status === 502 || status === 503 || status === 504;
 }
 
+// Evita logout-loop multipli paralleli quando più chiamate ricevono 401 insieme
+let authExpiredHandled = false;
+
+function handleAuthExpired() {
+  if (authExpiredHandled) return;
+  authExpiredHandled = true;
+  try {
+    localStorage.removeItem("nexus_token");
+    localStorage.removeItem("nexus_user");
+    localStorage.removeItem("role");
+    localStorage.removeItem("auth");
+  } catch { /* ignore */ }
+  // Notifica eventuali listener interni (AuthContext) e forza il redirect alla home
+  try { window.dispatchEvent(new Event("auth:expired")); } catch { /* ignore */ }
+  if (typeof window !== "undefined" && window.location.pathname !== "/") {
+    window.location.href = "/";
+  }
+}
+
 export async function fetchJSON(endpoint, options = {}) {
   const url = buildUrl(endpoint);
 
@@ -61,6 +80,11 @@ export async function fetchJSON(endpoint, options = {}) {
       const res = await fetch(url, options);
 
       if (!res.ok) {
+        // 401 = token scaduto/invalido → cleanup + redirect alla home
+        if (res.status === 401) {
+          handleAuthExpired();
+          throw new Error("Sessione scaduta");
+        }
         if (canRetry && attempt < MAX_RETRIES - 1 && isRetryable(res.status)) {
           await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
           continue;

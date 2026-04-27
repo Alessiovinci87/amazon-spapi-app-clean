@@ -66,12 +66,14 @@ const DDTScomposizione = () => {
     const fetchData = async () => {
       try {
         const resSped = await fetch("/api/v2/ddt/prebolle");
+        if (!resSped.ok) throw new Error("fetch prebolle");
         const prebolle = await resSped.json();
-        const found = prebolle.find((s) => s.id === parseInt(idSpedizione));
+        const found = Array.isArray(prebolle) ? prebolle.find((s) => s.id === parseInt(idSpedizione)) : null;
         if (!found) { setError(t("ddtScomposizione.error_not_found")); setLoading(false); return; }
         setSpedizione(found);
 
         const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
+        if (!resAss.ok) throw new Error("fetch assegnazioni");
         const dataAss = await resAss.json();
         if (dataAss.ok && dataAss.assegnazioni.length > 0) {
           setAssegnazioni(dataAss.assegnazioni);
@@ -103,14 +105,14 @@ const DDTScomposizione = () => {
     setSaving(true);
     try {
       const res = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/sposta`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assegnazioneId, nuovoDdtNumero }) });
-      if (res.ok) {
-        const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
-        const dataAss = await resAss.json();
-        if (dataAss.ok) {
-          setAssegnazioni(dataAss.assegnazioni || []);
-          const maxDdt = Math.max(1, ...dataAss.assegnazioni.map((a) => a.ddt_numero));
-          setDdtCount(Math.max(ddtCount, maxDdt));
-        }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
+      if (!resAss.ok) throw new Error(`HTTP ${resAss.status}`);
+      const dataAss = await resAss.json();
+      if (dataAss.ok) {
+        setAssegnazioni(dataAss.assegnazioni || []);
+        const maxDdt = Math.max(1, ...dataAss.assegnazioni.map((a) => a.ddt_numero));
+        setDdtCount(Math.max(ddtCount, maxDdt));
       }
     } catch { toast.error(t("ddtScomposizione.toast_error_sposta", "Errore spostamento prodotto")); } finally { setSaving(false); }
   };
@@ -134,13 +136,13 @@ const DDTScomposizione = () => {
     setSaving(true);
     try {
       const res = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/dividi`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ assegnazioneId: dividiTarget.id, quantitaDdt1: dividiQty1, quantitaDdt2: dividiQty2, nuovoDdtNumero: dividiDdtDestinazione }) });
-      if (res.ok) {
-        const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
-        const dataAss = await resAss.json();
-        setAssegnazioni(dataAss.assegnazioni || []);
-        setDdtCount(Math.max(ddtCount, dividiDdtDestinazione));
-        setShowDividiModal(false);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}`);
+      if (!resAss.ok) throw new Error(`HTTP ${resAss.status}`);
+      const dataAss = await resAss.json();
+      setAssegnazioni(dataAss.assegnazioni || []);
+      setDdtCount(Math.max(ddtCount, dividiDdtDestinazione));
+      setShowDividiModal(false);
     } catch { toast.error(t("ddtScomposizione.toast_error_dividi", "Errore divisione prodotto")); } finally { setSaving(false); }
   };
 
@@ -148,7 +150,8 @@ const DDTScomposizione = () => {
     if (!window.confirm(t("ddtScomposizione.confirm_reset"))) return;
     setSaving(true);
     try {
-      await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/reset`, { method: "DELETE" });
+      const res = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/reset`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       await creaAssegnazioniIniziali();
       setDdtCount(1);
     } catch { toast.error(t("ddtScomposizione.toast_error_reset", "Errore reset assegnazioni")); } finally { setSaving(false); }

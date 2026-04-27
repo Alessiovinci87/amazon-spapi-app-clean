@@ -25,10 +25,14 @@ const {
   discoverCategorieDaTracked,
   getAsinSalesEstimate,
   getKeywordWordCloud,
+  getKeywordSuggest,
   addMyMapping,
   removeMyMapping,
   listMyMappings,
   getCompetitorComparison,
+  getUnderpriceCompetitors,
+  getKeywordScorecard,
+  getProductGapAnalysis,
   debugPricing,
 } = require("./competitorService");
 
@@ -237,9 +241,10 @@ router.get("/changes", (req, res) => {
 });
 
 // POST /api/v2/competitor/tracked/snapshot — cron manuale per tutti i tracciati
+// Body opzionale: { force: true } per riforzare anche ASIN già snapshotati oggi
 router.post("/tracked/snapshot", async (req, res) => {
   try {
-    const result = await runTrackedAsinsSnapshot();
+    const result = await runTrackedAsinsSnapshot({ force: req.body?.force === true });
     res.json(result);
   } catch (err) {
     logger.error({ err }, "Errore tracked snapshot");
@@ -275,6 +280,34 @@ router.delete("/mappings/:id", (req, res) => {
 router.get("/comparison", (req, res) => {
   try { res.json({ ok: true, items: getCompetitorComparison() }); }
   catch (err) { logger.error({ err }, "Errore comparison"); res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// GET /api/v2/competitor/underprice — mapping con competitor a prezzo inferiore al mio
+router.get("/underprice", (req, res) => {
+  try { res.json({ ok: true, items: getUnderpriceCompetitors() }); }
+  catch (err) { logger.error({ err }, "Errore underprice"); res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// GET /api/v2/competitor/scorecard — scorecard per ogni keyword monitorata
+router.get("/scorecard", (req, res) => {
+  try { res.json({ ok: true, items: getKeywordScorecard() }); }
+  catch (err) { logger.error({ err }, "Errore scorecard"); res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// GET /api/v2/competitor/gap?threshold=50 — analisi opportunità per keyword
+router.get("/gap", (req, res) => {
+  try {
+    const threshold = Math.max(0, Math.min(100, parseInt(req.query.threshold) || 50));
+    res.json({ ok: true, items: getProductGapAnalysis({ threshold }) });
+  } catch (err) { logger.error({ err }, "Errore gap"); res.status(500).json({ ok: false, error: err.message }); }
+});
+
+// GET /api/v2/competitor/suggest — parole chiave frequenti nei top-20 non presenti nei tuoi titoli
+router.get("/suggest", (req, res) => {
+  try {
+    const topN = Math.max(1, Math.min(50, parseInt(req.query.topN) || 20));
+    res.json({ ok: true, items: getKeywordSuggest({ topN }) });
+  } catch (err) { logger.error({ err }, "Errore suggest"); res.status(500).json({ ok: false, error: err.message }); }
 });
 
 // GET /api/v2/competitor/debug-pricing/:asin?marketplace=IT — DEBUG: ritorna raw payload + parsing

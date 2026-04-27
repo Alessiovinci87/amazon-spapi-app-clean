@@ -101,7 +101,7 @@ router.post("/", validate({ body: eventoSchema }), (req, res) => {
       data_evento: req.body.data_evento ?? null,
     };
 
-    storicoService.registraEvento(payload);
+    storicoService.registraStoricoProduzione(payload);
 
     res.json({ ok: true, message: "Evento storico registrato" });
 

@@ -11,6 +11,7 @@ const {
   getSyncStatus,
   getCatalogWithFeedback,
   listFeedbackReports,
+  fetchRawTsv,
 } = require("./feedbackService");
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -180,6 +181,34 @@ router.get("/diagnose", async (req, res) => {
     });
   } catch (err) {
     logger.error("❌ /feedback/diagnose:", err.response?.data || err.message);
+    res.status(500).json({
+      ok: false,
+      error: err.response?.data?.errors?.[0]?.message || err.message,
+    });
+  }
+});
+
+// GET /api/v2/feedback/raw-tsv?marketplace=IT&days=365
+// Diagnostica: scarica il report e restituisce il TSV raw (senza parsing)
+// + metadata (encoding, byteLength, firstBytes hex). Usare per capire perché
+// un sync rileva "1 sola" recensione.
+router.get("/raw-tsv", async (req, res) => {
+  try {
+    const { marketplace, days } = req.query;
+    if (!marketplace) return res.status(400).json({ ok: false, error: "marketplace richiesto" });
+    const maxPreview = Math.min(Number(req.query.preview) || 10000, 200000);
+    const result = await fetchRawTsv(marketplace, { days });
+    // Ritorna solo preview del TSV (può essere MB)
+    const truncated = (result.tsv || "").length > maxPreview;
+    res.json({
+      ok: true,
+      ...result,
+      tsv: (result.tsv || "").slice(0, maxPreview),
+      truncated,
+      tsvLength: (result.tsv || "").length,
+    });
+  } catch (err) {
+    logger.error("❌ /feedback/raw-tsv:", err.response?.data || err.message);
     res.status(500).json({
       ok: false,
       error: err.response?.data?.errors?.[0]?.message || err.message,

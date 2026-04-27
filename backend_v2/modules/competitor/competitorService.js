@@ -18,7 +18,9 @@ const MARKETPLACE_IDS = {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── Tabelle ──────────────────────────────────────────────
+let _tablesEnsured = false;
 function ensureTables() {
+  if (_tablesEnsured) return;
   const db = getDb();
 
   // Keyword da monitorare (configurate dall'utente)
@@ -68,14 +70,50 @@ function ensureTables() {
   `);
   try { db.exec("ALTER TABLE competitor_asins ADD COLUMN posizione INTEGER DEFAULT 0"); } catch {}
   try { db.exec("ALTER TABLE competitor_asins ADD COLUMN keyword_source TEXT DEFAULT ''"); } catch {}
-  // Garantisce il vincolo UNIQUE su (asin, marketplace, keyword_source) anche per tabelle preesistenti
+
+  // Migrazione: rimuove il vecchio vincolo table-level UNIQUE(asin, marketplace) se presente.
+  // Motivo: impediva di avere lo stesso ASIN tracciato per keyword diverse — l'INSERT falliva
+  // e le keyword nuove restavano senza competitor popolati.
   try {
-    db.exec(`DELETE FROM competitor_asins WHERE id NOT IN (
-      SELECT MAX(id) FROM competitor_asins GROUP BY asin, marketplace, COALESCE(keyword_source, '')
-    )`);
-    db.exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_competitor_asins_akw ON competitor_asins(asin, marketplace, keyword_source)");
-  } catch (e) { /* indice già presente o tabella nuova */ }
-  // Cleanup righe con posizione = 0 (create prima del fix schema)
+    const tableRow = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='competitor_asins'").get();
+    const ddl = tableRow?.sql || "";
+    const hasLegacy = /UNIQUE\s*\(\s*asin\s*,\s*marketplace\s*\)/i.test(ddl) && !/UNIQUE\s*\(\s*asin\s*,\s*marketplace\s*,\s*keyword_source\s*\)/i.test(ddl);
+    if (hasLegacy) {
+      db.exec("BEGIN");
+      db.exec(`
+        CREATE TABLE competitor_asins_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          asin TEXT NOT NULL,
+          marketplace TEXT NOT NULL DEFAULT 'IT',
+          brand TEXT DEFAULT '',
+          titolo TEXT DEFAULT '',
+          prezzo REAL DEFAULT 0,
+          rating REAL DEFAULT 0,
+          review_count INTEGER DEFAULT 0,
+          bsr INTEGER DEFAULT 0,
+          posizione INTEGER DEFAULT 0,
+          keyword_source TEXT DEFAULT '',
+          attivo INTEGER NOT NULL DEFAULT 1,
+          updated_at TEXT DEFAULT (datetime('now','localtime')),
+          UNIQUE(asin, marketplace, keyword_source)
+        )
+      `);
+      db.exec(`
+        INSERT INTO competitor_asins_new (id, asin, marketplace, brand, titolo, prezzo, rating, review_count, bsr, posizione, keyword_source, attivo, updated_at)
+        SELECT id, asin, marketplace, brand, titolo, prezzo, rating, review_count, bsr, posizione, COALESCE(keyword_source,''), attivo, updated_at
+        FROM competitor_asins
+      `);
+      db.exec("DROP TABLE competitor_asins");
+      db.exec("ALTER TABLE competitor_asins_new RENAME TO competitor_asins");
+      db.exec("COMMIT");
+      logger.info("[Competitor] Migrata competitor_asins: rimosso UNIQUE(asin, marketplace) legacy");
+    }
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch {}
+    logger.warn(`[Competitor] Migrazione competitor_asins fallita: ${e.message}`);
+  }
+
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS uq_competitor_asins_akw ON competitor_asins(asin, marketplace, keyword_source)"); } catch {}
   try { db.exec("DELETE FROM competitor_asins WHERE posizione = 0 OR posizione IS NULL"); } catch {}
 
   // Storico prezzo/BSR/recensioni degli ASIN tracciati
@@ -95,6 +133,8 @@ function ensureTables() {
 
   // ── STORICO COMPETITOR ──────────────────────────────────
   // ASIN tracciati esplicitamente (auto da snapshot top-N + aggiunte manuali)
+  // 1 riga per (asin, marketplace, keyword_source): lo stesso ASIN può essere tracciato
+  // come top-20 di keyword diverse.
   db.exec(`
     CREATE TABLE IF NOT EXISTS competitor_tracked_asins (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,9 +147,46 @@ function ensureTables() {
       first_seen_at TEXT DEFAULT (datetime('now','localtime')),
       last_checked_at TEXT,
       last_status TEXT DEFAULT 'attivo',
-      UNIQUE(asin, marketplace)
+      UNIQUE(asin, marketplace, keyword_source)
     )
   `);
+  // Migrazione: rimuove legacy UNIQUE(asin, marketplace) se presente, così lo stesso ASIN
+  // può essere tracciato per più keyword contemporaneamente.
+  try {
+    const tableRow = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='competitor_tracked_asins'").get();
+    const ddl = tableRow?.sql || "";
+    const hasLegacy = /UNIQUE\s*\(\s*asin\s*,\s*marketplace\s*\)/i.test(ddl) && !/UNIQUE\s*\(\s*asin\s*,\s*marketplace\s*,\s*keyword_source\s*\)/i.test(ddl);
+    if (hasLegacy) {
+      db.exec("BEGIN");
+      db.exec(`
+        CREATE TABLE competitor_tracked_asins_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          asin TEXT NOT NULL,
+          marketplace TEXT NOT NULL DEFAULT 'IT',
+          source TEXT NOT NULL DEFAULT 'manual',
+          keyword_source TEXT DEFAULT '',
+          note TEXT DEFAULT '',
+          attivo INTEGER NOT NULL DEFAULT 1,
+          first_seen_at TEXT DEFAULT (datetime('now','localtime')),
+          last_checked_at TEXT,
+          last_status TEXT DEFAULT 'attivo',
+          UNIQUE(asin, marketplace, keyword_source)
+        )
+      `);
+      db.exec(`
+        INSERT INTO competitor_tracked_asins_new (id, asin, marketplace, source, keyword_source, note, attivo, first_seen_at, last_checked_at, last_status)
+        SELECT id, asin, marketplace, source, COALESCE(keyword_source,''), note, attivo, first_seen_at, last_checked_at, last_status
+        FROM competitor_tracked_asins
+      `);
+      db.exec("DROP TABLE competitor_tracked_asins");
+      db.exec("ALTER TABLE competitor_tracked_asins_new RENAME TO competitor_tracked_asins");
+      db.exec("COMMIT");
+      logger.info("[Competitor] Migrata competitor_tracked_asins: rimosso UNIQUE(asin, marketplace) legacy");
+    }
+  } catch (e) {
+    try { db.exec("ROLLBACK"); } catch {}
+    logger.warn(`[Competitor] Migrazione competitor_tracked_asins fallita: ${e.message}`);
+  }
 
   // Snapshot dettagliati per ciascun ASIN tracciato (uno per giorno)
   db.exec(`
@@ -172,6 +249,7 @@ function ensureTables() {
       UNIQUE(my_asin, marketplace, keyword_source)
     )
   `);
+  _tablesEnsured = true;
 }
 
 // ── Catalog API: cerca keyword e restituisce count + top items ──
@@ -572,6 +650,249 @@ function getCompetitorStatsForKeyword(keyword, marketplace) {
   };
 }
 
+// Scorecard per ogni keyword monitorata: panoramica 30 secondi sullo stato della nicchia.
+// Include: #prodotti + trend 7gg, prezzo medio oggi vs 7gg fa, %Prime/%FBA, rating/review medi,
+// top 3 brand dominanti nei top-20, eventi rilevanti (changes) negli ultimi 7 giorni.
+function getKeywordScorecard() {
+  ensureTables();
+  const db = getDb();
+  const today = new Date();
+  const sevenAgo = new Date(today);
+  sevenAgo.setDate(sevenAgo.getDate() - 7);
+  const todayStr = today.toISOString().slice(0, 10);
+  const sevenStr = sevenAgo.toISOString().slice(0, 10);
+
+  const keywords = db.prepare("SELECT * FROM competitor_keywords WHERE attivo = 1").all();
+  const out = [];
+
+  for (const kw of keywords) {
+    // conteggio prodotti oggi + 7gg fa
+    const latest = db.prepare(
+      "SELECT count, date FROM competitor_snapshots WHERE keyword_id = ? ORDER BY date DESC LIMIT 1"
+    ).get(kw.id);
+    const seven = db.prepare(
+      "SELECT count FROM competitor_snapshots WHERE keyword_id = ? AND date <= ? ORDER BY date DESC LIMIT 1"
+    ).get(kw.id, sevenStr);
+
+    const tops = db.prepare(`
+      SELECT a.asin, a.posizione, a.brand,
+        (SELECT prezzo FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS prezzo,
+        (SELECT is_prime FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS is_prime,
+        (SELECT is_fba FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS is_fba,
+        (SELECT rating FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS rating,
+        (SELECT review_count FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS review_count,
+        (SELECT prezzo FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace AND s.date <= ? ORDER BY date DESC LIMIT 1) AS prezzo_7gg
+      FROM competitor_asins a
+      WHERE a.keyword_source = ? AND a.marketplace = ? AND a.attivo = 1 AND a.posizione > 0
+      ORDER BY a.posizione ASC
+      LIMIT 20
+    `).all(sevenStr, kw.keyword, kw.marketplace);
+
+    const conPrezzo = tops.filter(t => t.prezzo != null && t.prezzo > 0);
+    const conPrezzo7 = tops.filter(t => t.prezzo_7gg != null && t.prezzo_7gg > 0);
+    const avg = (arr) => arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length;
+    const priceAvg = conPrezzo.length > 0 ? +avg(conPrezzo.map(t => t.prezzo)).toFixed(2) : null;
+    const priceAvg7 = conPrezzo7.length > 0 ? +avg(conPrezzo7.map(t => t.prezzo_7gg)).toFixed(2) : null;
+    const priceDeltaPct = (priceAvg != null && priceAvg7 != null && priceAvg7 > 0)
+      ? +(((priceAvg - priceAvg7) / priceAvg7) * 100).toFixed(1)
+      : null;
+
+    // Top brand: raggruppa tops per brand
+    const brandMap = new Map();
+    for (const t of tops) {
+      const b = (t.brand || "").trim();
+      if (!b) continue;
+      brandMap.set(b, (brandMap.get(b) || 0) + 1);
+    }
+    const topBrands = [...brandMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([brand, count]) => ({ brand, count, share_pct: tops.length > 0 ? Math.round(count / tops.length * 100) : 0 }));
+
+    // Changes ultimi 7 giorni su questi ASIN
+    const asins = tops.map(t => t.asin);
+    let events = { total: 0, price: 0, title: 0, disappeared: 0, reappeared: 0 };
+    if (asins.length > 0) {
+      const placeholders = asins.map(() => "?").join(",");
+      const rows = db.prepare(
+        `SELECT change_type, COUNT(*) as n FROM competitor_asin_changes
+         WHERE marketplace = ? AND date >= ? AND asin IN (${placeholders})
+         GROUP BY change_type`
+      ).all(kw.marketplace, sevenStr, ...asins);
+      for (const r of rows) {
+        events.total += r.n;
+        if (r.change_type === "price_changed") events.price = r.n;
+        else if (r.change_type === "title_changed") events.title = r.n;
+        else if (r.change_type === "disappeared") events.disappeared = r.n;
+        else if (r.change_type === "reappeared") events.reappeared = r.n;
+      }
+    }
+
+    const conRating = tops.filter(t => t.rating != null);
+    const conReview = tops.filter(t => t.review_count != null);
+
+    out.push({
+      id: kw.id,
+      keyword: kw.keyword,
+      marketplace: kw.marketplace,
+      count_oggi: latest?.count ?? null,
+      count_7gg: seven?.count ?? null,
+      trend_count: (latest && seven) ? latest.count - seven.count : null,
+      price_avg_oggi: priceAvg,
+      price_avg_7gg: priceAvg7,
+      price_delta_pct: priceDeltaPct,
+      prime_pct: tops.length > 0 ? Math.round(tops.filter(t => t.is_prime === 1).length / tops.length * 100) : null,
+      fba_pct: tops.length > 0 ? Math.round(tops.filter(t => t.is_fba === 1).length / tops.length * 100) : null,
+      rating_avg: conRating.length > 0 ? +avg(conRating.map(t => t.rating)).toFixed(2) : null,
+      review_avg: conReview.length > 0 ? Math.round(avg(conReview.map(t => t.review_count))) : null,
+      top_brands: topBrands,
+      events_7gg: events,
+    });
+  }
+  return out;
+}
+
+// Product gap: identifica keyword dove il top-20 ha bassa adozione Prime/FBA
+// oppure FBM con handling time alto o prezzi gonfiati → opportunità di ingresso.
+// Ritorna una card per keyword con opportunity_score + lista top-5 competitor "deboli".
+function getProductGapAnalysis({ threshold = 50 } = {}) {
+  ensureTables();
+  const db = getDb();
+  const keywords = db.prepare("SELECT * FROM competitor_keywords WHERE attivo = 1").all();
+  const out = [];
+
+  for (const kw of keywords) {
+    const tops = db.prepare(`
+      SELECT a.asin, a.posizione, a.titolo, a.brand,
+        (SELECT prezzo FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS prezzo,
+        (SELECT is_prime FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS is_prime,
+        (SELECT is_fba FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS is_fba,
+        (SELECT handling_max_hours FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS handling_max_hours,
+        (SELECT rating FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS rating,
+        (SELECT review_count FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS review_count,
+        (SELECT image_url FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS image_url
+      FROM competitor_asins a
+      WHERE a.keyword_source = ? AND a.marketplace = ? AND a.attivo = 1 AND a.posizione > 0
+      ORDER BY a.posizione ASC
+      LIMIT 20
+    `).all(kw.keyword, kw.marketplace);
+
+    if (tops.length === 0) continue;
+
+    const primeCount = tops.filter(t => t.is_prime === 1).length;
+    const fbaCount = tops.filter(t => t.is_fba === 1).length;
+    const fbmCount = tops.filter(t => t.is_fba === 0).length;
+    const primePct = Math.round(primeCount / tops.length * 100);
+    const fbaPct = Math.round(fbaCount / tops.length * 100);
+
+    const withPrice = tops.filter(t => t.prezzo != null && t.prezzo > 0);
+    const avg = (arr) => arr.length === 0 ? null : arr.reduce((a, b) => a + b, 0) / arr.length;
+    const avgPricePrime = avg(withPrice.filter(t => t.is_prime === 1).map(t => t.prezzo));
+    const avgPriceFbm = avg(withPrice.filter(t => t.is_fba === 0).map(t => t.prezzo));
+    const withHandlingFbm = tops.filter(t => t.is_fba === 0 && t.handling_max_hours != null);
+    const avgHandlingFbm = withHandlingFbm.length > 0 ? Math.round(avg(withHandlingFbm.map(t => t.handling_max_hours))) : null;
+
+    // Opportunity score: media di (100 - prime_pct) e (100 - fba_pct), bonus se handling FBM alto
+    let score = ((100 - primePct) + (100 - fbaPct)) / 2;
+    if (avgHandlingFbm != null && avgHandlingFbm > 48) score = Math.min(100, score + 10);
+    if (avgPriceFbm != null && avgPricePrime != null && avgPriceFbm > avgPricePrime * 1.15) score = Math.min(100, score + 5);
+    score = Math.round(score);
+
+    const isGap = primePct < threshold || fbaPct < threshold;
+
+    // Top 5 "deboli": FBM + handling alto, poi FBM generici, poi no-Prime
+    const weakTagged = tops.map(t => {
+      const reasons = [];
+      if (t.is_fba === 0) reasons.push("FBM");
+      if (t.handling_max_hours != null && t.handling_max_hours > 48) reasons.push(`${t.handling_max_hours}h evasione`);
+      if (t.is_prime === 0) reasons.push("no Prime");
+      if (t.rating != null && t.rating < 4.0) reasons.push(`rating ${t.rating}★`);
+      return { ...t, reasons };
+    }).filter(t => t.reasons.length > 0);
+
+    // Prioritizza: FBM + handling alto, poi FBM, poi no-Prime, poi basso rating
+    weakTagged.sort((a, b) => b.reasons.length - a.reasons.length || a.posizione - b.posizione);
+    const weak = weakTagged.slice(0, 5).map(t => ({
+      asin: t.asin,
+      posizione: t.posizione,
+      titolo: t.titolo,
+      brand: t.brand,
+      prezzo: t.prezzo,
+      is_prime: t.is_prime,
+      is_fba: t.is_fba,
+      handling_max_hours: t.handling_max_hours,
+      rating: t.rating,
+      review_count: t.review_count,
+      image_url: t.image_url,
+      reasons: t.reasons,
+    }));
+
+    out.push({
+      id: kw.id,
+      keyword: kw.keyword,
+      marketplace: kw.marketplace,
+      tops_count: tops.length,
+      prime_pct: primePct,
+      fba_pct: fbaPct,
+      fbm_count: fbmCount,
+      avg_price_prime: avgPricePrime != null ? +avgPricePrime.toFixed(2) : null,
+      avg_price_fbm: avgPriceFbm != null ? +avgPriceFbm.toFixed(2) : null,
+      avg_handling_fbm: avgHandlingFbm,
+      opportunity_score: score,
+      is_gap: isGap,
+      threshold,
+      weak_competitors: weak,
+    });
+  }
+
+  out.sort((a, b) => b.opportunity_score - a.opportunity_score);
+  return out;
+}
+
+// Competitor che hanno prezzo inferiore al mio per ciascun mapping attivo.
+// Usa gli stessi mapping di getCompetitorComparison ma filtra solo i "sotto-prezzo".
+// Ritorna solo i mapping con almeno un competitor più economico.
+function getUnderpriceCompetitors() {
+  ensureTables();
+  const db = getDb();
+  const mappings = db.prepare("SELECT * FROM competitor_my_mappings ORDER BY marketplace, keyword_source").all();
+  const out = [];
+  for (const m of mappings) {
+    const my = getMyPrice(m.my_asin, m.marketplace);
+    if (!my || my.prezzo == null || my.prezzo <= 0) continue;
+    const competitors = db.prepare(`
+      SELECT a.asin, a.posizione, a.titolo, a.brand,
+        (SELECT prezzo FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS prezzo,
+        (SELECT is_prime FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS is_prime,
+        (SELECT is_fba FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS is_fba,
+        (SELECT rating FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS rating,
+        (SELECT review_count FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS review_count,
+        (SELECT image_url FROM competitor_asin_snapshots s WHERE s.asin = a.asin AND s.marketplace = a.marketplace ORDER BY date DESC LIMIT 1) AS image_url
+      FROM competitor_asins a
+      WHERE a.keyword_source = ? AND a.marketplace = ? AND a.attivo = 1 AND a.posizione > 0
+      ORDER BY a.posizione ASC
+    `).all(m.keyword_source, m.marketplace);
+    const under = competitors
+      .filter(c => c.prezzo != null && c.prezzo > 0 && c.prezzo < my.prezzo)
+      .map(c => ({
+        ...c,
+        gap_eur: +(my.prezzo - c.prezzo).toFixed(2),
+        gap_pct: +(((my.prezzo - c.prezzo) / my.prezzo) * 100).toFixed(1),
+      }));
+    if (under.length === 0) continue;
+    out.push({
+      mapping: m,
+      my: { asin: my.asin, titolo: my.titolo, prezzo: my.prezzo, currency: my.currency, buybox_won: my.buybox_won },
+      under_count: under.length,
+      cheapest_gap_pct: under[0] ? Math.max(...under.map(u => u.gap_pct)) : null,
+      competitors: under,
+    });
+  }
+  // Ordina per urgenza: chi ha più competitor sotto (o gap maggiore) in cima
+  out.sort((a, b) => b.under_count - a.under_count || (b.cheapest_gap_pct || 0) - (a.cheapest_gap_pct || 0));
+  return out;
+}
+
 // Dashboard confronto: per ogni mapping ritorna mio prezzo + stats competitor + gap analysis
 function getCompetitorComparison() {
   ensureTables();
@@ -619,6 +940,16 @@ const STOPWORDS = new Set([
   "amazon","originale","original","made","made-in","pcs","pz","cm","mm","ml","gr","kg","mg",
 ]);
 
+// Tokenizza un titolo con lo stesso schema del wordcloud
+// (lowercase + rimuove accenti + split non-alfanumerico + filtro stopwords/numeri/<3 char).
+function tokenizeTitle(titolo) {
+  return (titolo || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(w => w.length >= 3 && !STOPWORDS.has(w) && !/^\d+$/.test(w));
+}
+
 function getKeywordWordCloud(keyword, marketplace = "IT", topN = 25) {
   ensureTables();
   const db = getDb();
@@ -642,6 +973,39 @@ function getKeywordWordCloud(keyword, marketplace = "IT", topN = 25) {
     .map(([word, count]) => ({ word, count }));
 
   return { ok: true, words: list, source_titoli: rows.length };
+}
+
+// Keyword suggest: per ogni mapping (my_asin → keyword) elenca le parole frequenti
+// nei titoli top-20 della keyword che NON compaiono nel titolo del mio ASIN.
+function getKeywordSuggest({ topN = 20 } = {}) {
+  ensureTables();
+  const db = getDb();
+  const mappings = db.prepare(
+    "SELECT * FROM competitor_my_mappings ORDER BY marketplace, keyword_source, my_asin"
+  ).all();
+
+  const out = [];
+  for (const m of mappings) {
+    const my = getMyPrice(m.my_asin, m.marketplace);
+    const myTitle = my?.titolo || "";
+    const myTokens = new Set(tokenizeTitle(myTitle));
+
+    const wc = getKeywordWordCloud(m.keyword_source, m.marketplace, 50);
+    const suggestions = wc.words.filter(w => !myTokens.has(w.word)).slice(0, topN);
+    const present = wc.words.filter(w => myTokens.has(w.word));
+
+    out.push({
+      mapping: m,
+      my: { asin: m.my_asin, titolo: myTitle, prezzo: my?.prezzo ?? null },
+      suggestions,
+      present,
+      source_titoli: wc.source_titoli,
+      total_competitor_words: wc.words.length,
+    });
+  }
+
+  out.sort((a, b) => b.suggestions.length - a.suggestions.length);
+  return out;
 }
 
 // ── Top ASIN competitor per keyword ──
@@ -711,7 +1075,7 @@ async function fetchAsinClassifications(asin, marketplace = "IT") {
 async function discoverCategorieDaTracked() {
   ensureTables();
   const db = getDb();
-  const tracked = db.prepare("SELECT asin, marketplace FROM competitor_tracked_asins WHERE attivo = 1").all();
+  const tracked = db.prepare("SELECT DISTINCT asin, marketplace FROM competitor_tracked_asins WHERE attivo = 1").all();
   const trovate = new Map(); // key = `${marketplace}|${id}` → { id, nome, marketplace, count }
 
   for (const t of tracked) {
@@ -1093,10 +1457,9 @@ function addTrackedAsin({ asin, marketplace = "IT", note = "", source = "manual"
   const r = db.prepare(`
     INSERT INTO competitor_tracked_asins (asin, marketplace, source, keyword_source, note)
     VALUES (?, ?, ?, ?, ?)
-    ON CONFLICT(asin, marketplace) DO UPDATE SET
+    ON CONFLICT(asin, marketplace, keyword_source) DO UPDATE SET
       attivo = 1,
-      note = CASE WHEN excluded.note != '' THEN excluded.note ELSE competitor_tracked_asins.note END,
-      keyword_source = CASE WHEN excluded.keyword_source != '' THEN excluded.keyword_source ELSE competitor_tracked_asins.keyword_source END
+      note = CASE WHEN excluded.note != '' THEN excluded.note ELSE competitor_tracked_asins.note END
   `).run(a, marketplace, source, keyword_source || "", note || "");
   return { ok: true, asin: a, id: r.lastInsertRowid };
 }
@@ -1111,13 +1474,15 @@ function listTrackedAsins({ marketplace = null, soloAttivi = true } = {}) {
   q += " ORDER BY t.last_checked_at DESC NULLS LAST, t.first_seen_at DESC";
   const rows = db.prepare(q).all(...args);
 
-  // Arricchisci con ultimo snapshot
   const lastSnapStmt = db.prepare(
     "SELECT * FROM competitor_asin_snapshots WHERE asin = ? AND marketplace = ? ORDER BY date DESC LIMIT 1"
   );
-  // Mappa keyword → created_at per le card raggruppate nello storico
   const kwCreatedStmt = db.prepare(
     "SELECT created_at FROM competitor_keywords WHERE keyword = ? AND marketplace = ? LIMIT 1"
+  );
+  // Posizione corrente nella keyword (dalla tabella competitor_asins)
+  const posStmt = db.prepare(
+    "SELECT posizione FROM competitor_asins WHERE asin = ? AND marketplace = ? AND keyword_source = ? AND attivo = 1 LIMIT 1"
   );
   for (const r of rows) {
     const last = lastSnapStmt.get(r.asin, r.marketplace);
@@ -1136,6 +1501,8 @@ function listTrackedAsins({ marketplace = null, soloAttivi = true } = {}) {
     if (r.keyword_source) {
       const k = kwCreatedStmt.get(r.keyword_source, r.marketplace);
       if (k) r.keyword_created_at = k.created_at;
+      const p = posStmt.get(r.asin, r.marketplace, r.keyword_source);
+      if (p) r.posizione = p.posizione;
     }
   }
   return rows;
@@ -1283,7 +1650,9 @@ function getRecentChanges({ days = 30, limit = 200 } = {}) {
   const rows = db.prepare(`
     SELECT c.*,
       (SELECT titolo FROM competitor_asin_snapshots s WHERE s.asin = c.asin AND s.marketplace = c.marketplace ORDER BY s.date DESC LIMIT 1) AS titolo_attuale,
-      (SELECT image_url FROM competitor_asin_snapshots s WHERE s.asin = c.asin AND s.marketplace = c.marketplace ORDER BY s.date DESC LIMIT 1) AS image_url
+      (SELECT image_url FROM competitor_asin_snapshots s WHERE s.asin = c.asin AND s.marketplace = c.marketplace ORDER BY s.date DESC LIMIT 1) AS image_url,
+      (SELECT posizione FROM competitor_asins a WHERE a.asin = c.asin AND a.marketplace = c.marketplace AND a.attivo = 1 AND a.posizione > 0 ORDER BY a.posizione ASC LIMIT 1) AS best_posizione,
+      (SELECT keyword_source FROM competitor_asins a WHERE a.asin = c.asin AND a.marketplace = c.marketplace AND a.attivo = 1 AND a.posizione > 0 ORDER BY a.posizione ASC LIMIT 1) AS best_keyword
     FROM competitor_asin_changes c
     WHERE c.date >= ?
     ORDER BY c.date DESC, c.id DESC
@@ -1397,18 +1766,24 @@ function emitAlertsNewTop5(kw, items) {
 }
 
 // Cattura snapshot per TUTTI gli ASIN tracciati attivi (chiamato da cron)
-async function runTrackedAsinsSnapshot() {
+async function runTrackedAsinsSnapshot({ force = false } = {}) {
   ensureTables();
   const db = getDb();
-  const tracked = db.prepare("SELECT asin, marketplace FROM competitor_tracked_asins WHERE attivo = 1").all();
+  const tracked = db.prepare("SELECT DISTINCT asin, marketplace FROM competitor_tracked_asins WHERE attivo = 1").all();
   if (tracked.length === 0) {
     logger.info("[Competitor] Nessun ASIN tracciato");
-    return { ok: true, count: 0, changes: 0 };
+    return { ok: true, count: 0, changes: 0, skipped: 0 };
   }
+  const today = new Date().toISOString().slice(0, 10);
+  const hasToday = db.prepare("SELECT 1 FROM competitor_asin_snapshots WHERE asin = ? AND marketplace = ? AND date = ? LIMIT 1");
 
   let totalChanges = 0;
-  let ok = 0, errori = 0;
+  let ok = 0, errori = 0, skipped = 0;
   for (const t of tracked) {
+    if (!force && hasToday.get(t.asin, t.marketplace, today)) {
+      skipped++;
+      continue;
+    }
     const r = await captureAsinSnapshot(t.asin, t.marketplace);
     if (r.ok) {
       ok++;
@@ -1416,14 +1791,17 @@ async function runTrackedAsinsSnapshot() {
     } else {
       errori++;
     }
-    await sleep(5000); // rate limit Pricing API (~10 req/min)
+    // Pricing API SP-API: burst 1/s, restore 0.5/s. Catalog API: 2/s burst.
+    // 2.5s di sleep permette ~24 chiamate/minuto per endpoint (2 call per ASIN).
+    await sleep(2500);
   }
-  logger.info(`[Competitor] Snapshot ASIN tracciati: ${ok} ok, ${errori} errori, ${totalChanges} cambiamenti`);
-  return { ok: true, count: ok, errori, changes: totalChanges };
+  logger.info(`[Competitor] Snapshot ASIN tracciati: ${ok} ok, ${errori} errori, ${skipped} già fatti oggi, ${totalChanges} cambiamenti`);
+  return { ok: true, count: ok, errori, skipped, changes: totalChanges };
 }
 
-// Dopo snapshot keyword: auto-track i top-N ASIN trovati (solo se non già tracciati)
-// Ritorna la lista degli ASIN nuovi (per snapshot iniziale immediato)
+// Dopo snapshot keyword: auto-track i top-N ASIN trovati (1 riga per asin+keyword)
+// Ritorna la lista degli ASIN *mai visti prima* (per snapshot iniziale immediato).
+// Un ASIN già tracciato per un'altra keyword non richiede snapshot nuovo (dati in comune).
 function autoTrackTopAsinsFromSnapshot() {
   ensureTables();
   const db = getDb();
@@ -1431,15 +1809,25 @@ function autoTrackTopAsinsFromSnapshot() {
     SELECT asin, marketplace, keyword_source FROM competitor_asins
     WHERE attivo = 1 AND posizione > 0 AND posizione <= 20
   `).all();
+  // Upsert: se la riga esiste (anche soft-deleted) la riattiva; altrimenti la crea
   const insert = db.prepare(`
     INSERT INTO competitor_tracked_asins (asin, marketplace, source, keyword_source)
     VALUES (?, ?, 'auto', ?)
-    ON CONFLICT(asin, marketplace) DO NOTHING
+    ON CONFLICT(asin, marketplace, keyword_source) DO UPDATE SET attivo = 1
+  `);
+  // Un ASIN è "genuinamente nuovo" (da snapshotare) solo se non ha mai avuto snapshot
+  const hasSnap = db.prepare(`
+    SELECT 1 FROM competitor_asin_snapshots WHERE asin = ? AND marketplace = ? LIMIT 1
   `);
   const nuovi = [];
+  const seenNew = new Set();
   for (const t of tops) {
-    const r = insert.run(t.asin, t.marketplace, t.keyword_source || "");
-    if (r.changes > 0) nuovi.push({ asin: t.asin, marketplace: t.marketplace });
+    insert.run(t.asin, t.marketplace, t.keyword_source || "");
+    const k = `${t.asin}|${t.marketplace}`;
+    if (!seenNew.has(k) && !hasSnap.get(t.asin, t.marketplace)) {
+      seenNew.add(k);
+      nuovi.push({ asin: t.asin, marketplace: t.marketplace });
+    }
   }
   return nuovi;
 }
@@ -1458,7 +1846,7 @@ async function captureInitialSnapshots(nuoviAsin) {
     } catch (e) {
       logger.warn(`[Competitor] snapshot iniziale ${t.asin}: ${e.message}`);
     }
-    await sleep(5000);
+    await sleep(2500);
   }
   logger.info(`[Competitor] Snapshot iniziali catturati: ${ok}/${nuoviAsin.length}`);
   return ok;
@@ -1481,11 +1869,15 @@ module.exports = {
   getAsinSalesEstimate,
   // word cloud
   getKeywordWordCloud,
+  getKeywordSuggest,
   // confronto mio/competitor
   addMyMapping,
   removeMyMapping,
   listMyMappings,
   getCompetitorComparison,
+  getUnderpriceCompetitors,
+  getKeywordScorecard,
+  getProductGapAnalysis,
   // discovery categorie
   fetchAsinClassifications,
   discoverCategorieDaTracked,

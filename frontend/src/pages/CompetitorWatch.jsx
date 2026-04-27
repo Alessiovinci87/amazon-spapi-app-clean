@@ -25,6 +25,10 @@ import {
   ExternalLink,
   Scale,
   AlertTriangle,
+  BarChart3,
+  Star,
+  Target,
+  Sparkles,
 } from "lucide-react";
 
 const fmtInt = (v) => v?.toLocaleString("it-IT") ?? "0";
@@ -32,6 +36,31 @@ const fmtNum = (v, dec = 2) => v == null ? "—" : Number(v).toLocaleString("it-
 const flagCode = (c) => ({ UK: "gb", GB: "gb" }[c] || c?.toLowerCase());
 
 const MARKETPLACES = ["IT", "FR", "ES", "DE", "UK"];
+
+const TOOL_COLORS = {
+  rose: "text-rose-300 bg-rose-500/10 border-rose-500/40 hover:bg-rose-500/20",
+  emerald: "text-emerald-300 bg-emerald-500/10 border-emerald-500/40 hover:bg-emerald-500/20",
+  sky: "text-sky-300 bg-sky-500/10 border-sky-500/40 hover:bg-sky-500/20",
+  violet: "text-violet-300 bg-violet-500/10 border-violet-500/40 hover:bg-violet-500/20",
+  amber: "text-amber-300 bg-amber-500/10 border-amber-500/40 hover:bg-amber-500/20",
+};
+const TOOL_ACTIVE = {
+  rose: "text-rose-200 bg-rose-500/25 border-rose-500/60",
+  emerald: "text-emerald-200 bg-emerald-500/25 border-emerald-500/60",
+  sky: "text-sky-200 bg-sky-500/25 border-sky-500/60",
+  violet: "text-violet-200 bg-violet-500/25 border-violet-500/60",
+  amber: "text-amber-200 bg-amber-500/25 border-amber-500/60",
+};
+
+function ToolBtn({ active, color = "emerald", onClick, icon: Icon, label }) {
+  const cls = active ? TOOL_ACTIVE[color] : TOOL_COLORS[color];
+  return (
+    <button onClick={onClick} type="button" className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium border transition-colors ${cls}`}>
+      <Icon className="w-3.5 h-3.5" />
+      {label}
+    </button>
+  );
+}
 
 // Categorie pre-installate (le SP-API accettano solo l'ID numerico, non il nome)
 const CATEGORIE_BUILTIN = [
@@ -62,13 +91,33 @@ const CompetitorWatch = () => {
   const [searchResult, setSearchResult] = useState(null);
   const [searching, setSearching] = useState(false);
   const [wordsByKw, setWordsByKw] = useState({});
+  // Strumenti di analisi (1 aperto alla volta: null | "confronto" | "sottoPrezzo")
+  const [activeTool, setActiveTool] = useState(null);
+  const toggleTool = (name) => setActiveTool(prev => prev === name ? null : name);
+
   // Confronto prezzi
   const [comparison, setComparison] = useState([]);
-  const [showComparison, setShowComparison] = useState(false);
   const [loadingComparison, setLoadingComparison] = useState(false);
   const [newMapAsin, setNewMapAsin] = useState("");
   const [newMapKeyword, setNewMapKeyword] = useState("");
   const [newMapMkt, setNewMapMkt] = useState("IT");
+
+  // Sotto-prezzo
+  const [underprice, setUnderprice] = useState([]);
+  const [loadingUnderprice, setLoadingUnderprice] = useState(false);
+
+  // Scorecard
+  const [scorecard, setScorecard] = useState([]);
+  const [loadingScorecard, setLoadingScorecard] = useState(false);
+
+  // Product gap
+  const [gap, setGap] = useState([]);
+  const [loadingGap, setLoadingGap] = useState(false);
+  const [gapThreshold, setGapThreshold] = useState(50);
+
+  // Keyword suggest
+  const [suggest, setSuggest] = useState([]);
+  const [loadingSuggest, setLoadingSuggest] = useState(false);
 
   const loadComparison = useCallback(async () => {
     setLoadingComparison(true);
@@ -79,7 +128,49 @@ const CompetitorWatch = () => {
     } catch {} finally { setLoadingComparison(false); }
   }, []);
 
-  useEffect(() => { if (showComparison) loadComparison(); }, [showComparison, loadComparison]);
+  const loadUnderprice = useCallback(async () => {
+    setLoadingUnderprice(true);
+    try {
+      const res = await fetch("/api/v2/competitor/underprice", { cache: "no-store" });
+      const json = await res.json();
+      if (json.ok) setUnderprice(json.items);
+    } catch {} finally { setLoadingUnderprice(false); }
+  }, []);
+
+  const loadScorecard = useCallback(async () => {
+    setLoadingScorecard(true);
+    try {
+      const res = await fetch("/api/v2/competitor/scorecard", { cache: "no-store" });
+      const json = await res.json();
+      if (json.ok) setScorecard(json.items);
+    } catch {} finally { setLoadingScorecard(false); }
+  }, []);
+
+  const loadGap = useCallback(async () => {
+    setLoadingGap(true);
+    try {
+      const res = await fetch(`/api/v2/competitor/gap?threshold=${gapThreshold}`, { cache: "no-store" });
+      const json = await res.json();
+      if (json.ok) setGap(json.items);
+    } catch {} finally { setLoadingGap(false); }
+  }, [gapThreshold]);
+
+  const loadSuggest = useCallback(async () => {
+    setLoadingSuggest(true);
+    try {
+      const res = await fetch("/api/v2/competitor/suggest", { cache: "no-store" });
+      const json = await res.json();
+      if (json.ok) setSuggest(json.items);
+    } catch {} finally { setLoadingSuggest(false); }
+  }, []);
+
+  useEffect(() => {
+    if (activeTool === "confronto") loadComparison();
+    if (activeTool === "sottoPrezzo") loadUnderprice();
+    if (activeTool === "scorecard") loadScorecard();
+    if (activeTool === "gap") loadGap();
+    if (activeTool === "suggest") loadSuggest();
+  }, [activeTool, loadComparison, loadUnderprice, loadScorecard, loadGap, loadSuggest]);
 
   const addMapping = async () => {
     const a = newMapAsin.trim().toUpperCase();
@@ -184,16 +275,41 @@ const CompetitorWatch = () => {
   const addKeyword = async () => {
     if (!newKw.trim()) { toast.error("Inserisci una keyword (la categoria è solo un filtro)"); return; }
     setAdding(true);
+    const kwAdded = newKw.trim();
+    const mktAdded = newMkt;
+    const t = toast.loading("Monitoraggio in corso… scarico i top 20 competitor");
     try {
       const res = await fetch("/api/v2/competitor/keywords", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyword: newKw.trim(), marketplace: newMkt, category_id: newCat.trim() || undefined }),
+        body: JSON.stringify({ keyword: kwAdded, marketplace: mktAdded, category_id: newCat.trim() || undefined }),
       });
       const json = await res.json();
-      if (json.ok) { toast.success("Monitoraggio aggiunto"); setNewKw(""); setNewCat(""); fetchKeywords(); }
-      else toast.error(json.message || json.error);
-    } catch { toast.error("Errore aggiunta"); }
+      if (json.ok) {
+        const snap = json.snapshot || {};
+        if (snap.ok) {
+          toast.success(`Aggiunto: ${snap.asins || 0} competitor trovati${snap.autoTracked ? ` · ${snap.autoTracked} nuovi nello storico` : ""}`, { id: t });
+        } else {
+          toast.success("Keyword aggiunta (snapshot iniziale fallito, riprova con 'Aggiorna conteggi')", { id: t });
+        }
+        setNewKw(""); setNewCat("");
+        await fetchKeywords();
+        // Auto-espandi la nuova keyword per mostrare subito i competitor
+        const key = `${kwAdded}-${mktAdded}`;
+        setExpanded(prev => new Set(prev).add(key));
+        try {
+          const [resA, resW] = await Promise.all([
+            fetch(`/api/v2/competitor/asins?keyword=${encodeURIComponent(kwAdded)}&marketplace=${mktAdded}`, { cache: "no-store" }),
+            fetch(`/api/v2/competitor/wordcloud?keyword=${encodeURIComponent(kwAdded)}&marketplace=${mktAdded}`, { cache: "no-store" }),
+          ]);
+          const jsonA = await resA.json(), jsonW = await resW.json();
+          if (jsonA.ok) setAsinsByKw(prev => ({ ...prev, [key]: jsonA.asins }));
+          if (jsonW.ok) setWordsByKw(prev => ({ ...prev, [key]: jsonW.words }));
+        } catch {}
+      } else {
+        toast.error(json.message || json.error, { id: t });
+      }
+    } catch { toast.error("Errore aggiunta", { id: t }); }
     finally { setAdding(false); }
   };
 
@@ -296,10 +412,6 @@ const CompetitorWatch = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => setShowComparison(v => !v)} type="button" className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium transition-colors ${showComparison ? "bg-emerald-500/20 border border-emerald-500/50 text-emerald-200" : "bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"}`}>
-              <Scale className="w-3.5 h-3.5" />
-              Confronto prezzi
-            </button>
             <button onClick={() => navigate("/uffici/competitor/storico")} type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 text-violet-300 hover:text-violet-200 transition-colors">
               <History className="w-3.5 h-3.5" />
               Storico ASIN
@@ -525,8 +637,213 @@ const CompetitorWatch = () => {
               </div>
             </div>
 
+            {/* ── Strumenti di analisi competitor ────────────────────── */}
+            <div className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400/60" />
+              <div className="px-6 py-5 sm:px-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-9 h-9 rounded-md border flex items-center justify-center flex-shrink-0 bg-amber-500/10 border-amber-500/40 text-amber-400">
+                    <Scale className="w-[18px] h-[18px]" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Analisi</span>
+                    <h3 className="text-sm font-semibold text-white -mt-0.5">Strumenti di analisi competitor</h3>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
+                  Pannelli di approfondimento sui competitor delle tue keyword monitorate. Apri uno strumento alla volta per tenere pulita la pagina.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <ToolBtn active={activeTool === "scorecard"} color="sky" onClick={() => toggleTool("scorecard")} icon={BarChart3} label="Scorecard nicchia" />
+                  <ToolBtn active={activeTool === "sottoPrezzo"} color="rose" onClick={() => toggleTool("sottoPrezzo")} icon={AlertTriangle} label="Sotto-prezzo" />
+                  <ToolBtn active={activeTool === "confronto"} color="emerald" onClick={() => toggleTool("confronto")} icon={Scale} label="Confronto prezzi" />
+                  <ToolBtn active={activeTool === "gap"} color="violet" onClick={() => toggleTool("gap")} icon={Target} label="Product gap" />
+                  <ToolBtn active={activeTool === "suggest"} color="amber" onClick={() => toggleTool("suggest")} icon={Sparkles} label="Keyword suggest" />
+                </div>
+              </div>
+            </div>
+
+            {/* ── Strumento: Scorecard nicchia ─────────────────────────── */}
+            {activeTool === "scorecard" && (
+              <div className="relative bg-slate-900/60 border border-sky-500/30 rounded-lg overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-sky-400/60" />
+                <div className="px-6 py-5 sm:px-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-md border bg-sky-500/10 border-sky-500/40 text-sky-400 flex items-center justify-center flex-shrink-0">
+                      <BarChart3 className="w-[18px] h-[18px]" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Panoramica</span>
+                      <h3 className="text-sm font-semibold text-white -mt-0.5">Scorecard nicchia · stato 30 secondi</h3>
+                    </div>
+                    <button onClick={loadScorecard} disabled={loadingScorecard} type="button" className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-50">
+                      {loadingScorecard ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Ricarica
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
+                    Una card per ogni keyword monitorata: variazione #prodotti vs 7 giorni fa, prezzo medio con delta,
+                    % Prime/FBA nei top-20, rating medio, brand dominanti ed eventi rilevati nell'ultima settimana.
+                    Pensato per una lettura mattutina rapida prima di aprire i singoli dettagli.
+                  </p>
+
+                  {loadingScorecard ? (
+                    <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 text-sky-400 animate-spin" /></div>
+                  ) : scorecard.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-4">Nessuna keyword monitorata. Aggiungine una sopra.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      {scorecard.map(k => {
+                        const tc = k.trend_count;
+                        const pc = k.price_delta_pct;
+                        const trendCountColor = tc == null ? "text-slate-500" : tc > 0 ? "text-emerald-400" : tc < 0 ? "text-rose-400" : "text-slate-500";
+                        const priceColor = pc == null ? "text-slate-500" : pc > 0 ? "text-rose-400" : pc < 0 ? "text-emerald-400" : "text-slate-500";
+                        return (
+                          <div key={k.id} className="rounded-lg border border-slate-700/50 bg-slate-800/20 p-4">
+                            <div className="flex items-center gap-2 flex-wrap mb-3">
+                              <img src={`https://flagcdn.com/24x18/${flagCode(k.marketplace)}.png`} alt={k.marketplace} className="w-5 h-3 rounded-sm flex-shrink-0" />
+                              <span className="text-sm font-semibold text-white">{k.keyword}</span>
+                              {k.events_7gg.total > 0 && (
+                                <span title={`${k.events_7gg.price} prezzi · ${k.events_7gg.title} titoli · ${k.events_7gg.disappeared} spariti · ${k.events_7gg.reappeared} rientrati`} className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/40 text-amber-300 font-semibold ml-auto">
+                                  {k.events_7gg.total} eventi 7gg
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-3 mb-3">
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">Prodotti</p>
+                                <p className="text-base font-bold text-white tabular-nums">{k.count_oggi != null ? fmtInt(k.count_oggi) : "—"}</p>
+                                {tc != null && (
+                                  <p className={`text-[10px] tabular-nums ${trendCountColor}`}>
+                                    {tc > 0 ? "+" : ""}{fmtInt(tc)} <span className="text-slate-600">7gg</span>
+                                  </p>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">Prezzo medio</p>
+                                <p className="text-base font-bold text-white tabular-nums">{k.price_avg_oggi != null ? `€ ${fmtNum(k.price_avg_oggi)}` : "—"}</p>
+                                {pc != null && (
+                                  <p className={`text-[10px] tabular-nums ${priceColor}`}>
+                                    {pc > 0 ? "+" : ""}{pc}% <span className="text-slate-600">7gg</span>
+                                  </p>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">Rating medio</p>
+                                <p className="text-base font-bold text-yellow-300 tabular-nums inline-flex items-center gap-0.5">
+                                  {k.rating_avg != null ? <>{k.rating_avg}<Star className="w-3 h-3 inline" /></> : "—"}
+                                </p>
+                                {k.review_avg != null && <p className="text-[10px] text-slate-500 tabular-nums">{fmtInt(k.review_avg)} review</p>}
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">Mix top-20</p>
+                                <p className="text-[11px] text-sky-300 font-semibold tabular-nums">{k.prime_pct != null ? `${k.prime_pct}% Prime` : "—"}</p>
+                                <p className="text-[10px] text-amber-400 tabular-nums">{k.fba_pct != null ? `${k.fba_pct}% FBA` : ""}</p>
+                              </div>
+                            </div>
+
+                            {k.top_brands.length > 0 && (
+                              <div className="pt-3 border-t border-slate-700/30">
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Brand dominanti nei top-20</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {k.top_brands.map(b => (
+                                    <span key={b.brand} className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/30 text-indigo-300">
+                                      {b.brand} <span className="text-indigo-400/60">{b.share_pct}%</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Strumento: Sotto-prezzo ─────────────────────────────── */}
+            {activeTool === "sottoPrezzo" && (
+              <div className="relative bg-slate-900/60 border border-rose-500/30 rounded-lg overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-400/60" />
+                <div className="px-6 py-5 sm:px-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-md border bg-rose-500/10 border-rose-500/40 text-rose-400 flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="w-[18px] h-[18px]" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Azione</span>
+                      <h3 className="text-sm font-semibold text-white -mt-0.5">Competitor a prezzo inferiore al tuo</h3>
+                    </div>
+                    <button onClick={loadUnderprice} disabled={loadingUnderprice} type="button" className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-50">
+                      {loadingUnderprice ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Ricarica
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
+                    Ti elenca i competitor con prezzo più basso del tuo per ciascun mapping <em>tuo ASIN → keyword</em>.
+                    Serve a reagire velocemente: chi ti sta battendo sul prezzo, di quanto, su quale keyword.
+                    Mappa i tuoi ASIN nel pannello <strong>Confronto prezzi</strong> per popolare questa lista.
+                  </p>
+
+                  {loadingUnderprice ? (
+                    <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 text-rose-400 animate-spin" /></div>
+                  ) : underprice.length === 0 ? (
+                    <div className="text-sm text-emerald-400/80 py-4 inline-flex items-center gap-2">
+                      <span className="text-[14px]">✓</span>
+                      Nessun competitor sotto il tuo prezzo al momento. Ottimo posizionamento.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {underprice.map(item => {
+                        const m = item.mapping, my = item.my;
+                        return (
+                          <div key={m.id} className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-4">
+                            <div className="flex items-center gap-3 mb-3 flex-wrap">
+                              <img src={`https://flagcdn.com/24x18/${flagCode(m.marketplace)}.png`} alt={m.marketplace} className="w-5 h-3 rounded-sm flex-shrink-0" />
+                              <span className="font-mono text-emerald-400 text-[11px]">{my.asin}</span>
+                              <span className="text-[10px] text-slate-500">vs keyword</span>
+                              <span className="text-xs text-white font-medium">"{m.keyword_source}"</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-300 font-bold">{item.under_count} sotto</span>
+                              <span className="text-[10px] text-slate-400 ml-auto">tuo prezzo <strong className="text-white tabular-nums">€ {fmtNum(my.prezzo)}</strong>{my.buybox_won === 1 && <span className="text-emerald-400 ml-1">· BuyBox</span>}</span>
+                            </div>
+                            {my.titolo && <div className="text-[11px] text-slate-300 truncate mb-3">{my.titolo}</div>}
+
+                            <div className="bg-slate-900/40 rounded p-2">
+                              <div className="space-y-1">
+                                {item.competitors.map(c => (
+                                  <div key={c.asin} className="flex items-center gap-2 text-[11px] py-1 px-1.5 rounded">
+                                    <span className="text-amber-400 font-bold w-6 text-center">#{c.posizione}</span>
+                                    {c.image_url ? (
+                                      <img src={c.image_url} alt="" className="w-8 h-8 rounded object-cover border border-slate-700/50 flex-shrink-0" onError={e => e.currentTarget.style.display = "none"} />
+                                    ) : (
+                                      <div className="w-8 h-8 rounded border border-slate-700/50 bg-slate-800/40 flex-shrink-0" />
+                                    )}
+                                    <a href={`https://www.amazon.${m.marketplace === "UK" ? "co.uk" : m.marketplace.toLowerCase()}/dp/${c.asin}`} target="_blank" rel="noreferrer" className="font-mono text-emerald-400 w-24 hover:text-emerald-300 flex-shrink-0">{c.asin}</a>
+                                    <span className="text-white truncate flex-1">{c.titolo}</span>
+                                    {c.is_prime === 1 && <span title="Prime" className="inline-flex items-center gap-0.5 text-sky-300"><Zap className="w-2.5 h-2.5" /></span>}
+                                    {c.is_fba === 1 && <span title="FBA" className="text-[8px] text-amber-400">FBA</span>}
+                                    <span className="font-mono w-16 text-right text-rose-400 font-semibold">€ {fmtNum(c.prezzo)}</span>
+                                    <span className="font-mono w-20 text-right text-[10px] text-rose-300" title={`Il competitor costa €${c.gap_eur} in meno del tuo prezzo`}>
+                                      −€ {fmtNum(c.gap_eur)} ({c.gap_pct}%)
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Sezione Confronto Prezzi (toggle) */}
-            {showComparison && (
+            {activeTool === "confronto" && (
               <div className="relative bg-slate-900/60 border border-emerald-500/30 rounded-lg overflow-hidden">
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/60" />
                 <div className="px-6 py-5 sm:px-8">
@@ -539,6 +856,10 @@ const CompetitorWatch = () => {
                       <h3 className="text-sm font-semibold text-white -mt-0.5">I tuoi ASIN vs i competitor della keyword ({comparison.length})</h3>
                     </div>
                   </div>
+                  <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
+                    Mappa un <strong>tuo ASIN</strong> a una <strong>keyword monitorata</strong> per vedere il tuo posizionamento rispetto ai competitor:
+                    prezzo min/medio, gap percentuale, distribuzione Prime/FBA, rating e recensioni. Il mapping alimenta anche lo strumento <strong>Sotto-prezzo</strong>.
+                  </p>
 
                   {/* Form aggiungi mapping */}
                   <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-md bg-slate-800/30 border border-slate-700/40">
@@ -656,6 +977,213 @@ const CompetitorWatch = () => {
                                   </div>
                                 )}
                               </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Strumento: Product gap ────────────────────────────── */}
+            {activeTool === "gap" && (
+              <div className="relative bg-slate-900/60 border border-violet-500/30 rounded-lg overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-violet-400/60" />
+                <div className="px-6 py-5 sm:px-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-md border bg-violet-500/10 border-violet-500/40 text-violet-400 flex items-center justify-center flex-shrink-0">
+                      <Target className="w-[18px] h-[18px]" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500">Opportunità</span>
+                      <h3 className="text-sm font-semibold text-white -mt-0.5">Product gap · dove entrare con un'offerta migliore</h3>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wider">Soglia Prime/FBA</label>
+                      <input type="number" min={0} max={100} value={gapThreshold} onChange={e => setGapThreshold(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))} className="w-16 bg-slate-800/60 border border-slate-700 rounded px-2 py-1 text-[11px] text-white outline-none" />
+                      <span className="text-[10px] text-slate-500">%</span>
+                      <button onClick={loadGap} disabled={loadingGap} type="button" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-50">
+                        {loadingGap ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                        Ricarica
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
+                    Identifica le keyword con <strong>bassa adozione di Prime/FBA</strong>, handling time alto o FBM con prezzi gonfiati — segnali di una nicchia meno competitiva dove entrare con offerta FBA Prime veloce può spostare rapidamente la bilancia.
+                    Il punteggio opportunità (0-100) combina <code className="text-violet-300">% FBM</code> e <code className="text-violet-300">handling time dei FBM</code>. Per ogni keyword la lista dei <strong>5 competitor più "battibili"</strong> con i motivi.
+                  </p>
+
+                  {loadingGap ? (
+                    <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 text-violet-400 animate-spin" /></div>
+                  ) : gap.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-4">Nessuna keyword monitorata.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {gap.map(k => {
+                        const scoreColor = k.opportunity_score >= 50 ? "text-emerald-400" : k.opportunity_score >= 25 ? "text-amber-400" : "text-slate-500";
+                        const scoreBg = k.opportunity_score >= 50 ? "bg-emerald-500/10 border-emerald-500/40" : k.opportunity_score >= 25 ? "bg-amber-500/10 border-amber-500/40" : "bg-slate-800/40 border-slate-700";
+                        return (
+                          <div key={k.id} className={`rounded-lg border p-4 ${k.is_gap ? "border-violet-500/30 bg-violet-500/5" : "border-slate-700/50 bg-slate-800/20"}`}>
+                            <div className="flex items-center gap-3 mb-3 flex-wrap">
+                              <img src={`https://flagcdn.com/24x18/${flagCode(k.marketplace)}.png`} alt={k.marketplace} className="w-5 h-3 rounded-sm flex-shrink-0" />
+                              <span className="text-sm font-semibold text-white">{k.keyword}</span>
+                              {k.is_gap && <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-500/20 border border-violet-500/40 text-violet-300 font-bold">GAP</span>}
+                              <div className={`ml-auto inline-flex items-center gap-2 px-3 py-1 rounded-md border ${scoreBg}`}>
+                                <span className="text-[9px] uppercase tracking-wider text-slate-500">Score</span>
+                                <span className={`text-base font-bold tabular-nums ${scoreColor}`}>{k.opportunity_score}</span>
+                                <span className="text-[9px] text-slate-600">/100</span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">% Prime</p>
+                                <p className={`text-sm font-bold tabular-nums ${k.prime_pct < k.threshold ? "text-violet-300" : "text-white"}`}>{k.prime_pct}%</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">% FBA</p>
+                                <p className={`text-sm font-bold tabular-nums ${k.fba_pct < k.threshold ? "text-violet-300" : "text-white"}`}>{k.fba_pct}%</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">FBM nei top-20</p>
+                                <p className="text-sm font-bold text-amber-300 tabular-nums">{k.fbm_count}</p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500">Handling FBM</p>
+                                <p className="text-sm font-bold text-amber-300 tabular-nums">{k.avg_handling_fbm != null ? `${k.avg_handling_fbm}h` : "—"}</p>
+                              </div>
+                            </div>
+
+                            {(k.avg_price_prime != null || k.avg_price_fbm != null) && (
+                              <div className="flex gap-4 text-[11px] text-slate-400 mb-3">
+                                {k.avg_price_prime != null && <span>Prezzo medio Prime: <strong className="text-sky-300">€ {fmtNum(k.avg_price_prime)}</strong></span>}
+                                {k.avg_price_fbm != null && <span>Prezzo medio FBM: <strong className="text-amber-300">€ {fmtNum(k.avg_price_fbm)}</strong></span>}
+                              </div>
+                            )}
+
+                            {k.weak_competitors.length > 0 ? (
+                              <div className="bg-slate-900/40 rounded p-2">
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-2">Top {k.weak_competitors.length} competitor battibili</p>
+                                <div className="space-y-1">
+                                  {k.weak_competitors.map(c => (
+                                    <div key={c.asin} className="flex items-center gap-2 text-[11px] py-1 px-1.5 rounded">
+                                      <span className="text-amber-400 font-bold w-6 text-center">#{c.posizione}</span>
+                                      {c.image_url ? (
+                                        <img src={c.image_url} alt="" className="w-8 h-8 rounded object-cover border border-slate-700/50 flex-shrink-0" onError={e => e.currentTarget.style.display = "none"} />
+                                      ) : (
+                                        <div className="w-8 h-8 rounded border border-slate-700/50 bg-slate-800/40 flex-shrink-0" />
+                                      )}
+                                      <a href={`https://www.amazon.${k.marketplace === "UK" ? "co.uk" : k.marketplace.toLowerCase()}/dp/${c.asin}`} target="_blank" rel="noreferrer" className="font-mono text-emerald-400 w-24 hover:text-emerald-300 flex-shrink-0">{c.asin}</a>
+                                      <span className="text-white truncate flex-1">{c.titolo}</span>
+                                      {c.prezzo != null && <span className="font-mono text-slate-300 w-16 text-right">€ {fmtNum(c.prezzo)}</span>}
+                                      <div className="flex gap-1 flex-shrink-0">
+                                        {c.reasons.map(r => (
+                                          <span key={r} className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/10 border border-violet-500/30 text-violet-300">{r}</span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-slate-500 italic">Nicchia matura: tutti i top-20 sono Prime+FBA con buon rating.</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Strumento: Keyword suggest ────────────────────────── */}
+            {activeTool === "suggest" && (
+              <div className="relative bg-slate-900/60 border border-amber-500/30 rounded-lg overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400/60" />
+                <div className="px-6 py-5 sm:px-8">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-md border bg-amber-500/10 border-amber-500/40 text-amber-400 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-[18px] h-[18px]" />
+                    </div>
+                    <div>
+                      <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500">SEO listing</span>
+                      <h3 className="text-sm font-semibold text-white -mt-0.5">Keyword suggest · parole da aggiungere nei tuoi titoli</h3>
+                    </div>
+                    <button onClick={loadSuggest} disabled={loadingSuggest} type="button" className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] bg-slate-800/60 hover:bg-slate-800 border border-slate-700 text-slate-300 disabled:opacity-50">
+                      {loadingSuggest ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                      Ricarica
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">
+                    Per ogni mapping <em>tuo ASIN → keyword</em> confrontiamo le parole frequenti nei titoli <strong>top-20</strong> della keyword con il titolo del tuo listing.
+                    Le parole che ricorrono <strong>nei loro titoli ma non nel tuo</strong> sono candidate da valutare per migliorare copertura semantica e ranking.
+                    La tendina "già presenti" mostra invece quelle che hai già — per conferma. Mappa i tuoi ASIN dal pannello <strong>Confronto prezzi</strong>.
+                  </p>
+
+                  {loadingSuggest ? (
+                    <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 text-amber-400 animate-spin" /></div>
+                  ) : suggest.length === 0 ? (
+                    <p className="text-sm text-slate-500 py-4">Nessun mapping configurato. Aggiungine uno dal pannello <strong>Confronto prezzi</strong>.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {suggest.map(item => {
+                        const m = item.mapping;
+                        const my = item.my;
+                        return (
+                          <div key={m.id} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+                            <div className="flex items-center gap-3 mb-3 flex-wrap">
+                              <img src={`https://flagcdn.com/24x18/${flagCode(m.marketplace)}.png`} alt={m.marketplace} className="w-5 h-3 rounded-sm flex-shrink-0" />
+                              <span className="font-mono text-emerald-400 text-[11px]">{my.asin}</span>
+                              <span className="text-[10px] text-slate-500">vs keyword</span>
+                              <span className="text-xs text-white font-medium">"{m.keyword_source}"</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-amber-300 font-bold ml-auto">
+                                {item.suggestions.length} suggeriti
+                              </span>
+                              <span className="text-[10px] text-slate-500" title="Titoli competitor analizzati">
+                                {item.source_titoli} titoli analizzati
+                              </span>
+                            </div>
+                            {my.titolo ? (
+                              <div className="text-[11px] text-slate-300 mb-3"><span className="text-slate-500 uppercase tracking-wider text-[9px] mr-1.5">Tuo titolo</span>{my.titolo}</div>
+                            ) : (
+                              <div className="text-[11px] text-rose-400/80 mb-3">⚠ Titolo del tuo ASIN non trovato in <code>listings_snapshot</code>. Sincronizza prima la sezione Europa / Listing.</div>
+                            )}
+
+                            {item.suggestions.length === 0 ? (
+                              <p className="text-[11px] text-emerald-400/80 italic">
+                                ✓ Il tuo titolo copre già tutte le parole principali dei top-20. Buon lavoro.
+                              </p>
+                            ) : (
+                              <div className="bg-slate-900/40 rounded p-3">
+                                <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-2">Parole da considerare (ordinate per frequenza nei top-20)</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {item.suggestions.map(s => (
+                                    <span key={s.word} className="text-[11px] px-2 py-1 rounded bg-amber-500/10 border border-amber-500/40 text-amber-200 inline-flex items-center gap-1.5">
+                                      <span className="font-medium">{s.word}</span>
+                                      <span className="text-[9px] text-amber-400/70 tabular-nums">{s.count}×</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {item.present.length > 0 && (
+                              <details className="mt-2">
+                                <summary className="text-[10px] text-slate-500 cursor-pointer hover:text-slate-400 select-none">
+                                  Già presenti nel tuo titolo ({item.present.length})
+                                </summary>
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {item.present.map(p => (
+                                    <span key={p.word} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/60 border border-slate-700/50 text-slate-400 inline-flex items-center gap-1">
+                                      {p.word}
+                                      <span className="text-[9px] text-slate-600 tabular-nums">{p.count}×</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </details>
                             )}
                           </div>
                         );

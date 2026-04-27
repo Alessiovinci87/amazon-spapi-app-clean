@@ -23,6 +23,11 @@ function esc(val) {
     .replace(/'/g, "&#39;");
 }
 
+// Come esc(), ma preserva le interruzioni di riga (convertite in <br>)
+function escMultiline(val) {
+  return esc(val).replace(/\r?\n/g, "<br>");
+}
+
 // Sostituisce tutti i [[KEY]] nel template (regex globale)
 function replacePlaceholder(template, key, value) {
   return template.replace(new RegExp(`\\[\\[${key}\\]\\]`, "g"), value);
@@ -92,12 +97,12 @@ router.put("/storico/:id", (req, res) => {
       db.prepare(`DELETE FROM ddt_generici_righe WHERE ddt_id = ?`).run(id);
       const ins = db.prepare(
         `INSERT INTO ddt_generici_righe
-         (ddt_id, prodottoNome, asin, sku, quantita, cartone, pacco, lotto)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+         (ddt_id, prodottoNome, asin, sku, quantita, cartone, pacco, lotto, tracking)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
       for (const r of righe) {
         ins.run(id, r.prodottoNome || "", r.asin || "", r.sku || "",
-          Number(r.quantita) || 0, String(r.cartone || ""), String(r.pacco || ""), r.lotto || null);
+          Number(r.quantita) || 0, String(r.cartone || ""), String(r.pacco || ""), r.lotto || null, r.tracking || null);
       }
     });
     tx();
@@ -134,7 +139,7 @@ router.get("/storico/:id/pdf", async (req, res) => {
             <tr>
               <td>${esc(r.quantita)}</td>
               <td>${esc(r.prodottoNome)}</td>
-              <td>ASIN: ${esc(r.asin)}<br/>SKU: ${esc(r.sku)}</td>
+              <td>ASIN: ${esc(r.asin)}<br/>SKU: ${esc(r.sku)}${r.tracking ? `<br/><b>Tracking UPS:</b> ${esc(r.tracking)}` : ""}</td>
               <td>${esc(r.cartone)}</td>
               <td>${esc(r.pacco)}</td>
             </tr>`;
@@ -159,9 +164,9 @@ router.get("/storico/:id/pdf", async (req, res) => {
     template = replacePlaceholder(template, "NUMERO_DDT", esc(ddt.numeroDDT));
     template = replacePlaceholder(template, "NUMERO_AMAZON", esc(ddt.numeroAmazon));
     template = replacePlaceholder(template, "DATA", esc(ddt.data));
-    template = replacePlaceholder(template, "IMPORTATORE_REGISTRATO", `${brandData.intestazione.split("–")[0].trim()} – ${esc(ddt.centro)}`);
+    template = replacePlaceholder(template, "IMPORTATORE_REGISTRATO", `${brandData.intestazione.split("–")[0].trim()} – ${escMultiline(ddt.centro)}`);
     template = replacePlaceholder(template, "INDIRIZZO_DESTINATARIO", esc(ddt.paese));
-    template = replacePlaceholder(template, "CENTRO_LOGISTICO", esc(ddt.centro));
+    template = replacePlaceholder(template, "CENTRO_LOGISTICO", escMultiline(ddt.centro));
     template = replacePlaceholder(template, "RIGHE", righeHtml);
     template = replacePlaceholder(template, "TOT_UNITA", totUnita || ddt.totUnita);
     template = replacePlaceholder(template, "TOT_COLLI", totColli || ddt.totColli);

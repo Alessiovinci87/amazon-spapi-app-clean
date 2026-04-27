@@ -72,6 +72,11 @@ import CopertureFBA from "./pages/CopertureFBA";
 import CentroSync from "./pages/CentroSync";
 import CompetitorWatch from "./pages/CompetitorWatch";
 import CompetitorStorico from "./pages/CompetitorStorico";
+import PrezziAmazon from "./pages/PrezziAmazon";
+import PrevisioneDomanda from "./pages/PrevisioneDomanda";
+import PlMensile from "./pages/PlMensile";
+import CommissioniAmazon from "./pages/CommissioniAmazon";
+import Tracking17 from "./pages/Tracking17";
 
 function App() {
   return (
@@ -102,6 +107,7 @@ function App() {
 
         <Route path="/uffici/spedizioni" element={<GestioneSpedizioni />} />
         <Route path="/uffici/spedizioni/storico" element={<StoricoSpedizioni />} />
+        <Route path="/uffici/tracking17" element={<Tracking17 />} />
 
         {/* DDT Uffici */}
         <Route path="/uffici/ddt" element={<DDTIndex />} />
@@ -122,6 +128,10 @@ function App() {
         <Route path="/uffici/listing/immagini/:asin/:paese" element={<PaginaImmagini />} />
         <Route path="/uffici/listing/aplus/:asin/:paese" element={<PaginaAPlus />} />
         <Route path="/uffici/listing/testo/:asin/:paese" element={<PaginaListing />} />
+        <Route path="/uffici/prezzi" element={<PrezziAmazon />} />
+        <Route path="/uffici/previsione" element={<PrevisioneDomanda />} />
+        <Route path="/uffici/pl-mensile" element={<PlMensile />} />
+        <Route path="/uffici/commissioni" element={<CommissioniAmazon />} />
 
         <Route path="/uffici/one-step" element={<GestioneOneStep />} />
         <Route path="/uffici/top-coat" element={<GestioneTopCoat />} />

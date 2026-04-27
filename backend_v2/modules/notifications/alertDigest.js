@@ -45,8 +45,11 @@ function buildDigestHtml({ grouped, total }) {
     LOTTO_IN_SCADENZA: "Lotti in scadenza",
     LOTTO_SCADUTO: "Lotti scaduti",
     PRICE_DROP: "Calo prezzo",
+    PRICE_CHANGED: "Prezzo cambiato",
     BUYBOX_LOST: "BuyBox persa",
     LISTING_SUPPRESSED: "Listing soppressi",
+    LISTING_CHANGED: "Listing modificato",
+    NEW_NEGATIVE_FEEDBACK: "Nuovo feedback negativo (1–3★)",
   };
 
   const colorMap = {
@@ -55,8 +58,11 @@ function buildDigestHtml({ grouped, total }) {
     LOTTO_IN_SCADENZA: "#f97316",
     LOTTO_SCADUTO: "#ef4444",
     PRICE_DROP: "#ef4444",
+    PRICE_CHANGED: "#8b5cf6",
     BUYBOX_LOST: "#ef4444",
     LISTING_SUPPRESSED: "#ef4444",
+    LISTING_CHANGED: "#38bdf8",
+    NEW_NEGATIVE_FEEDBACK: "#ef4444",
   };
 
   let sections = "";

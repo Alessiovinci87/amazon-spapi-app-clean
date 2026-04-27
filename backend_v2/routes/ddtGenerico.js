@@ -17,6 +17,7 @@ const rigaSchema = z.object({
   cartone: z.coerce.string().max(40).default(""),
   pacco: z.coerce.string().max(40).default(""),
   lotto: z.string().max(80).nullish(),
+  tracking: z.string().max(200).nullish(),
 });
 const ddtPdfSchema = z.object({
   brand: z.preprocess((v) => (v === "" ? undefined : v), z.enum(["lookink", "cside", "pics"]).optional()),
@@ -24,7 +25,7 @@ const ddtPdfSchema = z.object({
   numeroAmazon: z.string().max(80).nullish(),
   data: z.string().max(40).nullish(),
   paese: z.string().max(120).nullish(),
-  centro: z.string().max(120).nullish(),
+  centro: z.string().nullish(),
   trasportatore: z.string().max(120).nullish(),
   tracking: z.string().max(200).nullish(),
   righe: z.array(rigaSchema).default([]),
@@ -60,6 +61,11 @@ function esc(val) {
     .replace(/'/g, "&#39;");
 }
 
+// Come esc(), ma preserva le interruzioni di riga (convertite in <br>)
+function escMultiline(val) {
+  return esc(val).replace(/\r?\n/g, "<br>");
+}
+
 /**
  * Sostituisce tutti i placeholder [[KEY]] nel template con il valore fornito.
  * @param {string} template
@@ -90,7 +96,7 @@ function compilaRighe(righe, mostraAsinInColonna = true) {
           <tr>
             <td>${esc(r.quantita)}</td>
             <td>${esc(r.prodottoNome)}</td>
-            <td>ASIN: ${esc(r.asin) || "-"}<br>SKU: ${esc(r.sku) || "-"}</td>
+            <td>ASIN: ${esc(r.asin) || "-"}<br>SKU: ${esc(r.sku) || "-"}${r.tracking ? `<br><b>Tracking UPS:</b> ${esc(r.tracking)}` : ""}</td>
             <td>${esc(r.cartone)}</td>
             <td>${esc(r.pacco)}</td>
           </tr>`;
@@ -99,7 +105,7 @@ function compilaRighe(righe, mostraAsinInColonna = true) {
           <tr>
             <td>${esc(r.quantita)}</td>
             <td>${esc(r.prodottoNome)}</td>
-            <td>ASIN: ${esc(r.asin) || "-"}<br>SKU: ${esc(r.sku) || "-"}</td>
+            <td>ASIN: ${esc(r.asin) || "-"}<br>SKU: ${esc(r.sku) || "-"}${r.tracking ? `<br><b>Tracking UPS:</b> ${esc(r.tracking)}` : ""}</td>
             <td>${esc(r.cartone)}</td>
             <td>${esc(r.pacco)}</td>
           </tr>`;
@@ -128,12 +134,12 @@ function salvaDdtNelDb(db, brand, fields, righe, totUnita, totColli) {
 
   const insertRiga = db.prepare(
     `INSERT INTO ddt_generici_righe
-     (ddt_id, prodottoNome, asin, sku, quantita, cartone, pacco, lotto)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+     (ddt_id, prodottoNome, asin, sku, quantita, cartone, pacco, lotto, tracking)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   for (const r of righe) {
-    insertRiga.run(ddtId, r.prodottoNome || "", r.asin || "", r.sku || "", r.quantita || 0, r.cartone || "", r.pacco || "", r.lotto || null);
+    insertRiga.run(ddtId, r.prodottoNome || "", r.asin || "", r.sku || "", r.quantita || 0, r.cartone || "", r.pacco || "", r.lotto || null, r.tracking || null);
   }
 
   return ddtId;
@@ -187,9 +193,9 @@ router.post("/generico/pdf", validate({ body: ddtPdfSchema }), async (req, res) 
     template = replacePlaceholder(template, "NUMERO_DDT", esc(numeroDDT));
     template = replacePlaceholder(template, "NUMERO_AMAZON", esc(numeroAmazon));
     template = replacePlaceholder(template, "DATA", esc(data));
-    template = replacePlaceholder(template, "IMPORTATORE_REGISTRATO", `${brandData.intestazione.split("–")[0].trim()} – ${esc(centro)}`);
+    template = replacePlaceholder(template, "IMPORTATORE_REGISTRATO", `${brandData.intestazione.split("–")[0].trim()} – ${escMultiline(centro)}`);
     template = replacePlaceholder(template, "INDIRIZZO_DESTINATARIO", esc(paese));
-    template = replacePlaceholder(template, "CENTRO_LOGISTICO", esc(centro));
+    template = replacePlaceholder(template, "CENTRO_LOGISTICO", escMultiline(centro));
     template = replacePlaceholder(template, "RIGHE", righeHtml);
     template = replacePlaceholder(template, "TOT_UNITA", totUnita);
     template = replacePlaceholder(template, "TOT_COLLI", totColli);
@@ -242,7 +248,7 @@ router.post("/pics-nails/pdf", validate({ body: picsNailsPdfSchema }), async (re
     template = replacePlaceholder(template, "NUMERO_AMAZON", esc(numeroAmazon) || "-");
     template = replacePlaceholder(template, "DATA", dataFormattata);
     template = replacePlaceholder(template, "PAESE", esc(paese));
-    template = replacePlaceholder(template, "CENTRO_LOGISTICO", esc(centro));
+    template = replacePlaceholder(template, "CENTRO_LOGISTICO", escMultiline(centro));
     template = replacePlaceholder(template, "RIGHE", righeHtml);
     template = replacePlaceholder(template, "TOT_UNITA", totUnita);
     template = replacePlaceholder(template, "TOT_COLLI", totColli);
@@ -252,7 +258,7 @@ router.post("/pics-nails/pdf", validate({ body: picsNailsPdfSchema }), async (re
     const pdfBuffer = await pdf.generatePdf({ content: template }, PDF_OPTIONS);
 
     const db = getDb();
-    const ddtId = salvaDdtNelDb(db, "pics-nails", fields, righe, totUnita, totColli);
+    const ddtId = salvaDdtNelDb(db, "pics", fields, righe, totUnita, totColli);
     logger.info({ ddtId }, "DDT Pics Nails salvato");
 
     res.setHeader("Content-Type", "application/pdf");

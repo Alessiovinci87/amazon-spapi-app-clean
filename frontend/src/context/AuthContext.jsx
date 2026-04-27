@@ -73,6 +73,18 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("auth");
   }, []);
 
+  // Ascolta evento "auth:expired" emesso da fetchJSON quando arriva un 401:
+  // resetta lo state React in coerenza con il cleanup di localStorage e
+  // l'eventuale redirect forzato gestito da api.js
+  useEffect(() => {
+    const onExpired = () => {
+      setToken(null);
+      setUser(null);
+    };
+    window.addEventListener("auth:expired", onExpired);
+    return () => window.removeEventListener("auth:expired", onExpired);
+  }, []);
+
   const isAuthenticated = !!token && !!user;
 
   const value = {

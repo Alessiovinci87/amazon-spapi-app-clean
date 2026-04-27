@@ -26,15 +26,20 @@ const ordineProdottoSchema = z.object({
   id_sfuso: z.coerce.number().int().positive().nullish(),
   asin: z.string().max(50).nullish(),
   quantita_litri: z.coerce.number().nonnegative().optional(),
+  prezzo_unitario: z.coerce.number().nonnegative().optional(),
+  costo_totale: z.coerce.number().nonnegative().optional(),
 }).passthrough();
 
 const creaOrdineSchema = z.object({
   prodotti: z.array(ordineProdottoSchema).min(1, "Nessun prodotto fornito per l'ordine"),
   stato: z.string().max(50).default("In attesa"),
   dataOrdine: z.string().max(50).nullish(),
+  data_ordine: z.string().max(50).nullish(),
   note: z.string().max(1000).nullish(),
   consegna_prevista: z.string().max(50).nullish(),
   consegnaPrevista: z.string().max(50).nullish(),
+  consegna_effettiva: z.string().max(50).nullish(),
+  pagamento: z.string().max(50).nullish(),
 });
 
 const riceviOrdineSchema = z.object({
@@ -60,16 +65,20 @@ router.get("/ordini-tutti", (req, res) => {
   try {
     const db = getDb();
     const query = `
-      SELECT 
+      SELECT
         o.id,
         o.id_fornitore,
         f.nome AS fornitore,
         o.id_sfuso,
         s.nome_prodotto,
+        s.nome_prodotto AS prodotti,
         s.formato,
         o.asin,
         o.quantita_litri AS quantita,
         COALESCE(fp.prezzo, 0) AS prezzo_litro,
+        o.prezzo_unitario,
+        o.costo_totale AS costoTotale,
+        o.pagamento,
         o.stato,
         o.data_ordine AS dataOrdine,
         o.data_consegna_prevista AS dataPrevista,
@@ -355,35 +364,46 @@ router.post("/:idFornitore/ordini", validate({ params: idFornitoreParam, body: c
       prodotti = [],
       stato = "In attesa",
       dataOrdine,
+      data_ordine,
       note,
       consegna_prevista,
-      consegnaPrevista
+      consegnaPrevista,
+      consegna_effettiva,
+      pagamento,
     } = req.body;
 
     const dataConsegnaPrevista = consegna_prevista || consegnaPrevista || null;
+    const dataConsegnaEffettiva = consegna_effettiva || null;
     if (!Array.isArray(prodotti) || prodotti.length === 0) {
       return res.status(400).json({ error: "Nessun prodotto fornito per l'ordine" });
     }
 
     const insertStmt = db.prepare(`
-  INSERT INTO ordini_fornitori 
-  (id_fornitore, id_sfuso, asin, quantita_litri, stato, data_ordine, note, data_consegna_prevista)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  INSERT INTO ordini_fornitori
+  (id_fornitore, id_sfuso, asin, quantita_litri, stato, data_ordine, note,
+   data_consegna_prevista, data_consegna_effettiva, pagamento, prezzo_unitario, costo_totale)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
-    const dataOrdineEffettiva = dataOrdine || new Date().toISOString();
+    const dataOrdineEffettiva = dataOrdine || data_ordine || new Date().toISOString();
     const transaction = db.transaction(() => {
       for (const p of prodotti) {
         const quantita = Number(p.quantita || p.quantita_litri || 0);
+        const prezzoUnit = Number(p.prezzo_unitario || 0);
+        const costoTot = Number(p.costo_totale != null ? p.costo_totale : (quantita * prezzoUnit));
         insertStmt.run(
           idFornitore,
-          p.id_sfuso || null,         // ✅ salva l'id_sfuso
-          p.asin || null,             // ✅ asin per sicurezza
-          Number(p.quantita || p.quantita_litri || 0),
+          p.id_sfuso || null,
+          p.asin || null,
+          quantita,
           stato || "In attesa",
           dataOrdineEffettiva,
           note || null,
-          dataConsegnaPrevista
+          dataConsegnaPrevista,
+          dataConsegnaEffettiva,
+          pagamento || null,
+          prezzoUnit,
+          costoTot
         );
 
         // 🔄 Aggiorna sfuso

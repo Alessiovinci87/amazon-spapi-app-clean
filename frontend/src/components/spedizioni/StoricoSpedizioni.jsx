@@ -104,10 +104,18 @@ const StoricoSpedizioni = () => {
 
   const loadStorico = (paese) => {
     fetch(`/api/v2/spedizioni/storico${paese ? `?paese=${paese}` : ""}`)
-      .then((res) => res.json())
-      .then((data) =>
-        setStorico(data.map((s) => ({ ...s, righe: s.righe || JSON.parse(s.righe_json || "[]"), open: false })))
-      );
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        const arr = Array.isArray(data) ? data : [];
+        setStorico(arr.map((s) => ({ ...s, righe: s.righe || JSON.parse(s.righe_json || "[]"), open: false })));
+      })
+      .catch((err) => {
+        console.error("Errore caricamento storico spedizioni:", err);
+        setStorico([]);
+      });
   };
 
   useEffect(() => { loadStorico(""); }, []);

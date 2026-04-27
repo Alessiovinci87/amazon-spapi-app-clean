@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -41,11 +41,11 @@ const QUICK_LINKS = [
   { to: "/settings",   icon: Settings, label: "Impostazioni" },
 ];
 
-const STATS = [
-  { icon: Package,  label: "Prodotti",       accent: "indigo", code: "A" },
-  { icon: FileText, label: "Listing attivi", accent: "blue",   code: "B" },
-  { icon: Store,    label: "Marketplace",    accent: "cyan",   code: "C" },
-  { icon: Star,     label: "Recensioni",     accent: "teal",   code: "D" },
+const STATS_META = [
+  { key: "asinTotali",        icon: Package,  label: "Prodotti",       accent: "indigo", code: "A" },
+  { key: "listingAttivi",     icon: FileText, label: "Listing attivi", accent: "blue",   code: "B" },
+  { key: "marketplaceAttivi", icon: Store,    label: "Marketplace",    accent: "cyan",   code: "C" },
+  { key: "feedbackRecenti",   icon: Star,     label: "Recensioni 30g", accent: "teal",   code: "D" },
 ];
 
 const ACCENT_BG = {
@@ -71,6 +71,18 @@ const STAT_ACCENT = {
 
 function EuropeMenu() {
   const navigate = useNavigate();
+  const [stats, setStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/v2/europa/stats")
+      .then(r => r.json())
+      .then(j => { if (!cancelled) setStats(j || {}); })
+      .catch(() => { if (!cancelled) setStats({}); })
+      .finally(() => { if (!cancelled) setStatsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -163,8 +175,12 @@ function EuropeMenu() {
             className="bg-slate-900/30 border border-dashed border-slate-800 rounded-lg overflow-hidden"
           >
             <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-800/60">
-              {STATS.map((s) => {
+              {STATS_META.map((s) => {
                 const Icon = s.icon;
+                const value = stats?.[s.key];
+                const display = statsLoading
+                  ? "…"
+                  : (typeof value === "number" ? value.toLocaleString("it-IT") : "—");
                 return (
                   <div
                     key={s.label}
@@ -176,7 +192,7 @@ function EuropeMenu() {
                         {s.label}
                       </div>
                       <div className={`text-2xl font-semibold tracking-tight tabular-nums ${STAT_ACCENT[s.accent]}`}>
-                        —
+                        {display}
                       </div>
                     </div>
                   </div>

@@ -55,7 +55,6 @@ const prebolleRoutes = require("./ddt/prebolle");
 // --- Fornitori e Ordini
 const fornitoriRoutes = require("./routes/fornitori");
 const fornitoriProdottiRoutes = require("./routes/fornitoriProdotti");
-const ordiniRoutes = require("./routes/ordini");
 
 // --- Spedizioni
 const spedizioniRoutes = require("./routes/spedizioni");
@@ -266,7 +265,6 @@ async function bootstrap() {
   app.use("/api/v2/fornitori-prodotti", fornitoriProdottiRoutes);
   app.use("/api/v2/prodotti-sfuso", prodottiSfusoRoutes);
   app.use("/api/v2/centri-logistici", centriLogisticiRoutes);
-  app.use("/api/v2/ordini", ordiniRoutes);
   app.use("/api/v2/brand", brandRoutes);
 
   // =========================================================
@@ -299,6 +297,11 @@ async function bootstrap() {
   app.use("/api/v2/competitor", require("./modules/competitor/competitorRoutes"));
 
   // =========================================================
+  // 📈 FORECAST / PREVISIONE DOMANDA
+  // =========================================================
+  app.use("/api/v2/forecast", require("./modules/forecast/forecastRoutes"));
+
+  // =========================================================
   // ⭐ SELLER FEEDBACK (recensioni venditore via SP-API)
   // =========================================================
   app.use("/api/v2/feedback", require("./modules/feedback/feedbackRoutes"));
@@ -307,6 +310,11 @@ async function bootstrap() {
   // 📦 RESI FBA (Amazon returns via SP-API Reports)
   // =========================================================
   app.use("/api/v2/returns", require("./modules/returns/returnsRoutes"));
+
+  // =========================================================
+  // 🚚 TRACKING 17TRACK (stato spedizioni multicorriere)
+  // =========================================================
+  app.use("/api/v2/tracking17", require("./modules/tracking17/tracking17Routes"));
 
   // =========================================================
   // 🧭 STATIC FILES + HEALTHCHECK
@@ -396,6 +404,10 @@ async function bootstrap() {
   // Cron digest alert email (ogni mattina alle 07:00)
   const { startDigestCron } = require("./modules/notifications/alertDigest");
   startDigestCron();
+
+  // Cron seller feedback (ogni 4h): sync report + alert NEW_NEGATIVE_FEEDBACK
+  const { startFeedbackCron } = require("./modules/feedback/feedbackCron");
+  startFeedbackCron();
 }
 
 bootstrap().catch((err) => {

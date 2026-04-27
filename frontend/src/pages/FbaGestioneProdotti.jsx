@@ -240,20 +240,27 @@ const FbaGestioneProdotti = () => {
                 />
               </div>
 
+              {/* Input modificabili — questi determinano i KPI in alto */}
+              <div className="text-[10px] uppercase tracking-[0.14em] text-emerald-400/70 mb-2">{t("fbaGestioneProdotti.lbl_input_modificabili", "Valori modificabili")}</div>
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                <InputField label={t("fbaGestioneProdotti.lbl_prezzo_ivato")} value={costoProdotto.prezzoVenditaIvato} onChange={(e) => handleInputChange("prezzoVenditaIvato", parseFloat(e.target.value) || 0)} />
+                <InputField label={t("fbaGestioneProdotti.lbl_costo_pubbl")} value={costoProdotto.costoPubblicitarioEffettivo} onChange={(e) => handleInputChange("costoPubblicitarioEffettivo", parseFloat(e.target.value) || 0)} />
+                <InputField label={t("fbaGestioneProdotti.lbl_altre_spese")} value={costoProdotto.altreSpese} onChange={(e) => handleInputChange("altreSpese", parseFloat(e.target.value) || 0)} icon={DollarSign} />
+                <InputField label={t("fbaGestioneProdotti.lbl_iva_prodotto")} value={costoProdotto.ivaProdotto} onChange={(e) => handleInputChange("ivaProdotto", parseFloat(e.target.value) || 0)} />
+              </div>
+
+              {/* Valori di supporto (calcolati) */}
+              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500 mb-2">{t("fbaGestioneProdotti.lbl_valori_calcolati", "Valori calcolati (dettaglio)")}</div>
               <div className="grid grid-cols-2 gap-3">
                 <InputField label={t("fbaGestioneProdotti.lbl_prodotto_a")} value={costoBase} readOnly icon={DollarSign} />
-                <InputField label={t("fbaGestioneProdotti.lbl_altre_spese")} value={costoProdotto.altreSpese} onChange={(e) => handleInputChange("altreSpese", parseFloat(e.target.value) || 0)} icon={DollarSign} />
                 <InputField label={t("fbaGestioneProdotti.lbl_commissioni")} value={commissioni} readOnly />
-                <InputField label={t("fbaGestioneProdotti.lbl_prezzo_ivato")} value={costoProdotto.prezzoVenditaIvato} onChange={(e) => handleInputChange("prezzoVenditaIvato", parseFloat(e.target.value) || 0)} />
                 <InputField label={t("fbaGestioneProdotti.lbl_spese_spedizione")} value={speseSpedizione} readOnly />
-                <InputField label={t("fbaGestioneProdotti.lbl_margine_no_iva")} value={margineNoIva} readOnly highlight="orange" />
-                <InputField label={t("fbaGestioneProdotti.lbl_iva_prodotto")} value={costoProdotto.ivaProdotto} onChange={(e) => handleInputChange("ivaProdotto", parseFloat(e.target.value) || 0)} />
-                <InputField label={t("fbaGestioneProdotti.lbl_costo_pubbl")} value={costoProdotto.costoPubblicitarioEffettivo} onChange={(e) => handleInputChange("costoPubblicitarioEffettivo", parseFloat(e.target.value) || 0)} />
                 <InputField label={t("fbaGestioneProdotti.lbl_costo_totale")} value={costoTotale} readOnly />
-                <InputField label={t("fbaGestioneProdotti.lbl_utile_perc")} value={percentualeUtile} readOnly icon={TrendingUp} />
                 <InputField label={t("fbaGestioneProdotti.lbl_prezzo_minimo")} value={prezzoMinimoPubblico} readOnly />
-                <InputField label={t("fbaGestioneProdotti.lbl_utile_effettivo")} value={utileEffettivo} readOnly highlight="green" />
               </div>
+              <p className="mt-3 text-[10px] text-slate-500 leading-relaxed">
+                {t("fbaGestioneProdotti.nota_kpi_in_alto", "Prezzo IVATO · Margine no IVA · Costo pubbl · % utile · Utile effettivo sono evidenziati nelle card in alto.")}
+              </p>
             </div>
           </div>
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Bell, CheckCheck, Filter,
   PackageX, AlertTriangle, Trophy, FileEdit, FlaskConical, CalendarX, CalendarClock,
+  TrendingUp, MessageSquareWarning,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,6 +15,8 @@ const TIPO_META = {
   LOTTO_IN_SCADENZA:    { label: "Lotto in scadenza",      accent: "amber",  Icon: CalendarClock },
   BUYBOX_LOST:          { label: "Buy Box persa",          accent: "amber",  Icon: Trophy },
   LISTING_CHANGED:      { label: "Listing modificato",     accent: "sky",    Icon: FileEdit },
+  PRICE_CHANGED:        { label: "Prezzo cambiato",        accent: "violet", Icon: TrendingUp },
+  NEW_NEGATIVE_FEEDBACK:{ label: "Nuovo feedback 1–3★",    accent: "rose",   Icon: MessageSquareWarning },
 };
 const DEFAULT_META = { label: "Alert", accent: "slate", Icon: AlertTriangle };
 

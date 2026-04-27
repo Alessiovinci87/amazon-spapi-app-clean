@@ -243,6 +243,23 @@ async function checkAndFireAlerts(asin) {
         }
       }
 
+      // PRICE_CHANGED — scatta se il prezzo cambia di almeno `soglia` % (su/giù)
+      if (rule.tipo === "PRICE_CHANGED" && prev && prev.prezzo != null && prezzo != null && prev.prezzo > 0) {
+        const deltaPct = ((prezzo - prev.prezzo) / prev.prezzo) * 100;
+        const sogliaPct = Number(rule.soglia) || 5;
+        if (Math.abs(deltaPct) >= sogliaPct) {
+          const segno = deltaPct > 0 ? "+" : "";
+          fireAlert(db, {
+            asin, tipo: "PRICE_CHANGED", marketplace_id: mid,
+            messaggio: `[${mp.paese}] Prezzo ${prev.prezzo.toFixed(2)}${currency} → ${prezzo.toFixed(2)}${currency} (${segno}${deltaPct.toFixed(1)}%) per ASIN ${asin}`,
+            valore_attuale: String(prezzo),
+            valore_precedente: String(prev.prezzo),
+            nome: productName,
+          });
+          alertsFired.push({ tipo: "PRICE_CHANGED", marketplace_id: mid, deltaPct: Number(deltaPct.toFixed(2)) });
+        }
+      }
+
       // STOCK_LOW
       if (rule.tipo === "STOCK_LOW") {
         const stockData = stockByMarketplace[mid];
@@ -338,7 +355,18 @@ async function getAllAsinDaMarketplace(marketplaceId, access_token) {
 
 /**
  * Importa tutto l'inventario FBA da tutti i marketplace EU e popola fba_stock.
- * Da usare per la prima configurazione o import manuale.
+ *
+ * NOTA IMPORTANTE sulle quantità Pan-EU:
+ *   L'API /fba/inventory/v1/summaries per account Pan-EU ritorna la STESSA
+ *   fulfillable quantity su tutti i marketplace EU (IT/DE/FR/ES/NL/BE/PL/SE):
+ *   è la "pool EU" visibile da ogni marketplace, non lo stock fisico per paese.
+ *   GB è isolato (post-Brexit) e ha numeri reali.
+ *
+ *   Se sommassimo le quantità per paese otterremmo N×poolEU invece del pool reale.
+ *   Quindi post-fetch rileviamo il caso Pan-EU e teniamo la quantità solo su IT
+ *   (rappresenta il pool EU), azzerando gli altri paesi EU non-GB.
+ *
+ *   Per i dati FISICI per paese usare poi aggiornaLedgerStock() (GET_LEDGER_SUMMARY_VIEW_DATA).
  */
 async function importaInventarioCompleto() {
   const db = getDb();
@@ -359,28 +387,109 @@ async function importaInventarioCompleto() {
       updated_at       = excluded.updated_at
   `);
 
+  // Per azzerare stock stantio (ASIN spariti dal marketplace): dopo import riuscito
+  // metto a 0 tutte le righe del country NON presenti nel report corrente.
+  // NON rimuovo la riga (preserva storico). Solo se l'import del marketplace è riuscito.
+  const azzeraStmt = db.prepare(`
+    UPDATE fba_stock
+       SET quantity = 0, stock_totale = 0, reserved_qty = 0,
+           inbound_receiving = 0, unfulfillable_qty = 0,
+           updated_at = CURRENT_TIMESTAMP
+     WHERE country = ? AND asin NOT IN (SELECT value FROM json_each(?))
+       AND (quantity > 0 OR stock_totale > 0 OR reserved_qty > 0
+            OR inbound_receiving > 0 OR unfulfillable_qty > 0)
+  `);
+
+  // Fase 1: scarico da tutti i marketplace e raccolgo in memoria
+  // perAsin[asin][country] = { fulfillable, reserved, inboundReceiving, unfulfillable, totale, sku, productName }
+  const perAsin = {};
   const risultati = [];
 
   for (const mp of MARKETPLACES) {
     try {
       const items = await getAllAsinDaMarketplace(mp.marketplaceId, access_token);
-      const inserisci = db.transaction((rows) => {
-        for (const item of rows) {
-          if (!item.asin) continue;
-          stmt.run(
-            item.asin, item.sku, item.product_name, mp.country,
-            item.fulfillable, item.totale,
-            item.reserved, item.inboundReceiving, item.unfulfillable
-          );
-        }
-      });
-      inserisci(items);
+      for (const item of items) {
+        if (!item.asin) continue;
+        const e = (perAsin[item.asin] ||= {});
+        e[mp.country] = {
+          fulfillable:      item.fulfillable,
+          reserved:         item.reserved,
+          inboundReceiving: item.inboundReceiving,
+          unfulfillable:    item.unfulfillable,
+          totale:           item.totale,
+          sku:              item.sku,
+          productName:      item.product_name,
+        };
+      }
       risultati.push({ country: mp.country, asins: items.length });
     } catch (err) {
       risultati.push({ country: mp.country, error: err.message });
     }
-    // Pausa 2s tra marketplace
-    await sleep(2000);
+    await sleep(2000); // Pausa 2s tra marketplace
+  }
+
+  // Fase 2: rileva Pan-EU pool per ASIN e normalizza
+  // Criterio: se almeno 3 marketplace EU non-GB riportano la STESSA fulfillable > 0,
+  // è inventario Pan-EU → tengo il valore solo su IT (fallback DE), azzero gli altri EU.
+  const EU_COUNTRIES  = ['IT','DE','FR','ES','NL','BE','PL','SE'];
+  const POOL_HOLDER   = 'IT'; // Paese che "incassa" il pool visibile
+  let panEuNormalizzati = 0;
+
+  for (const [asin, perCountry] of Object.entries(perAsin)) {
+    const euValues = EU_COUNTRIES.map(cc => perCountry[cc]?.fulfillable).filter(q => q != null);
+    if (euValues.length < 3) continue;
+    const unique = [...new Set(euValues)];
+    // Stesso valore > 0 in ≥3 marketplace EU → è duplicazione pool
+    if (unique.length === 1 && unique[0] > 0) {
+      // Assicura la presenza della riga POOL_HOLDER con i valori pool
+      const anyEu = EU_COUNTRIES.map(cc => perCountry[cc]).find(Boolean);
+      if (anyEu && !perCountry[POOL_HOLDER]) perCountry[POOL_HOLDER] = { ...anyEu };
+
+      for (const cc of EU_COUNTRIES) {
+        if (cc === POOL_HOLDER) continue;
+        if (!perCountry[cc]) continue;
+        perCountry[cc] = {
+          ...perCountry[cc],
+          fulfillable: 0, reserved: 0, inboundReceiving: 0, unfulfillable: 0, totale: 0,
+        };
+      }
+      panEuNormalizzati++;
+    }
+  }
+
+  // Fase 3: scrittura DB raggruppata per country
+  // Costruisco set ASIN ricevuti per country (serve anche al cleanup stantio)
+  const asinsByCountry = {};
+  for (const [asin, perCountry] of Object.entries(perAsin)) {
+    for (const cc of Object.keys(perCountry)) {
+      (asinsByCountry[cc] ||= []).push(asin);
+    }
+  }
+
+  const scrivi = db.transaction(() => {
+    for (const [asin, perCountry] of Object.entries(perAsin)) {
+      for (const [cc, v] of Object.entries(perCountry)) {
+        stmt.run(
+          asin, v.sku ?? null, v.productName ?? null, cc,
+          v.fulfillable ?? 0, v.totale ?? 0,
+          v.reserved ?? 0, v.inboundReceiving ?? 0, v.unfulfillable ?? 0
+        );
+      }
+    }
+    // Cleanup per country (solo se l'import di quel marketplace è riuscito)
+    for (const r of risultati) {
+      if (r.error) continue;
+      const list = asinsByCountry[r.country] ?? [];
+      if (!list.length) continue;
+      const out = azzeraStmt.run(r.country, JSON.stringify(list));
+      r.azzerati = out.changes;
+    }
+  });
+  scrivi();
+
+  // Aggiungi informazione sul Pan-EU all'output
+  if (panEuNormalizzati > 0) {
+    risultati.push({ info: "panEuNormalizzati", count: panEuNormalizzati });
   }
 
   return risultati;

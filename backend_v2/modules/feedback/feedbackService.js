@@ -326,19 +326,67 @@ function mapHeaderColumns(headerLine) {
  *
  * NB: il report NON contiene ASIN — l'arricchimento avviene via Orders API.
  */
-async function downloadFeedbackDocument(reportDocumentId) {
-  const { access_token } = await getAccessToken();
+/**
+ * Crea un Restricted Data Token (RDT) per scaricare un reportDocument che contiene
+ * PII (email compratore, nome, ordini). Necessario per GET_SELLER_FEEDBACK_DATA
+ * dopo la policy Amazon che restringe l'accesso ai dati buyer.
+ *
+ * @param {string} reportDocumentId
+ * @returns {Promise<string|null>} il token, oppure null se la creazione fallisce
+ */
+async function createRestrictedDataToken(reportDocumentId) {
+  try {
+    const { access_token } = await getAccessToken();
+    const body = {
+      restrictedResources: [
+        {
+          method: "GET",
+          path: `/reports/2021-06-30/documents/${reportDocumentId}`,
+          // dataElements noti per feedback: buyerInfo include rater_email; "buyerInfo" è l'unico rilevante qui.
+          dataElements: ["buyerInfo"],
+        },
+      ],
+    };
+    const res = await axios.post(
+      `${BASE_URL}/tokens/2021-03-01/restrictedDataToken`,
+      body,
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "x-amz-access-token": access_token,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return res.data?.restrictedDataToken ?? null;
+  } catch (err) {
+    const status = err.response?.status;
+    const msg = err.response?.data?.errors?.[0]?.message || err.message;
+    logger.warn(`⚠️ [Feedback] createRDT fallito (${status || ""}): ${msg}`);
+    return null;
+  }
+}
 
+async function downloadFeedbackDocument(reportDocumentId) {
   logger.info(`  📑 [Feedback] reportDocumentId: ${reportDocumentId}`);
 
-  // GET_SELLER_FEEDBACK_DATA non è un report type "restricted" — RDT non serve.
-  // Amazon restituisce solo feedback 1-3★ per design (niente 4-5★).
+  // Strategia: tentiamo PRIMA con RDT (Amazon ha reso restricted GET_SELLER_FEEDBACK_DATA,
+  // senza RDT il documento può tornare troncato). Se RDT non disponibile, fallback al
+  // normale access token.
+  let tokenToUse = await createRestrictedDataToken(reportDocumentId);
+  let usedRdt = !!tokenToUse;
+  if (!tokenToUse) {
+    const { access_token } = await getAccessToken();
+    tokenToUse = access_token;
+  }
+  logger.info(`  🔐 [Feedback] Download con ${usedRdt ? "RDT" : "LWA access_token"}`);
+
   const meta = await axios.get(
     `${BASE_URL}/reports/2021-06-30/documents/${reportDocumentId}`,
     {
       headers: {
-        Authorization: `Bearer ${access_token}`,
-        "x-amz-access-token": access_token,
+        Authorization: `Bearer ${tokenToUse}`,
+        "x-amz-access-token": tokenToUse,
       },
     }
   );
@@ -351,30 +399,83 @@ async function downloadFeedbackDocument(reportDocumentId) {
     buffer = zlib.gunzipSync(buffer);
   }
 
-  // Il report Amazon è a volte UTF-16LE con BOM, a volte UTF-8.
+  // Il report Amazon può arrivare in UTF-16LE (con o senza BOM), UTF-16BE con BOM, o UTF-8.
+  // Detection euristico per UTF-16LE senza BOM: se >50% dei byte in posizione dispari sono 0x00.
   let text;
+  let encodingUsed = "utf8";
   if (buffer[0] === 0xff && buffer[1] === 0xfe) {
+    encodingUsed = "utf16le-bom";
     text = buffer.toString("utf16le").replace(/^\uFEFF/, "");
+  } else if (buffer[0] === 0xfe && buffer[1] === 0xff) {
+    encodingUsed = "utf16be-bom";
+    const swapped = Buffer.alloc(buffer.length);
+    for (let i = 0; i + 1 < buffer.length; i += 2) {
+      swapped[i] = buffer[i + 1];
+      swapped[i + 1] = buffer[i];
+    }
+    text = swapped.toString("utf16le").replace(/^\uFEFF/, "");
   } else {
-    text = buffer.toString("utf-8").replace(/^\uFEFF/, "");
+    // Heuristic: Amazon a volte omette il BOM nei TSV UTF-16LE
+    const sampleLen = Math.min(buffer.length, 400);
+    let zerosOdd = 0;
+    let totalOdd = 0;
+    for (let i = 1; i < sampleLen; i += 2) {
+      totalOdd++;
+      if (buffer[i] === 0x00) zerosOdd++;
+    }
+    if (totalOdd > 10 && zerosOdd / totalOdd > 0.5) {
+      encodingUsed = "utf16le-noBom";
+      text = buffer.toString("utf16le").replace(/^\uFEFF/, "");
+    } else {
+      text = buffer.toString("utf-8").replace(/^\uFEFF/, "");
+    }
   }
 
-  const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
+  const rawLines = text.split(/\r?\n/);
   logger.info(
-    `📄 [Feedback] Documento scaricato: ${buffer.length} byte, ${lines.length} righe (header inclusa)`
+    `📄 [Feedback] Documento scaricato: ${buffer.length} byte, ${rawLines.length} righe grezze (header incluso), encoding=${encodingUsed}`
   );
-  if (lines.length > 0) {
-    logger.info(`📄 [Feedback] Header: ${lines[0].substring(0, 200)}`);
-  }
-  if (lines.length > 1) {
-    logger.info(`📄 [Feedback] Prima riga dati: ${lines[1].substring(0, 200)}`);
-  }
-  if (lines.length <= 1) return [];
+  if (rawLines.length > 0) logger.info(`📄 [Feedback] Header: ${rawLines[0].substring(0, 200)}`);
+  if (rawLines.length > 1) logger.info(`📄 [Feedback] Prima riga dati: ${rawLines[1].substring(0, 200)}`);
+  if (rawLines.length <= 1) return [];
 
-  const idx = mapHeaderColumns(lines[0]);
-  logger.info(`📄 [Feedback] Mappa colonne:`, idx);
+  const headerLine = rawLines[0];
+  const headerCols = headerLine.split("\t");
+  const expectedCols = headerCols.length;
+  logger.info(`📄 [Feedback] Header ha ${expectedCols} colonne`);
 
-  return lines.slice(1).map((line) => {
+  const idx = mapHeaderColumns(headerLine);
+  logger.info(`📄 [Feedback] Mappa colonne: ${JSON.stringify(idx)}`);
+
+  // Parser tollerante: Amazon a volte lascia newline interni nei commenti.
+  // Se una riga ha meno colonne dell'header, la concateno con la/le successive
+  // finché non raggiunge il numero atteso (o fino a 5 righe max per riga logica).
+  // Salta righe vuote prima di unirle.
+  const logicalRows = [];
+  let buf = null;
+  let bufParts = 0;
+  for (let i = 1; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    if (!line.trim() && !buf) continue; // riga vuota isolata: skip
+    if (buf == null) {
+      buf = line;
+      bufParts = 1;
+    } else {
+      buf += "\n" + line;
+      bufParts++;
+    }
+    const numCols = buf.split("\t").length;
+    if (numCols >= expectedCols || bufParts >= 6) {
+      if (buf.trim()) logicalRows.push(buf);
+      buf = null;
+      bufParts = 0;
+    }
+  }
+  if (buf && buf.trim()) logicalRows.push(buf);
+
+  logger.info(`📄 [Feedback] Righe logiche ricostruite: ${logicalRows.length} (dalle ${rawLines.length - 1} righe grezze dopo header)`);
+
+  const parsed = logicalRows.map((line) => {
     const cols = line.split("\t");
     const get = (i) => (i >= 0 && i < cols.length ? (cols[i] || "").trim() : "");
     return {
@@ -386,8 +487,18 @@ async function downloadFeedbackDocument(reportDocumentId) {
       raterEmail: get(idx.raterEmail),
       // ASIN sarà popolato successivamente via Orders API
       asin: null,
+      _rawColCount: cols.length,
     };
   });
+
+  // Diagnostica: quanti non passano il filtro rating 1-5 e perché
+  const rating0 = parsed.filter(p => p.rating < 1 || p.rating > 5).length;
+  const colsMismatch = parsed.filter(p => p._rawColCount < expectedCols).length;
+  if (rating0 > 0 || colsMismatch > 0) {
+    logger.warn(`📄 [Feedback] Scarti parsing: rating fuori range=${rating0}, colonne mancanti=${colsMismatch}`);
+  }
+
+  return parsed.map(({ _rawColCount, ...rest }) => rest);
 }
 
 /**
@@ -401,8 +512,9 @@ async function downloadFeedbackDocument(reportDocumentId) {
 async function fetchFeedbackReport(marketplaceIds, opts = {}) {
   const maxWaitMs = opts.maxWaitMs ?? 5 * 60 * 1000;
   const intervalMs = opts.intervalMs ?? 8000;
-  // Default: forza creazione nuovo report (i vecchi senza RDT sono troncati)
-  const preferExisting = opts.preferExisting === true;
+  // Default: preferiamo i report scheduled esistenti (Amazon li genera automaticamente
+  // e tipicamente sono più completi dei report on-demand). Fallback: nuovo report.
+  const preferExisting = opts.preferExisting !== false;
 
   // 1) Prova a riusare un report DONE esistente (Amazon ne genera su schedule)
   if (preferExisting) {
@@ -481,7 +593,8 @@ async function syncMarketplaceFeedback(code, opts = {}) {
   if (!mp) throw new Error(`Marketplace sconosciuto: ${code}`);
 
   // dataStartTime serve sempre: senza il filtro Amazon restituisce CANCELLED.
-  const days = Math.max(1, Math.min(730, parseInt(opts.days, 10) || 365));
+  // Max 365gg: con range > 365 Amazon CANCELLA il report (verificato su marketplace IT/DE).
+  const days = Math.max(1, Math.min(365, parseInt(opts.days, 10) || 365));
   const dataEndTime = new Date().toISOString();
   const dataStartTime = new Date(
     Date.now() - days * 24 * 60 * 60 * 1000
@@ -499,10 +612,32 @@ async function syncMarketplaceFeedback(code, opts = {}) {
 
   let result;
   try {
+    // Primo tentativo: preferExisting=true (report scheduled, tipicamente più completi)
     result = await fetchFeedbackReport([mp.marketplaceId], {
       dataStartTime,
       dataEndTime,
+      preferExisting: true,
     });
+    logger.info(
+      `🔁 [Feedback] ${mp.code}: primo fetch (preferExisting) → ${result.rows?.length ?? 0} righe${result.reused ? " (riusato scheduled)" : ""}`
+    );
+
+    // Se lo scheduled non c'è o ha pochissimi record, riprova on-demand forzando nuovo report
+    if ((result.rows?.length ?? 0) <= 1) {
+      logger.info(`🔁 [Feedback] ${mp.code}: fallback on-demand (nuovo report)…`);
+      const onDemand = await fetchFeedbackReport([mp.marketplaceId], {
+        dataStartTime,
+        dataEndTime,
+        preferExisting: false,
+      });
+      logger.info(
+        `🔁 [Feedback] ${mp.code}: on-demand → ${onDemand.rows?.length ?? 0} righe`
+      );
+      // Tieni il risultato con più righe
+      if ((onDemand.rows?.length ?? 0) > (result.rows?.length ?? 0)) {
+        result = onDemand;
+      }
+    }
   } catch (err) {
     db.prepare(
       `UPDATE seller_feedback_sync SET status='error', last_sync=? WHERE marketplace_id=?`
@@ -511,7 +646,12 @@ async function syncMarketplaceFeedback(code, opts = {}) {
   }
 
   // Filtra righe valide
+  const totalRows = result.rows.length;
   const validRows = result.rows.filter((r) => r.rating >= 1 && r.rating <= 5);
+  const scartate = totalRows - validRows.length;
+  logger.info(
+    `🗂  [Feedback] ${mp.code}: ${totalRows} righe parsate, ${validRows.length} valide (rating 1-5), ${scartate} scartate`
+  );
 
   // Enrichment via Orders API: una passata sequenziale con throttling
   logger.info(`🔎 [Feedback] Enrichment di ${validRows.length} ordini via Orders API…`);
@@ -551,10 +691,28 @@ async function syncMarketplaceFeedback(code, opts = {}) {
        synced_at      = excluded.synced_at`
   );
 
+  // Per emettere alert solo sui feedback NUOVI (non aggiornamenti), pre-calcolo
+  // le chiavi già in DB. Chiave usata: `${order_id}|${rating}` (NULL order_id → "|rating").
+  const existingKeys = new Set(
+    db.prepare("SELECT order_id, rating FROM seller_feedback")
+      .all()
+      .map(r => `${r.order_id ?? ""}|${r.rating}`)
+  );
+
+  // Statement per emettere alert_event di nuovo feedback negativo
+  const alertStmt = db.prepare(`
+    INSERT INTO alert_events
+      (asin, tipo, marketplace_id, messaggio, valore_attuale, valore_precedente, nome, source)
+    VALUES (?, 'NEW_NEGATIVE_FEEDBACK', ?, ?, ?, NULL, ?, 'feedback')
+  `);
+
   const syncedAt = new Date().toISOString();
   let savedCount = 0;
+  let newAlerts = 0;
   const tx = db.transaction((rows) => {
     for (const r of rows) {
+      const key = `${r.orderId ?? ""}|${r.rating}`;
+      const isNew = !existingKeys.has(key);
       insertStmt.run(
         r.marketplaceId,
         r.orderId || null,
@@ -567,15 +725,37 @@ async function syncMarketplaceFeedback(code, opts = {}) {
         syncedAt
       );
       savedCount++;
+      existingKeys.add(key);
+
+      // Emit alert solo per feedback NUOVI (no re-sync) e 1-3★ (già filtrato, ma doppio controllo)
+      if (isNew && r.rating >= 1 && r.rating <= 3) {
+        try {
+          const excerpt = (r.comments || "").slice(0, 140).replace(/\s+/g, " ").trim();
+          const msg = `Nuovo feedback ${r.rating}★ [${mp.code}]${r.asin ? " · " + r.asin : ""}${excerpt ? " — " + excerpt : ""}`;
+          alertStmt.run(
+            r.asin || null,
+            r.marketplaceId || mp.marketplaceId,
+            msg,
+            String(r.rating),
+            excerpt ? excerpt.slice(0, 100) : null
+          );
+          newAlerts++;
+        } catch (err) {
+          logger.warn(`⚠️ [Feedback] emit alert fallito: ${err.message}`);
+        }
+      }
     }
   });
   tx(enriched);
+  if (newAlerts > 0) {
+    logger.info(`🚨 [Feedback] ${mp.code}: emessi ${newAlerts} alert NEW_NEGATIVE_FEEDBACK`);
+  }
 
   db.prepare(
     `UPDATE seller_feedback_sync SET status='ok', last_sync=?, records=? WHERE marketplace_id=?`
   ).run(syncedAt, savedCount, mp.marketplaceId);
 
-  return { marketplace: mp.code, records: savedCount, syncedAt };
+  return { marketplace: mp.code, records: savedCount, newAlerts, syncedAt };
 }
 
 /**
@@ -757,6 +937,80 @@ function getSyncStatus({ marketplace } = {}) {
   return db.prepare(`SELECT * FROM seller_feedback_sync`).all();
 }
 
+/**
+ * Scarica e ritorna il TSV RAW decodificato senza parsing, utile per la
+ * diagnostica. Crea un nuovo report on-demand con dataStartTime (necessario).
+ */
+async function fetchRawTsv(code, opts = {}) {
+  const mp = getMarketplaceByCode(code);
+  if (!mp) throw new Error(`Marketplace sconosciuto: ${code}`);
+
+  const days = Math.max(1, Math.min(365, parseInt(opts.days, 10) || 365));
+  const dataEndTime = new Date().toISOString();
+  const dataStartTime = new Date(Date.now() - days * 86400000).toISOString();
+
+  // Crea nuovo report
+  const created = await createFeedbackReport([mp.marketplaceId], { dataStartTime, dataEndTime });
+  const reportId = created.reportId;
+  if (!reportId) throw new Error("SP-API non ha restituito reportId");
+
+  // Poll fino a DONE/CANCELLED/FATAL
+  let status;
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 5 * 60 * 1000) {
+    await sleep(8000);
+    status = await getReportStatus(reportId);
+    if (["DONE", "CANCELLED", "FATAL"].includes(status.processingStatus)) break;
+  }
+  if (status?.processingStatus === "CANCELLED") {
+    return { marketplace: code, reportId, empty: true, note: "CANCELLED (Amazon: nessun dato nel periodo)" };
+  }
+  if (status?.processingStatus !== "DONE" || !status.reportDocumentId) {
+    throw new Error(`Report non completato (${status?.processingStatus || "TIMEOUT"})`);
+  }
+
+  // Scarica doc raw, preferendo RDT (senza RDT i feedback restricted arrivano troncati)
+  let tokenToUse = await createRestrictedDataToken(status.reportDocumentId);
+  const usedRdtRaw = !!tokenToUse;
+  if (!tokenToUse) {
+    const { access_token } = await getAccessToken();
+    tokenToUse = access_token;
+  }
+  const meta = await axios.get(
+    `${BASE_URL}/reports/2021-06-30/documents/${status.reportDocumentId}`,
+    { headers: { Authorization: `Bearer ${tokenToUse}`, "x-amz-access-token": tokenToUse } }
+  );
+  const docResp = await axios.get(meta.data.url, { responseType: "arraybuffer" });
+  let buffer = Buffer.from(docResp.data);
+  const compressionAlgorithm = meta.data.compressionAlgorithm || null;
+  if (compressionAlgorithm === "GZIP") buffer = zlib.gunzipSync(buffer);
+
+  // Decodifica robusta
+  let encoding = "utf8";
+  let tsv;
+  if (buffer[0] === 0xff && buffer[1] === 0xfe) {
+    encoding = "utf16le";
+    tsv = buffer.toString("utf16le").replace(/^﻿/, "");
+  } else {
+    tsv = buffer.toString("utf-8").replace(/^﻿/, "");
+  }
+  const byteLength = buffer.length;
+  const lineCount = tsv.split(/\r?\n/).filter(l => l.trim()).length;
+  const firstBytes = Array.from(buffer.subarray(0, 16)).map(b => b.toString(16).padStart(2, "0")).join(" ");
+
+  return {
+    marketplace: code,
+    reportId,
+    compressionAlgorithm,
+    byteLength,
+    encoding,
+    firstBytes,
+    lineCount,
+    usedRdt: usedRdtRaw,
+    tsv,
+  };
+}
+
 module.exports = {
   MARKETPLACES,
   getMarketplaceByCode,
@@ -767,4 +1021,5 @@ module.exports = {
   getStats,
   getSyncStatus,
   getCatalogWithFeedback,
+  fetchRawTsv,
 };

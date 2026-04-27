@@ -127,8 +127,9 @@ const DDTDettaglio = () => {
     const fetchData = async () => {
       try {
         const resSped = await fetch("/api/v2/ddt/prebolle");
+        if (!resSped.ok) throw new Error("fetch prebolle");
         const prebolle = await resSped.json();
-        const found = prebolle.find((s) => s.id === parseInt(idSpedizione));
+        const found = Array.isArray(prebolle) ? prebolle.find((s) => s.id === parseInt(idSpedizione)) : null;
 
         if (!found) {
           setError(t("ddtDettaglio.error_not_found"));
@@ -141,6 +142,7 @@ const DDTDettaglio = () => {
         if (ddtNumero) {
           try {
             const resAss = await fetch(`/api/v2/ddt/assegnazioni/${idSpedizione}/${ddtNumero}`);
+            if (!resAss.ok) throw new Error("fetch assegnazioni");
             const dataAss = await resAss.json();
             if (dataAss.ok && dataAss.righe?.length > 0) {
               prodottiDaUsare = dataAss.righe;

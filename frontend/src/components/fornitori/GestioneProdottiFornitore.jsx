@@ -27,10 +27,17 @@ const GestioneProdottiFornitore = () => {
   // 🔹 Quando seleziono un fornitore, carico i suoi prodotti collegati
   const caricaProdottiAssociati = async (idFornitore) => {
     if (!idFornitore) return;
-    const res = await fetch(`/api/v2/fornitori-prodotti/${idFornitore}/catalogo`);
-    const data = await res.json();
-    setProdottiAssociati(data.associati);
-    setProdottiSfuso(data.disponibili);
+    try {
+      const res = await fetch(`/api/v2/fornitori-prodotti/${idFornitore}/catalogo`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setProdottiAssociati(Array.isArray(data?.associati) ? data.associati : []);
+      setProdottiSfuso(Array.isArray(data?.disponibili) ? data.disponibili : []);
+    } catch (err) {
+      console.error("Errore caricamento catalogo fornitore:", err);
+      toast.error("Errore caricamento prodotti associati");
+      setProdottiAssociati([]);
+    }
   };
 
   const handleAssocia = async () => {
@@ -45,28 +52,42 @@ const GestioneProdottiFornitore = () => {
       note,
     };
 
-    const res = await fetch(`/api/v2/fornitori-prodotti/${fornitoreSelezionato}/prodotti`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    try {
+      const res = await fetch(`/api/v2/fornitori-prodotti/${fornitoreSelezionato}/prodotti`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        let errMsg = `Errore associazione (HTTP ${res.status})`;
+        try { const j = await res.json(); if (j?.error) errMsg = j.error; } catch {}
+        throw new Error(errMsg);
+      }
+
       toast.success("Prodotto associato con successo!");
       setPrezzo("");
       setNote("");
       setProdottoSelezionato(null);
-      setRicercaProdotto(""); // pulisce solo il campo ricerca
+      setRicercaProdotto("");
       caricaProdottiAssociati(fornitoreSelezionato);
-    } else {
-      toast.error("Errore durante l'associazione");
+    } catch (err) {
+      console.error("Errore associazione:", err);
+      toast.error(err.message || "Errore durante l'associazione");
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Eliminare l'associazione?")) return;
-    await fetch(`/api/v2/fornitori-prodotti/${id}`, { method: "DELETE" });
-    caricaProdottiAssociati(fornitoreSelezionato);
+    try {
+      const res = await fetch(`/api/v2/fornitori-prodotti/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      toast.success("Associazione eliminata");
+      caricaProdottiAssociati(fornitoreSelezionato);
+    } catch (err) {
+      console.error("Errore eliminazione associazione:", err);
+      toast.error("Errore durante l'eliminazione");
+    }
   };
 
   // 🔹 Filtro ricerca prodotto

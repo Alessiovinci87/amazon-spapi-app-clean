@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toast } from "sonner";
 import { Plus } from "lucide-react";
 
 const InserimentoFornitore = ({ onFornitoreAggiunto }) => {
@@ -9,21 +10,34 @@ const InserimentoFornitore = ({ onFornitoreAggiunto }) => {
     email: "",
     telefono: "",
   });
+  const [salvando, setSalvando] = useState(false);
 
   const salvaFornitore = async () => {
-    await fetch("/api/v2/fornitori", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fornitore),
-    });
-    if (onFornitoreAggiunto) onFornitoreAggiunto();
-    setFornitore({
-      nome: "",
-      partitaIva: "",
-      indirizzo: "",
-      email: "",
-      telefono: "",
-    });
+    if (!fornitore.nome.trim()) {
+      toast.warning("Il nome del fornitore è obbligatorio");
+      return;
+    }
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/v2/fornitori", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fornitore),
+      });
+      if (!res.ok) {
+        let errMsg = `Errore salvataggio (HTTP ${res.status})`;
+        try { const j = await res.json(); if (j?.error || j?.message) errMsg = j.error || j.message; } catch {}
+        throw new Error(errMsg);
+      }
+      toast.success("Fornitore salvato con successo");
+      if (onFornitoreAggiunto) onFornitoreAggiunto();
+      setFornitore({ nome: "", partitaIva: "", indirizzo: "", email: "", telefono: "" });
+    } catch (err) {
+      console.error("Errore salvataggio fornitore:", err);
+      toast.error(err.message || "Errore durante il salvataggio");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   return (
@@ -68,9 +82,10 @@ const InserimentoFornitore = ({ onFornitoreAggiunto }) => {
 
       <button
         onClick={salvaFornitore}
-        className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-colors"
+        disabled={salvando}
+        className="mt-4 flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Salva Fornitore
+        {salvando ? "Salvataggio..." : "Salva Fornitore"}
       </button>
     </div>
   );

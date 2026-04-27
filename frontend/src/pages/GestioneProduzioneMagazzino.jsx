@@ -229,10 +229,15 @@ const GestioneProduzioneMagazzino = () => {
 
   const registraStoricoProduzione = async (p, evento) => {
     try {
-      await fetch(buildUrl("storico-produzioni-sfuso"), {
+      const idProduzione = Number(p.id_produzione ?? p.id);
+      if (!Number.isFinite(idProduzione) || idProduzione <= 0) {
+        console.warn("registraStoricoProduzione: id_produzione mancante, skip");
+        return;
+      }
+      await fetch(buildUrl("produzioni-sfuso/storico"), {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id_produzione: p.id_produzione || null, id_prenotazione: p.id || null,
+          id_produzione: idProduzione,
           id_sfuso: p.id_sfuso || null, asin_prodotto: p.asin_prodotto || null,
           nome_prodotto: p.nome_prodotto || null, formato: p.formato || null,
           quantita: Number(p.quantita ?? p.prodotti ?? 0),

@@ -123,20 +123,11 @@ const ListaFornitori = () => {
 
       if (data.ok) {
         toast.success("Ordine eliminato correttamente");
-        // Rimuovi l'ordine dallo stato locale
-        setOrdiniFornitore((prev) => {
-          const nuovo = { ...prev };
-          delete nuovo[idFornitore];
-          return nuovo;
-        });
-
-        // 🧹 svuota anche i prodotti collegati
-        setProdottiFornitore((prev) => {
-          const nuovo = { ...prev };
-          delete nuovo[idFornitore];
-          return nuovo;
-        });
-
+        // Rimuovi SOLO l'ordine eliminato dalla cache del fornitore
+        setOrdiniFornitore((prev) => ({
+          ...prev,
+          [idFornitore]: (prev[idFornitore] || []).filter((o) => o.id !== idOrdine),
+        }));
       } else {
         toast.error(data.message || "Errore durante l'eliminazione");
       }
@@ -249,23 +240,6 @@ const ListaFornitori = () => {
                           >
                             ✏️
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const lista = ordiniFornitore[f.id] || [];
-                              if (!lista.length) {
-                                toast.info("Nessun ordine per questo fornitore.");
-                                return;
-                              }
-                              const ordineTarget =
-                                lista.find((o) => o.stato === "In attesa") || lista[0]; // priorità a "In attesa", altrimenti il primo
-                              handleDeleteOrdine(ordineTarget.id, f.id);
-                            }}
-                            className="text-red-400 hover:text-red-200"
-                          >
-                            🗑️
-                          </button>
-
                         </td>
                       </>
                     )}

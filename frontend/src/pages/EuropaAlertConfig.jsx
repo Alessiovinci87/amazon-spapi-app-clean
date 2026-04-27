@@ -26,6 +26,11 @@ const MARKETPLACE_IDS = [
 ];
 
 const DEFAULT_FORM = { tipo: "STOCK_LOW", marketplace_id: null, soglia: 10, abilitato: true };
+// Tipi che usano una soglia numerica (e la relativa unità mostrata in UI)
+const SOGLIA_TIPI = {
+  STOCK_LOW:     { unita: "pz", min: 0, step: 1,   defaultValue: 10 },
+  PRICE_CHANGED: { unita: "%",  min: 1, step: 0.5, defaultValue: 5  },
+};
 
 const inputClass =
   "w-full px-3 py-2 rounded-md bg-slate-950/60 border border-slate-800 text-white text-sm focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/30 transition-all";
@@ -97,6 +102,8 @@ export default function EuropaAlertConfig() {
     { value: "STOCK_LOW",       label: t("europaAlertConfig.tipo_stock_low_label"),       desc: t("europaAlertConfig.tipo_stock_low_desc") },
     { value: "BUYBOX_LOST",     label: t("europaAlertConfig.tipo_buybox_lost_label"),     desc: t("europaAlertConfig.tipo_buybox_lost_desc") },
     { value: "LISTING_CHANGED", label: t("europaAlertConfig.tipo_listing_changed_label"), desc: t("europaAlertConfig.tipo_listing_changed_desc") },
+    { value: "PRICE_CHANGED",   label: t("europaAlertConfig.tipo_price_changed_label", "Prezzo cambiato"),
+                                desc:  t("europaAlertConfig.tipo_price_changed_desc",  "Notifica quando il prezzo Buy Box varia oltre la soglia percentuale indicata.") },
   ];
 
   const MARKETPLACES = MARKETPLACE_IDS.map(m => ({ id: m.id, label: t(`europaAlertConfig.${m.key}`) }));
@@ -269,7 +276,16 @@ export default function EuropaAlertConfig() {
                 <label className={labelClass}>{t("europaAlertConfig.lbl_tipo")}</label>
                 <select
                   value={form.tipo}
-                  onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))}
+                  onChange={e => {
+                    const nuovoTipo = e.target.value;
+                    const cfg = SOGLIA_TIPI[nuovoTipo];
+                    setForm(f => ({
+                      ...f,
+                      tipo: nuovoTipo,
+                      // Se il nuovo tipo ha una soglia default diversa, reset al default
+                      soglia: cfg ? cfg.defaultValue : f.soglia,
+                    }));
+                  }}
                   className={inputClass}
                 >
                   {TIPI.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -292,12 +308,15 @@ export default function EuropaAlertConfig() {
                 </select>
               </div>
 
-              {form.tipo === "STOCK_LOW" ? (
+              {SOGLIA_TIPI[form.tipo] ? (
                 <div>
-                  <label className={labelClass}>{t("europaAlertConfig.lbl_soglia")}</label>
+                  <label className={labelClass}>
+                    {t("europaAlertConfig.lbl_soglia")} ({SOGLIA_TIPI[form.tipo].unita})
+                  </label>
                   <input
                     type="number"
-                    min={0}
+                    min={SOGLIA_TIPI[form.tipo].min}
+                    step={SOGLIA_TIPI[form.tipo].step}
                     value={form.soglia}
                     onChange={e => setForm(f => ({ ...f, soglia: e.target.value }))}
                     className={`${inputClass} tabular-nums`}
@@ -366,18 +385,21 @@ export default function EuropaAlertConfig() {
                         </div>
                       </div>
 
-                      {/* Soglia editabile inline */}
-                      {rule.tipo === "STOCK_LOW" && (
+                      {/* Soglia editabile inline (STOCK_LOW usa ≤, PRICE_CHANGED usa ±%) */}
+                      {SOGLIA_TIPI[rule.tipo] && (
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-[11px] text-slate-600">≤</span>
+                          <span className="text-[11px] text-slate-600">
+                            {rule.tipo === "PRICE_CHANGED" ? "±" : "≤"}
+                          </span>
                           <input
                             type="number"
-                            min={0}
+                            min={SOGLIA_TIPI[rule.tipo].min}
+                            step={SOGLIA_TIPI[rule.tipo].step}
                             defaultValue={rule.soglia}
                             onBlur={e => aggiornaSoglia(rule, e.target.value)}
                             className="w-16 px-2 py-1 rounded bg-slate-950/60 border border-slate-800 text-white text-xs text-center tabular-nums focus:outline-none focus:border-amber-500/50"
                           />
-                          <span className="text-[11px] text-slate-600">{t("europaAlertConfig.unita")}</span>
+                          <span className="text-[11px] text-slate-600">{SOGLIA_TIPI[rule.tipo].unita}</span>
                         </div>
                       )}
 
