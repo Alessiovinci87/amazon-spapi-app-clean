@@ -71,6 +71,23 @@
     .info p {
       margin: 4px 0;
     }
+
+    /* Page break safe: evita righe spezzate a metà tra le pagine
+       e tieni il blocco totali/tracking/firma compatto su una pagina sola */
+    tr, td, th {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tfoot {
+      display: table-footer-group;
+    }
+    .totali, .info-box, .firma-box, .footer, .footer-section {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
   </style>
 </head>
 
