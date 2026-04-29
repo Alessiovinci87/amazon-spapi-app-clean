@@ -60,6 +60,16 @@ function translateStatus(status) {
   return STATUS_LABELS_IT[status] || status;
 }
 
+/**
+ * Normalizza un tracking number per 17TRACK: rimuove spazi interni, trim,
+ * uppercase. UPS ad esempio è esposto dai vettori come "1Z Y51 C49 68 5009 5647"
+ * ma 17TRACK e i corrieri lo accettano senza spazi.
+ */
+function normalizeTrackingNumber(s) {
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/\s+/g, "").trim().toUpperCase();
+}
+
 async function callApi(endpoint, body) {
   if (!API_KEY) {
     throw new Error("SEVENTEEN_TRACK_API_KEY non configurata nel .env");
@@ -103,7 +113,8 @@ async function callApi(endpoint, body) {
  */
 async function register(trackingNumber, carrier = null) {
   try {
-    const item = { number: trackingNumber, lang: LANG };
+    const number = normalizeTrackingNumber(trackingNumber);
+    const item = { number, lang: LANG };
     if (carrier && Number.isFinite(carrier)) item.carrier = Number(carrier);
     const json = await callApi("/register", [item]);
 
@@ -171,7 +182,8 @@ async function register(trackingNumber, carrier = null) {
  */
 async function getInfo(trackingNumber) {
   try {
-    const payload = [{ number: trackingNumber }];
+    const number = normalizeTrackingNumber(trackingNumber);
+    const payload = [{ number }];
     const json = await callApi("/gettrackinfo", payload);
 
     const accepted = json?.data?.accepted || [];
@@ -292,7 +304,8 @@ async function getQuota() {
  */
 async function deleteTracking(trackingNumber) {
   try {
-    const payload = [{ number: trackingNumber }];
+    const number = normalizeTrackingNumber(trackingNumber);
+    const payload = [{ number }];
     const json = await callApi("/deletetrack", payload);
 
     const accepted = json?.data?.accepted || [];
@@ -317,6 +330,7 @@ module.exports = {
   getQuota,
   deleteTracking,
   translateStatus,
+  normalizeTrackingNumber,
   STATUS_LABELS_IT,
   TrackingQuotaException,
   QUOTA_EXHAUSTED_CODE,

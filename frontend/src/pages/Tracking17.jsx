@@ -36,6 +36,9 @@ const STATUS_META = {
   Exception:           { icon: AlertTriangle,cls: "text-rose-400 bg-rose-500/10 border-rose-500/30" },
   Expired:             { icon: AlertTriangle,cls: "text-zinc-400 bg-zinc-500/10 border-zinc-500/30" },
   NotFound:            { icon: AlertTriangle,cls: "text-rose-400 bg-rose-500/10 border-rose-500/30" },
+  // Stato sintetico (solo UI): tracking appena registrato, 17TRACK / corriere non hanno
+  // ancora caricato i primi eventi. Diverso da NotFound "vero" (tracking inesistente).
+  AwaitingFirstPoll:   { icon: Clock,        cls: "text-amber-300 bg-amber-500/10 border-amber-500/30" },
 };
 
 const STATUS_LABEL_IT = {
@@ -48,7 +51,34 @@ const STATUS_LABEL_IT = {
   DeliveryFailure: "Consegna fallita",
   Delivered: "Consegnato",
   Exception: "Eccezione",
+  AwaitingFirstPoll: "In attesa primo polling",
 };
+
+// Finestra dopo la quale uno status NotFound/InfoReceived non è più considerato "giovane"
+// (passato questo tempo, è verosimile che il tracking sia davvero invalido)
+const FIRST_POLL_WINDOW_HOURS = 24;
+
+function hoursSince(s) {
+  if (!s) return Infinity;
+  // SQLite restituisce "YYYY-MM-DD HH:MM:SS" (localtime). Normalizzo in ISO per Date().
+  const iso = String(s).replace(" ", "T");
+  const d = new Date(iso);
+  if (isNaN(d)) return Infinity;
+  return (Date.now() - d.getTime()) / 3_600_000;
+}
+
+function isAwaitingFirstPoll(t) {
+  if (!t) return false;
+  if (t.status !== "NotFound" && t.status !== "InfoReceived") return false;
+  // Se ci sono già eventi caricati non è più "primo polling"
+  if (Array.isArray(t.events) && t.events.length > 0) return false;
+  return hoursSince(t.registered_at) < FIRST_POLL_WINDOW_HOURS;
+}
+
+// Restituisce lo status "effettivo" da mostrare (può sovrascrivere NotFound→AwaitingFirstPoll)
+function effectiveStatus(t) {
+  return isAwaitingFirstPoll(t) ? "AwaitingFirstPoll" : t?.status;
+}
 
 const STAGE_LABEL_IT = {
   InfoReceived: "Informazioni ricevute",
@@ -79,16 +109,22 @@ function fmtDate(s) {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-function StatusBadge({ status, size = "sm" }) {
-  const meta = STATUS_META[status] || { icon: Clock, cls: "text-slate-400 bg-slate-500/10 border-slate-500/30" };
+function StatusBadge({ status, tracking, size = "sm" }) {
+  // Se viene passato l'intero tracking, calcoliamo lo status effettivo (può convertire
+  // NotFound in AwaitingFirstPoll quando il tracking è "giovane").
+  const effective = tracking ? effectiveStatus(tracking) : status;
+  const meta = STATUS_META[effective] || { icon: Clock, cls: "text-slate-400 bg-slate-500/10 border-slate-500/30" };
   const Icon = meta.icon;
-  const label = STATUS_LABEL_IT[status] || status || "—";
+  const label = STATUS_LABEL_IT[effective] || effective || "—";
   const sz = size === "lg"
     ? "px-3 py-1 text-sm gap-2"
     : "px-2 py-0.5 text-[11px] gap-1.5";
   const iconSize = size === "lg" ? "w-4 h-4" : "w-3.5 h-3.5";
+  const title = effective === "AwaitingFirstPoll"
+    ? "Tracking registrato di recente: 17TRACK o il corriere non hanno ancora caricato gli eventi. Riprova fra qualche minuto — l'aggiornamento avviene automaticamente ogni 30 minuti."
+    : undefined;
   return (
-    <span className={`inline-flex items-center rounded border font-medium ${sz} ${meta.cls}`}>
+    <span title={title} className={`inline-flex items-center rounded border font-medium ${sz} ${meta.cls}`}>
       <Icon className={iconSize} />
       {label}
     </span>
@@ -368,6 +404,7 @@ const Tracking17 = () => {
     const out = { totale: tutti.length, in_transito: 0, consegnati: 0, problemi: 0 };
     for (const t of tutti) {
       if (t.status === "Delivered") out.consegnati++;
+      else if (isAwaitingFirstPoll(t)) out.in_transito++; // pending recente, non un problema
       else if (t.status === "Exception" || t.status === "DeliveryFailure" || t.status === "NotFound") out.problemi++;
       else if (t.status === "InTransit" || t.status === "OutForDelivery" || t.status === "InfoReceived" || t.status === "AvailableForPickup") out.in_transito++;
     }
@@ -555,10 +592,14 @@ const Tracking17 = () => {
                           {t.nota && <div className="text-[11px] text-slate-500 mt-0.5">📝 {t.nota}</div>}
                         </td>
                         <td className="py-2.5 px-2">
-                          <StatusBadge status={t.status} />
-                          {t.error && t.status === "NotFound" && (
+                          <StatusBadge tracking={t} />
+                          {isAwaitingFirstPoll(t) ? (
+                            <div className="text-[11px] text-amber-300/80 mt-1 max-w-xs leading-snug">
+                              Registrato da poco — il corriere non ha ancora caricato eventi.
+                            </div>
+                          ) : t.error && t.status === "NotFound" ? (
                             <div className="text-[11px] text-rose-400 mt-1 max-w-xs">{t.error}</div>
-                          )}
+                          ) : null}
                         </td>
                         <td className="py-2.5 px-2">
                           {ev.description ? (
@@ -748,7 +789,7 @@ function DetailDrawer({ tracking, onClose, onRefresh, refreshing }) {
           <div className="min-w-0">
             <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Tracking</div>
             <div className="font-mono text-sm text-white truncate">{tracking.tracking_number}</div>
-            <div className="mt-2"><StatusBadge status={tracking.status} size="lg" /></div>
+            <div className="mt-2"><StatusBadge tracking={tracking} size="lg" /></div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -786,18 +827,30 @@ function DetailDrawer({ tracking, onClose, onRefresh, refreshing }) {
                 <div className="text-sm text-slate-200 mt-0.5">{tracking.nota}</div>
               </div>
             )}
-            {tracking.error && tracking.status === "NotFound" && (
+            {isAwaitingFirstPoll(tracking) ? (
+              <div className="col-span-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
+                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-medium">In attesa primo polling</div>
+                  <div className="text-amber-200/80 mt-0.5 leading-snug">
+                    Tracking registrato da poco. 17TRACK e il corriere non hanno ancora
+                    caricato gli eventi: è normale nelle prime ore. L'aggiornamento avviene
+                    automaticamente ogni 30 minuti, oppure puoi premere 🔄 per forzarlo
+                    (gratuito, non consuma quota).
+                  </div>
+                </div>
+              </div>
+            ) : tracking.error && tracking.status === "NotFound" ? (
               <div className="col-span-2 px-3 py-2 rounded-md bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <div>{tracking.error}</div>
               </div>
-            )}
-            {tracking.status === "InfoReceived" && events.length === 0 && (
+            ) : tracking.status === "InfoReceived" && events.length === 0 ? (
               <div className="col-span-2 px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
                 <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <div>Il corriere non ha ancora caricato eventi per questa spedizione. Riprova fra qualche minuto.</div>
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Milestone */}

@@ -436,6 +436,10 @@ async function bootstrap() {
   // Cron seller feedback (ogni 4h): sync report + alert NEW_NEGATIVE_FEEDBACK
   const { startFeedbackCron } = require("./modules/feedback/feedbackCron");
   startFeedbackCron();
+
+  // Cron 17TRACK (ogni 30 min): refresh tracking pendenti registrati nelle ultime 48h
+  const { startTracking17Cron } = require("./modules/tracking17/tracking17Cron");
+  startTracking17Cron();
 }
 
 bootstrap().catch((err) => {

@@ -164,9 +164,11 @@ router.get("/suggerimenti-ddt", (req, res) => {
   try {
     const db = getDb();
     // Unisce tracking dal DDT header e dalle righe DDT
+    // Normalizza il tracking lato SQL: rimuove spazi e maiuscolizza, così matcha anche
+    // tracking salvati con spazi nei DDT (es. UPS "1Z Y51 C49 68 5009 5647")
     const suggerimenti = db.prepare(`
       SELECT DISTINCT
-        COALESCE(NULLIF(TRIM(d.tracking), ''), NULLIF(TRIM(r.tracking), '')) AS tracking_number,
+        UPPER(REPLACE(COALESCE(NULLIF(TRIM(d.tracking), ''), NULLIF(TRIM(r.tracking), '')), ' ', '')) AS tracking_number,
         d.id AS ddt_id,
         d.numeroDDT AS ddt_numero,
         d.brand AS ddt_brand,
@@ -181,7 +183,8 @@ router.get("/suggerimenti-ddt", (req, res) => {
       )
       AND NOT EXISTS (
         SELECT 1 FROM tracking_17track t
-        WHERE t.tracking_number = COALESCE(NULLIF(TRIM(d.tracking), ''), NULLIF(TRIM(r.tracking), ''))
+        WHERE UPPER(REPLACE(t.tracking_number, ' ', '')) =
+              UPPER(REPLACE(COALESCE(NULLIF(TRIM(d.tracking), ''), NULLIF(TRIM(r.tracking), '')), ' ', ''))
       )
       ORDER BY d.data DESC, d.id DESC
     `).all();
@@ -198,7 +201,13 @@ router.get("/suggerimenti-ddt", (req, res) => {
 // Body: { tracking_number, ddt_id?, spedizione_id?, nota? }
 // =============================================================
 router.post("/register", validate({ body: registerBody }), async (req, res) => {
-  const { tracking_number, ddt_id = null, spedizione_id = null, nota = null, carrier = null } = req.body;
+  const { ddt_id = null, spedizione_id = null, nota = null, carrier = null } = req.body;
+  // Normalizza: i tracking UPS arrivano spesso con spazi (es. "1Z Y51 C49 68 5009 5647"),
+  // 17TRACK e i corrieri vogliono il numero senza spazi.
+  const tracking_number = service.normalizeTrackingNumber(req.body.tracking_number);
+  if (!tracking_number || tracking_number.length < 4) {
+    return res.status(400).json({ ok: false, error: "Tracking number non valido", error_code: null, needs_carrier: false });
+  }
   const db = getDb();
 
   // Se già registrato localmente, non ri-consumare quota: fai solo refresh
@@ -253,7 +262,7 @@ router.post("/register", validate({ body: registerBody }), async (req, res) => {
 // NON consuma quota
 // =============================================================
 router.post("/refresh/:trackingNumber", validate({ params: trackingNumberParam }), async (req, res) => {
-  const { trackingNumber } = req.params;
+  const trackingNumber = service.normalizeTrackingNumber(req.params.trackingNumber);
   const db = getDb();
   try {
     const info = await service.getInfo(trackingNumber);
@@ -299,7 +308,7 @@ router.get("/info/:trackingNumber", validate({ params: trackingNumberParam }), (
 // DELETE /api/v2/tracking17/:trackingNumber — elimina sia da 17TRACK che cache locale
 // =============================================================
 router.delete("/:trackingNumber", validate({ params: trackingNumberParam }), async (req, res) => {
-  const { trackingNumber } = req.params;
+  const trackingNumber = service.normalizeTrackingNumber(req.params.trackingNumber);
   const db = getDb();
   try {
     const result = await service.deleteTracking(trackingNumber);
