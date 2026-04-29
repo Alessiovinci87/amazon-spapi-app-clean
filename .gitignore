@@ -45,3 +45,10 @@ dbdata/
 
 spapi-user_accessKeys.csv
 backend_v2/db/database.local.js
+
+# Backup locali template DDT (ripristino via git revert, non da versionare)
+backend_v2/ddt/templates/*.bak
+
+# File import/export utente in root (CSV/ODS gestione FBA)
+/FBA - Gestione Prodotto Amazon*.csv
+/FBA - Gestione Prodotto Amazon*.ods
