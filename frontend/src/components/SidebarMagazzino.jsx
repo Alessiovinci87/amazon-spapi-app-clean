@@ -6,6 +6,7 @@ import {
   Factory,
   Truck,
   Warehouse,
+  Package,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -16,6 +17,7 @@ const MENU = [
   { to: "/magazzino", label: "Home Magazzino", icon: Warehouse },
 
   { divider: true, label: "Operatività" },
+  { to: "/uffici/inventario",     label: "Inventario",           icon: Package },
   { to: "/magazzino/produzione",  label: "Produzione",           icon: Factory },
   { to: "/magazzino/spedizioni",  label: "Spedizioni",           icon: Truck },
   { to: "/magazzino/sfuso",       label: "Gestione sfuso",       icon: FlaskConical },
