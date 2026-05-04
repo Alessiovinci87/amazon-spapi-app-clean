@@ -20,16 +20,34 @@ function calcolaProgressivo(paese) {
 }
 
 /* ============================================================
-   📦 GET tutte le spedizioni
+   📦 GET tutte le spedizioni (con righe popolate)
 ============================================================ */
 function getAll() {
   const db = getDb();
-  return db.prepare(`
+  const spedizioni = db.prepare(`
     SELECT *
     FROM spedizioni
     WHERE stato = 'BOZZA'
     ORDER BY id DESC
   `).all();
+
+  if (spedizioni.length === 0) return [];
+
+  const ids = spedizioni.map((s) => s.id);
+  const placeholders = ids.map(() => "?").join(",");
+  const righe = db.prepare(`
+    SELECT spedizione_id, asin, sku, prodotto_nome, quantita
+    FROM spedizioni_righe
+    WHERE spedizione_id IN (${placeholders})
+  `).all(...ids);
+
+  const righeBySpedId = new Map();
+  for (const r of righe) {
+    if (!righeBySpedId.has(r.spedizione_id)) righeBySpedId.set(r.spedizione_id, []);
+    righeBySpedId.get(r.spedizione_id).push(r);
+  }
+
+  return spedizioni.map((s) => ({ ...s, righe: righeBySpedId.get(s.id) || [] }));
 }
 
 /* ============================================================
