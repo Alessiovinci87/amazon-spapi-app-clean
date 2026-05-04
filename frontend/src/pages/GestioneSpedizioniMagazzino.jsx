@@ -76,37 +76,39 @@ const GestioneSpedizioniMagazzino = () => {
   const [filterSearchTerm, setFilterSearchTerm] = useState("");
   const [filterStato, setFilterStato] = useState("TUTTI");
 
+  const caricaSpedizioni = async () => {
+    try {
+      const data = await fetchJSON("spedizioni");
+      setSpedizioni(Array.isArray(data) ? data : []);
+    } catch { setSpedizioni([]); }
+  };
+
   useEffect(() => {
-    // fetchJSON inietta il JWT e lancia se !ok. Se la response non è un
-    // array (errore, shape inaspettata) tengo lo stato a [] per evitare
-    // il crash su .filter() piu' in basso.
-    fetchJSON("spedizioni")
-      .then((data) => setSpedizioni(Array.isArray(data) ? data : []))
-      .catch(() => setSpedizioni([]));
+    caricaSpedizioni();
   }, []);
 
   const aggiornaSpedizione = async (id, dati) => {
     try {
-      const aggiornata = await fetchJSON(`spedizioni/${id}`, {
+      await fetchJSON(`spedizioni/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dati),
       });
-      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+      await caricaSpedizioni();
     } catch { toast.error("Errore aggiornamento spedizione"); }
   };
 
   const confermaSpedizione = async (id) => {
     try {
-      const aggiornata = await fetchJSON(`spedizioni/${id}/conferma`, { method: "PATCH" });
-      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+      await fetchJSON(`spedizioni/${id}/conferma`, { method: "PATCH" });
+      await caricaSpedizioni();
     } catch { toast.error("Errore conferma spedizione"); }
   };
 
   const eliminaSpedizione = async (id) => {
     try {
       await fetchJSON(`spedizioni/${id}`, { method: "DELETE" });
-      setSpedizioni((p) => p.filter((s) => s.id !== id));
+      await caricaSpedizioni();
     } catch { toast.error("Errore eliminazione spedizione"); }
   };
 

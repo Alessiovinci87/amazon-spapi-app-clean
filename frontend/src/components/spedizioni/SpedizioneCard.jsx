@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Package, Truck, Calendar, User, FileText, CheckCircle,
   Edit3, Trash2, Download, X, Save, ChevronDown, ChevronUp,
@@ -49,6 +49,16 @@ const EditableCard = ({ spedizione, onDelete, onConferma, onExport, onUpdate }) 
   const [paese, setPaese] = useState(spedizione.paese);
   const [righe, setRighe] = useState(spedizione.righe || []);
   const [saving, setSaving] = useState(false);
+
+  // Risincronizza lo state locale quando la prop cambia (es. dopo refetch
+  // del parent post-salvataggio): senza questo, righe/paese restano fermi
+  // al valore del primo mount e la card mostra dati stale.
+  useEffect(() => {
+    if (!editMode) {
+      setPaese(spedizione.paese);
+      setRighe(spedizione.righe || []);
+    }
+  }, [spedizione.id, spedizione.paese, spedizione.righe, editMode]);
 
   const isBozza = spedizione.stato === "BOZZA";
   const totPezzi = (spedizione.righe || []).reduce((s, r) => s + (r.quantita || 0), 0);

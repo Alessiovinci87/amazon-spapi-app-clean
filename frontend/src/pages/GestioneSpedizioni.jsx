@@ -109,14 +109,23 @@ const GestioneSpedizioni = () => {
       .catch(() => setImpegni({}));
   }, []);
 
+  const caricaSpedizioni = async () => {
+    try {
+      const d = await fetchJSON("spedizioni");
+      setSpedizioni(Array.isArray(d) ? d : []);
+    } catch { setSpedizioni([]); }
+  };
+
+  const caricaInventario = async () => {
+    try {
+      const d = await fetchJSON("magazzino");
+      setInventario(Array.isArray(d) ? d : []);
+    } catch { setInventario([]); }
+  };
+
   useEffect(() => {
-    // fetchJSON estrae automaticamente .data se presente (utils/api.js)
-    fetchJSON("magazzino")
-      .then((d) => setInventario(Array.isArray(d) ? d : []))
-      .catch(() => setInventario([]));
-    fetchJSON("spedizioni")
-      .then((d) => setSpedizioni(Array.isArray(d) ? d : []))
-      .catch(() => setSpedizioni([]));
+    caricaInventario();
+    caricaSpedizioni();
   }, []);
 
   const handleInfoChange = (campo, valore) => setSpedizioneInfo((p) => ({ ...p, [campo]: valore }));
@@ -153,23 +162,21 @@ const GestioneSpedizioni = () => {
     try {
       const bozza = spedizioni.find((s) => s.stato === "BOZZA" && s.paese === spedizioneInfo.paese);
       if (bozza) {
-        const aggiornata = await fetchJSON(`spedizioni/${bozza.id}/righe`, {
+        await fetchJSON(`spedizioni/${bozza.id}/righe`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ righe }),
         });
-        setSpedizioni((p) => p.map((s) => (s.id === bozza.id ? aggiornata : s)));
       } else {
-        const nuova = await fetchJSON("spedizioni", {
+        await fetchJSON("spedizioni", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ...spedizioneInfo, righe }),
         });
-        setSpedizioni((p) => [nuova, ...p]);
       }
-      fetchJSON("magazzino")
-        .then((d) => setInventario(Array.isArray(d) ? d : []))
-        .catch(() => {});
+      // Refetch dell'intera lista per garantire coerenza con il DB
+      await caricaSpedizioni();
+      caricaInventario();
       setRighe([]);
       setErrore("");
     } catch { setErrore(t("gestioneSpedizioni.err_salvataggio")); } finally { setSalvando(false); }
@@ -193,30 +200,30 @@ const GestioneSpedizioni = () => {
 
   const aggiornaSpedizione = async (id, dati) => {
     try {
-      const aggiornata = await fetchJSON(`spedizioni/${id}`, {
+      await fetchJSON(`spedizioni/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(dati),
       });
-      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+      await caricaSpedizioni();
     } catch (err) { console.error("Errore aggiornamento spedizione:", err); }
   };
 
   const confermaSpedizione = async (id) => {
     try {
-      const aggiornata = await fetchJSON(`spedizioni/${id}/conferma`, { method: "PATCH" });
-      setSpedizioni((p) => p.map((s) => (s.id === id ? aggiornata : s)));
+      await fetchJSON(`spedizioni/${id}/conferma`, { method: "PATCH" });
+      await caricaSpedizioni();
     } catch (err) { console.error("Errore conferma spedizione:", err); }
   };
 
   const eliminaTutte = async () => {
-    try { await fetchJSON("spedizioni", { method: "DELETE" }); setSpedizioni([]); } catch {}
+    try { await fetchJSON("spedizioni", { method: "DELETE" }); await caricaSpedizioni(); } catch {}
   };
 
   const eliminaSpedizione = async (id) => {
     try {
       await fetchJSON(`spedizioni/${id}`, { method: "DELETE" });
-      setSpedizioni((p) => p.filter((s) => s.id !== id));
+      await caricaSpedizioni();
     } catch {}
   };
 
