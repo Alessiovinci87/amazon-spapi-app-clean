@@ -8,6 +8,7 @@ import {
   ExternalLink,
   LogOut,
   Pencil,
+  AlertTriangle,
 } from "lucide-react";
 
 const BRAND_LOGOS = {
@@ -130,8 +131,16 @@ const DDTStorico = () => {
                   <tbody>
                     {storico.filter((d) => !filtroBrand || d.brand === filtroBrand).map((ddt) => {
                       const b = BRAND_LOGOS[ddt.brand];
+                      const trackingMancante = !ddt.tracking || String(ddt.tracking).trim() === "";
                       return (
-                      <tr key={ddt.id} className="border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors">
+                      <tr
+                        key={ddt.id}
+                        className={
+                          trackingMancante
+                            ? "border-b border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10 transition-colors"
+                            : "border-b border-slate-800/60 hover:bg-slate-800/30 transition-colors"
+                        }
+                      >
                         <td className="py-3 pr-4 text-slate-500 font-mono text-xs tabular-nums">{ddt.id}</td>
                         <td className="py-3 pr-4">
                           {b ? (
@@ -143,7 +152,17 @@ const DDTStorico = () => {
                             <span className="text-xs text-slate-600">—</span>
                           )}
                         </td>
-                        <td className="py-3 pr-4 text-white font-medium">{ddt.numeroDDT}</td>
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-white font-medium">{ddt.numeroDDT}</span>
+                            {trackingMancante && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/15 border border-rose-500/40 text-rose-300 text-[10px] font-semibold uppercase tracking-wider">
+                                <AlertTriangle className="w-3 h-3" />
+                                Tracking mancante
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="py-3 pr-4 text-slate-400">{ddt.data}</td>
                         <td className="py-3 pr-4 text-right text-white font-semibold tabular-nums">{ddt.totUnita}</td>
                         <td className="py-3 pr-4 text-right text-white font-semibold tabular-nums">{ddt.totColli}</td>

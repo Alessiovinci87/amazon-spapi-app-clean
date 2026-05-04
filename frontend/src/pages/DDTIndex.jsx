@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../context/AuthContext";
 import {
   ArrowLeft,
   FileText,
@@ -32,6 +33,8 @@ function StatTile({ icon: Icon, label, value, accent = "violet" }) {
 const DDTIndex = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { user } = useAuth();
+  const isMagazzino = user?.ruolo === "magazzino";
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
@@ -50,7 +53,7 @@ const DDTIndex = () => {
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")}
               type="button"
               title={t("ddtIndex.topbar_back")}
               className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
@@ -67,7 +70,7 @@ const DDTIndex = () => {
           </div>
 
           <button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")}
             type="button"
             className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
           >
@@ -95,7 +98,8 @@ const DDTIndex = () => {
       {/* === Contenuto principale === */}
       <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-6">
 
-        {/* Opzioni DDT */}
+        {/* Opzioni DDT — Pics e Generico solo per ufficio/admin */}
+        {!isMagazzino && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           {/* DDT Pics Nails */}
@@ -158,6 +162,7 @@ const DDTIndex = () => {
             </div>
           </button>
         </div>
+        )}
 
         {/* Storico DDT */}
         <button
@@ -181,12 +186,14 @@ const DDTIndex = () => {
           </div>
         </button>
 
-        {/* Stats */}
+        {/* Stats — solo ufficio/admin */}
+        {!isMagazzino && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatTile icon={FileCheck} label={t("ddtIndex.stat_pics")} value="--" accent="violet" />
           <StatTile icon={FileText} label={t("ddtIndex.stat_generici")} value="--" accent="emerald" />
           <StatTile icon={Archive} label={t("ddtIndex.stat_totali")} value="--" accent="blue" />
         </div>
+        )}
       </main>
 
       {/* === Footer === */}

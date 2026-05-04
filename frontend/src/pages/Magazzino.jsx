@@ -51,20 +51,20 @@ const SECTIONS = [
   {
     eyebrow: "Logistica",
     title: "Spedizioni e documenti",
-    subtitle: "Gestione delle uscite e generazione DDT.",
+    subtitle: "Gestione delle uscite e produzione interna.",
     columns: "sm:grid-cols-2",
     items: [
       { to: "/magazzino/spedizioni", icon: Truck, label: "Spedizioni", desc: "Tracking e gestione uscite", accent: "blue", code: "06" },
-      { to: "/ddt-index",  icon: FileText, label: "Genera DDT", desc: "Documenti di trasporto",      accent: "blue", code: "07" },
+      { to: "/magazzino/produzione", icon: Factory, label: "Gestione Produzione", desc: "Gestisci prenotazioni e produzioni", accent: "blue", code: "07" },
     ],
   },
   {
     eyebrow: "Produzione",
     title: "Lavorazioni",
-    subtitle: "Pianificazione e monitoraggio dei processi produttivi.",
+    subtitle: "Documenti di trasporto e archivio.",
     columns: "sm:grid-cols-2",
     items: [
-      { to: "/magazzino/produzione", icon: Factory, label: "Gestione Produzione", desc: "Gestisci prenotazioni e produzioni", accent: "violet", code: "08" },
+      { to: "/ddt-index", icon: FileText, label: "DDT", desc: "Documenti di trasporto", accent: "violet", code: "08" },
     ],
   },
 ];
