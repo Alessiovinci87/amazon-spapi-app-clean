@@ -39,6 +39,28 @@ const Home = () => {
   const [isMagazzino, setIsMagazzino] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Mini-login magazzino (password-only, username "magazzino" hardcoded)
+  const [showMagazzinoLogin, setShowMagazzinoLogin] = useState(false);
+  const [magazzinoPassword, setMagazzinoPassword] = useState("");
+  const [magazzinoError, setMagazzinoError] = useState("");
+  const [magazzinoLoading, setMagazzinoLoading] = useState(false);
+
+  const handleMagazzinoLogin = async (e) => {
+    e.preventDefault();
+    setMagazzinoError("");
+    setMagazzinoLoading(true);
+    try {
+      await login("magazzino", magazzinoPassword);
+      setShowMagazzinoLogin(false);
+      setMagazzinoPassword("");
+      navigate("/magazzino");
+    } catch (err) {
+      setMagazzinoError(err.message || "Password non valida.");
+    } finally {
+      setMagazzinoLoading(false);
+    }
+  };
+
   // Se già autenticato, reindirizza in base al ruolo
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -183,7 +205,7 @@ const Home = () => {
 
               <div className="space-y-3">
                 <button
-                  onClick={() => { localStorage.setItem("auth", "magazzino"); localStorage.setItem("role", "magazzino"); navigate("/magazzino"); }}
+                  onClick={() => { setMagazzinoError(""); setMagazzinoPassword(""); setShowMagazzinoLogin(true); }}
                   className="group w-full flex items-center gap-4 px-5 py-4 bg-slate-900 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 rounded-lg transition-all text-left"
                 >
                   <div className="w-10 h-10 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center flex-shrink-0 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/5 transition-colors">
@@ -562,6 +584,68 @@ const Home = () => {
               </div>
             </motion.div>
           </main>
+        </div>
+      )}
+
+      {/* ========== MINI-LOGIN MAGAZZINO (solo password) ========== */}
+      {showMagazzinoLogin && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+            className="relative bg-slate-900 border border-slate-800 rounded-lg w-full max-w-sm overflow-hidden"
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-400/60" />
+            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-1">Accesso magazzino</div>
+                <h2 className="text-base font-semibold text-white">Inserisci la password</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowMagazzinoLogin(false); setMagazzinoPassword(""); setMagazzinoError(""); }}
+                className="w-8 h-8 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
+                aria-label="Chiudi"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleMagazzinoLogin} className="px-5 py-5 space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-1.5">
+                  Password operatore
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={magazzinoPassword}
+                    onChange={(e) => setMagazzinoPassword(e.target.value)}
+                    autoFocus
+                    className="w-full px-3 py-2 pl-10 rounded-md bg-slate-950/60 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                    placeholder="••••••••"
+                  />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                </div>
+              </div>
+
+              {magazzinoError && (
+                <div className="px-3 py-2 rounded-md bg-rose-500/5 border border-rose-500/30">
+                  <p className="text-xs text-rose-300">{magazzinoError}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={magazzinoLoading || !magazzinoPassword}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                <LogIn className="w-4 h-4" />
+                {magazzinoLoading ? "Accesso in corso…" : "Entra in magazzino"}
+              </button>
+            </form>
+          </motion.div>
         </div>
       )}
     </div>
