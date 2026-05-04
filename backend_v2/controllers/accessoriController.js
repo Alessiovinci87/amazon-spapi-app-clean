@@ -31,6 +31,18 @@ const AccessoriController = {
     }
   },
 
+  /** ➕ POST crea nuovo accessorio */
+  createAccessorio: (req, res) => {
+    try {
+      const created = AccessoriService.createAccessorio(req.body);
+      return res.status(201).json({ ok: true, data: created });
+    } catch (err) {
+      const status = err.statusCode || 500;
+      logger.error({ err }, "[ACCESSORI][CREATE] Errore");
+      return res.status(status).json({ error: err.message || "Errore creazione accessorio" });
+    }
+  },
+
   /** ✏️ PATCH rettifica quantità (ASSOLUTA) + storico automatico */
   updateQuantitaAccessorio: (req, res) => {
     try {

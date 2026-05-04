@@ -25,6 +25,42 @@ function getAccessorio(asin_accessorio) {
     .get(asin_accessorio);
 }
 
+/** ➕ Crea un nuovo accessorio (asin_accessorio = chiave manuale) */
+function createAccessorio({ asin_accessorio, nome, quantita = 0, soglia_minima = 0 }) {
+  const db = getDb();
+
+  const exists = db
+    .prepare(`SELECT asin_accessorio FROM accessori WHERE asin_accessorio = ?`)
+    .get(asin_accessorio);
+  if (exists) {
+    const err = new Error(`Accessorio "${asin_accessorio}" già esistente`);
+    err.statusCode = 409;
+    throw err;
+  }
+
+  db.prepare(
+    `INSERT INTO accessori (asin_accessorio, nome, quantita, soglia_minima, immagine)
+     VALUES (?, ?, ?, ?, NULL)`
+  ).run(asin_accessorio, nome, quantita, soglia_minima);
+
+  // Storico iniziale solo se la quantità di partenza è > 0 (rettifica iniziale)
+  if (quantita > 0) {
+    db.prepare(
+      `INSERT INTO storico_movimenti
+        (tipo, asin_accessorio, delta_quantita, note, operatore, created_at)
+       VALUES
+        ('RETTIFICA_ACCESSORIO', ?, ?, ?, 'admin', datetime('now','localtime'))`
+    ).run(asin_accessorio, quantita, "Creazione accessorio");
+  }
+
+  return db
+    .prepare(
+      `SELECT asin_accessorio, nome, quantita, soglia_minima, immagine
+       FROM accessori WHERE asin_accessorio = ?`
+    )
+    .get(asin_accessorio);
+}
+
 /** 🖼️ Aggiorna il path immagine (o NULL per rimuoverla) */
 function updateImmagineAccessorio(asin_accessorio, path_immagine) {
   const db = getDb();
@@ -110,6 +146,7 @@ function getStoricoAccessori() {
 module.exports = {
   getAllAccessori,
   getAccessorio,
+  createAccessorio,
   updateQuantitaAccessorio,
   updateSogliaAccessorio,
   updateImmagineAccessorio,

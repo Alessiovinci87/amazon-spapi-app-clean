@@ -45,6 +45,15 @@ const updateQtaSchema = z.object({
   operatore: z.string().max(100).optional(),
 });
 
+// Schema creazione: ASIN normalizzato (lettere/cifre/_/-/spazi diventano _ e maiuscolo)
+const createAccessorioSchema = z.object({
+  asin_accessorio: z.string().min(1).max(50)
+    .transform((s) => s.trim().toUpperCase().replace(/\s+/g, "_").replace(/[^A-Z0-9_-]/g, "")),
+  nome: z.string().min(1).max(200).transform((s) => s.trim()),
+  quantita: z.coerce.number().int().min(0).default(0),
+  soglia_minima: z.coerce.number().int().min(0).default(0),
+}).refine((d) => d.asin_accessorio.length >= 1, { message: "ASIN non valido dopo normalizzazione" });
+
 router.use((req, _res, next) => {
   logger.info(`[ACCESSORI] ${req.method} ${req.originalUrl}`);
   next();
@@ -65,6 +74,11 @@ router.patch('/:asin_accessorio',
 
 /** GET tutti gli accessori */
 router.get('/', AccessoriController.getAllAccessori);
+
+/** POST crea nuovo accessorio */
+router.post('/',
+  validate({ body: createAccessorioSchema }),
+  AccessoriController.createAccessorio);
 
 /** GET singolo accessorio */
 router.get('/:asin_accessorio', AccessoriController.getAccessorio);
