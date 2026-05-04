@@ -4,6 +4,7 @@ import SidebarUffici from "./SidebarUffici";
 import SidebarMagazzino from "./SidebarMagazzino";
 import GlobalAlertBell from "./GlobalAlertBell";
 import ErrorBoundary from "./ErrorBoundary";
+import RoleGuard from "./RoleGuard";
 
 const Layout = () => {
   // 🔹 Determina quale sidebar mostrare in base all'accesso
@@ -19,7 +20,9 @@ const Layout = () => {
         style={{ marginLeft: "4rem" }} // per sidebar chiusa
       >
         <ErrorBoundary>
-          <Outlet />
+          <RoleGuard>
+            <Outlet />
+          </RoleGuard>
         </ErrorBoundary>
       </main>
 
