@@ -39,8 +39,11 @@ const Home = () => {
   const [isMagazzino, setIsMagazzino] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Mini-login magazzino (password-only, username "magazzino" hardcoded)
+  // Mini-login magazzino: username + password (più operatori distinti)
   const [showMagazzinoLogin, setShowMagazzinoLogin] = useState(false);
+  const [magazzinoUsername, setMagazzinoUsername] = useState(
+    () => localStorage.getItem("magazzino_last_username") || ""
+  );
   const [magazzinoPassword, setMagazzinoPassword] = useState("");
   const [magazzinoError, setMagazzinoError] = useState("");
   const [magazzinoLoading, setMagazzinoLoading] = useState(false);
@@ -50,12 +53,14 @@ const Home = () => {
     setMagazzinoError("");
     setMagazzinoLoading(true);
     try {
-      await login("magazzino", magazzinoPassword);
+      const u = magazzinoUsername.trim();
+      await login(u, magazzinoPassword);
+      localStorage.setItem("magazzino_last_username", u);
       setShowMagazzinoLogin(false);
       setMagazzinoPassword("");
       navigate("/magazzino");
     } catch (err) {
-      setMagazzinoError(err.message || "Password non valida.");
+      setMagazzinoError(err.message || "Credenziali non valide.");
     } finally {
       setMagazzinoLoading(false);
     }
@@ -615,14 +620,32 @@ const Home = () => {
             <form onSubmit={handleMagazzinoLogin} className="px-5 py-5 space-y-4">
               <div>
                 <label className="block text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-1.5">
-                  Password operatore
+                  Username operatore
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={magazzinoUsername}
+                    onChange={(e) => setMagazzinoUsername(e.target.value)}
+                    autoFocus
+                    autoComplete="username"
+                    className="w-full px-3 py-2 pl-10 rounded-md bg-slate-950/60 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
+                    placeholder="es. magazzino, guido, david…"
+                  />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-1.5">
+                  Password
                 </label>
                 <div className="relative">
                   <input
                     type="password"
                     value={magazzinoPassword}
                     onChange={(e) => setMagazzinoPassword(e.target.value)}
-                    autoFocus
+                    autoComplete="current-password"
                     className="w-full px-3 py-2 pl-10 rounded-md bg-slate-950/60 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30 transition-all"
                     placeholder="••••••••"
                   />
@@ -638,7 +661,7 @@ const Home = () => {
 
               <button
                 type="submit"
-                disabled={magazzinoLoading || !magazzinoPassword}
+                disabled={magazzinoLoading || !magazzinoUsername.trim() || !magazzinoPassword}
                 className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-sm font-medium transition-all disabled:opacity-50"
               >
                 <LogIn className="w-4 h-4" />

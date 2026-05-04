@@ -119,6 +119,19 @@ const Settings = () => {
     } catch { toast.error(t("settings.users.msg_error_reset")); }
   };
 
+  const eliminaUtente = async (id, username) => {
+    if (!window.confirm(`Eliminare definitivamente l'utente "${username}"? L'operazione non è reversibile.`)) return;
+    try {
+      const res = await fetch(`/api/v2/auth-app/utenti/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Errore");
+      toast.success(`Utente "${username}" eliminato`);
+      fetchUtenti();
+    } catch (e) {
+      toast.error(e.message);
+    }
+  };
+
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
       {/* Grid */}
@@ -474,6 +487,17 @@ const Settings = () => {
                               className={`w-8 h-8 rounded-md border flex items-center justify-center transition-colors ${u.attivo ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20" : "border-slate-700 bg-slate-800/60 text-slate-500 hover:text-white"}`}
                             >
                               {u.attivo ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                            </button>
+                          )}
+                          {/* Elimina utente */}
+                          {!isSelf && (
+                            <button
+                              onClick={() => eliminaUtente(u.id, u.username)}
+                              type="button"
+                              title="Elimina utente"
+                              className="w-8 h-8 rounded-md border border-slate-700 bg-slate-800/60 hover:bg-rose-500/10 hover:border-rose-500/40 text-slate-500 hover:text-rose-400 transition-colors flex items-center justify-center"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           )}
                         </div>

@@ -203,4 +203,35 @@ router.post(
   }
 );
 
+// DELETE /api/v2/auth-app/utenti/:id — elimina utente (admin)
+// Blocca: cancellazione di sé stessi e dell'unico admin rimasto.
+router.delete(
+  "/utenti/:id",
+  requireAuth,
+  requireRole("admin"),
+  validate({ params: idParamSchema }),
+  (req, res) => {
+    const id = Number(req.params.id);
+    const db = getDb();
+
+    const target = db.prepare("SELECT id, username, ruolo FROM utenti WHERE id = ?").get(id);
+    if (!target) {
+      return res.status(404).json({ ok: false, message: "Utente non trovato." });
+    }
+    if (target.id === req.user.id) {
+      return res.status(400).json({ ok: false, message: "Non puoi cancellare te stesso." });
+    }
+    if (target.ruolo === "admin") {
+      const adminCount = db.prepare("SELECT COUNT(*) AS n FROM utenti WHERE ruolo = 'admin' AND attivo = 1").get().n;
+      if (adminCount <= 1) {
+        return res.status(400).json({ ok: false, message: "Impossibile cancellare l'unico admin." });
+      }
+    }
+
+    db.prepare("DELETE FROM utenti WHERE id = ?").run(id);
+    logger.info({ event: "user_deleted", deletedId: id, deletedUsername: target.username, by: req.user.username }, "Utente cancellato");
+    res.json({ ok: true, message: "Utente eliminato." });
+  }
+);
+
 module.exports = router;
