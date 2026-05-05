@@ -226,8 +226,11 @@ const Panoramica = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    // Durata minima animazione 700ms così l'utente vede il feedback visivo
+    // anche quando la fetch è velocissima (cache hit ~10ms).
+    const minDuration = new Promise((r) => setTimeout(r, 700));
     try {
-      await load(true);
+      await Promise.all([load(true), minDuration]);
     } finally {
       setRefreshing(false);
     }
