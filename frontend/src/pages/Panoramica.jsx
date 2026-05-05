@@ -283,12 +283,20 @@ const Panoramica = () => {
               value={period}
               onChange={setPeriod}
               rangeInfo={
-                data?.range?.data_lag && data.range.last_available_date ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                    <Info className="w-3 h-3" />
-                    dati Amazon fino al {fmtDate(data.range.last_available_date)}
-                  </span>
-                ) : null
+                <>
+                  {data?.live?.applied && data.live.range && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                      <Activity className="w-3 h-3 animate-pulse" />
+                      live: {fmtDate(data.live.range.from)} → {fmtDate(data.live.range.to)}
+                    </span>
+                  )}
+                  {data?.range?.data_lag && data.range.last_available_date && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                      <Info className="w-3 h-3" />
+                      report Amazon fino al {fmtDate(data.range.last_available_date)}
+                    </span>
+                  )}
+                </>
               }
             />
 

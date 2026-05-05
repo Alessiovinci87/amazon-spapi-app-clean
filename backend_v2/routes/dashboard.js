@@ -7,6 +7,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const logger = require("../utils/logger");
+const { aggregateOrdersLive } = require("../modules/reports/ordersLiveService");
 
 const CACHE_TTL_MS = 60 * 1000;
 // cache keyed by from-to (gli stati di sistema non dipendono dal periodo,
@@ -278,7 +279,7 @@ function buildOverview({ from, to }) {
   };
 }
 
-router.get("/overview", (req, res) => {
+router.get("/overview", async (req, res) => {
   try {
     // Default: ultimi 7 giorni completi (today-7..today-1) → data lag-friendly
     let from = String(req.query.from || ymdOffset(7));
@@ -288,7 +289,10 @@ router.get("/overview", (req, res) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) to = ymdOffset(1);
     if (from > to) [from, to] = [to, from];
 
-    const cacheKey = `${from}|${to}`;
+    // include_live: true → integra Orders API per i giorni non coperti da sales_daily
+    const includeLive = req.query.live !== "0";
+
+    const cacheKey = `${from}|${to}|live=${includeLive}`;
     const now = Date.now();
     const hit = _cache.get(cacheKey);
     if (req.query.refresh !== "1" && hit && now - hit.ts < CACHE_TTL_MS) {
@@ -296,8 +300,62 @@ router.get("/overview", (req, res) => {
     }
 
     const data = buildOverview({ from, to });
+
+    // Integrazione live: se il range richiesto contiene giorni > last_available_date
+    // dei report Amazon, chiamiamo Orders API per i giorni mancanti e SOMMIAMO
+    // i risultati ai KPI/per_country.
+    const last = data?.range?.last_available_date;
+    if (includeLive) {
+      const liveFrom = last && last >= from ? ymdAddDays(last, 1) : from;
+      if (liveFrom <= to) {
+        try {
+          const live = await aggregateOrdersLive({ from: liveFrom, to });
+          data.live = {
+            applied: true,
+            range: { from: liveFrom, to },
+            totale_eur: live.totale_eur,
+            non_eur: live.non_eur,
+            per_country: live.per_country,
+          };
+          // Somma ai KPI: revenue/units/orders (solo EUR per il totale)
+          data.kpi.revenue.value = Math.round((data.kpi.revenue.value + live.totale_eur.revenue) * 100) / 100;
+          data.kpi.units.value = data.kpi.units.value + live.totale_eur.units;
+          data.kpi.orders.value = data.kpi.orders.value + live.totale_eur.orders;
+          // I delta_pct in regime live perdono significato (non confrontiamo
+          // periodi misti). Li azzeriamo per chiarezza.
+          data.kpi.revenue.delta_pct = null;
+          data.kpi.units.delta_pct = null;
+          data.kpi.orders.delta_pct = null;
+          // Per-country: aggiungi i delta live al breakdown sales_daily
+          const liveByCountry = Object.fromEntries(live.per_country.map(c => [c.country, c]));
+          for (const c of data.per_country) {
+            const liveC = liveByCountry[c.country];
+            if (liveC) {
+              c.revenue = Math.round((c.revenue + liveC.revenue) * 100) / 100;
+              c.units = c.units + liveC.units;
+              c.orders = c.orders + liveC.orders;
+            }
+          }
+          // Aggiungi country live che potrebbe non essere in sales_daily
+          for (const lc of live.per_country) {
+            if (!data.per_country.some(c => c.country === lc.country) && (lc.revenue > 0 || lc.units > 0)) {
+              data.per_country.push({
+                country: lc.country, revenue: lc.revenue, units: lc.units,
+                orders: lc.orders, returns_units: 0, returns_pct: null,
+              });
+            }
+          }
+          data.per_country.sort((a, b) => b.revenue - a.revenue);
+        } catch (err) {
+          logger.warn({ err: err.message }, "[overview] live integration failed");
+          data.live = { applied: false, error: err.message };
+        }
+      } else {
+        data.live = { applied: false, reason: "report Amazon coprono già il range" };
+      }
+    }
+
     _cache.set(cacheKey, { data, ts: now });
-    // Limite cache: tieni al massimo 32 chiavi
     if (_cache.size > 32) {
       const oldestKey = [..._cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0][0];
       _cache.delete(oldestKey);
@@ -309,5 +367,11 @@ router.get("/overview", (req, res) => {
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+function ymdAddDays(ymd, n) {
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
 
 module.exports = router;
