@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ArrowLeft, Image, Sparkles } from "lucide-react";
+import { Image, Sparkles, Package } from "lucide-react";
 import ProductDetails from "../components/listing/ProductDetails";
+import PageTopBar from "../components/PageTopBar";
 
 const DettaglioProdotto = () => {
   const { asin } = useParams();
@@ -55,18 +56,13 @@ const DettaglioProdotto = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 antialiased">
-      <div className="border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm px-6 py-3 flex items-center gap-4">
-        <button
-          onClick={() => navigate("/uffici/listing")}
-          title="Indietro"
-          className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="text-lg font-semibold tracking-tight">
-          {t("dettaglioProdotto.title")} <span className="text-slate-500 font-mono">— {asin}</span>
-        </h1>
-      </div>
+      <PageTopBar
+        icon={Package}
+        iconAccent="blue"
+        eyebrow={asin}
+        title={t("dettaglioProdotto.title")}
+        backTo="/uffici/listing"
+      />
 
       <div className="px-6 sm:px-10 lg:px-16 py-8">
         <ProductDetails prodotto={prodotto} onChange={setProdotto} />

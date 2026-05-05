@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import PageTopBar from "../components/PageTopBar";
 import {
-  ArrowLeft,
   ExternalLink,
   Loader,
   Image as ImageIcon,
   X,
   Download,
-  LogOut,
 } from "lucide-react";
 
 const EU_MARKETPLACES = [
@@ -79,50 +78,19 @@ export default function PaginaImmagini() {
         }}
       />
 
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => navigate("/uffici/listing")}
-              type="button"
-              title="Indietro"
-              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center flex-shrink-0">
-              <ImageIcon className="w-[18px] h-[18px] text-cyan-400" />
-            </div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Immagini Listing</span>
-              <span
-                className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1 font-mono cursor-pointer hover:text-slate-300 transition-colors"
-                onClick={() => navigator.clipboard.writeText(asin)}
-                title="Clicca per copiare"
-              >
-                {asin}
-              </span>
-            </div>
+      <PageTopBar
+        icon={ImageIcon}
+        iconAccent="cyan"
+        eyebrow={asin}
+        title="Immagini Listing"
+        backTo="/uffici/listing"
+        actions={
+          <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30">
+            <Flag code={activeCode} className="h-3 w-auto" />
+            <span className="text-[11px] uppercase tracking-[0.12em] text-cyan-400 font-medium">{activeCode}</span>
           </div>
-
-          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
-            <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30">
-              <Flag code={activeCode} className="h-3 w-auto" />
-              <span className="text-[11px] uppercase tracking-[0.12em] text-cyan-400 font-medium">{activeCode}</span>
-            </div>
-            <button
-              onClick={() => navigate(`/uffici/listing/${asin}`)}
-              type="button"
-              title="Esci"
-              className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Esci
-            </button>
-          </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* === Hero compatto === */}
       <section className="relative">

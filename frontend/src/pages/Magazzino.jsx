@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import PageTopBar from "../components/PageTopBar";
 import {
   Package,
   Boxes,
@@ -16,7 +17,6 @@ import {
   TrendingUp,
   Clock,
   Zap,
-  LogOut,
   Warehouse,
   Settings,
 } from "lucide-react";
@@ -127,35 +127,19 @@ const Magazzino = () => {
         }}
       />
 
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
-              <Warehouse className="w-[18px] h-[18px] text-emerald-400" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-[15px] font-semibold tracking-tight text-white">Nexus</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Warehouse Module</span>
-            </div>
+      <PageTopBar
+        icon={Warehouse}
+        iconAccent="emerald"
+        eyebrow="Warehouse Module"
+        title="Nexus"
+        backTo={handleBack}
+        actions={
+          <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[11px] uppercase tracking-[0.12em] text-emerald-400 font-medium">Sessione attiva</span>
           </div>
-
-          <div className="flex items-center gap-3 sm:gap-5">
-            <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] uppercase tracking-[0.12em] text-emerald-400 font-medium">Sessione attiva</span>
-            </div>
-            <button
-              onClick={handleBack}
-              className="flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
-              title="Torna indietro"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Esci</span>
-            </button>
-          </div>
-        </div>
-      </header>
+        }
+      />
 
       {/* === Hero === */}
       <section className="relative">
