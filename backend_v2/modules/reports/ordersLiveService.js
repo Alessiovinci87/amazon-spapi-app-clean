@@ -486,10 +486,15 @@ async function refreshLiveInBackground({ from, to }) {
   }
 }
 
+function isBgRefreshing({ from, to }) {
+  return _bgRefreshing.has(`${from}|${to}`);
+}
+
 module.exports = {
   aggregateOrdersLive,
   fetchOrdersForMarketplace,
   enrichOrderWithItems,
   readOrdersLiveFromCache,
   refreshLiveInBackground,
+  isBgRefreshing,
 };

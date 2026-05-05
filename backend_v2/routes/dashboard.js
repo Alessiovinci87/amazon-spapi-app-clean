@@ -7,7 +7,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const logger = require("../utils/logger");
-const { readOrdersLiveFromCache, refreshLiveInBackground } = require("../modules/reports/ordersLiveService");
+const { readOrdersLiveFromCache, refreshLiveInBackground, isBgRefreshing } = require("../modules/reports/ordersLiveService");
 
 const CACHE_TTL_MS = 60 * 1000;
 // cache keyed by from-to (gli stati di sistema non dipendono dal periodo,
@@ -322,6 +322,7 @@ router.get("/overview", async (req, res) => {
             non_eur: live.non_eur,
             per_country: live.per_country,
             last_fetch: live.last_fetch,
+            refreshing: isBgRefreshing({ from: liveFrom, to }),
           };
           // Somma alla cache (KPI + per_country)
           data.kpi.revenue.value = Math.round((data.kpi.revenue.value + live.totale_eur.revenue) * 100) / 100;
@@ -354,6 +355,9 @@ router.get("/overview", async (req, res) => {
         }
         // Trigger refresh in background (fire-and-forget)
         refreshLiveInBackground({ from: liveFrom, to });
+        // Aggiorna lo stato refreshing dopo aver triggerato (potrebbe essere
+        // appena stato avviato adesso)
+        if (data.live) data.live.refreshing = isBgRefreshing({ from: liveFrom, to });
       } else {
         data.live = { applied: false, reason: "report Amazon coprono già il range" };
       }

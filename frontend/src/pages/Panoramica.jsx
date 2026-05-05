@@ -224,10 +224,19 @@ const Panoramica = () => {
     load().finally(() => setLoading(false));
   }, [load]);
 
+  // Polling automatico finché il backend sta arricchendo gli ordini live in
+  // background. Ricarica i numeri ogni 4s. Si ferma quando data.live.refreshing
+  // diventa false (= la cache è completamente popolata).
+  const isBgRefreshing = !!data?.live?.refreshing;
+  useEffect(() => {
+    if (!isBgRefreshing) return;
+    const id = setInterval(() => { load(false); }, 4000);
+    return () => clearInterval(id);
+  }, [isBgRefreshing, load]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
-    // Durata minima animazione 700ms così l'utente vede il feedback visivo
-    // anche quando la fetch è velocissima (cache hit ~10ms).
+    // Durata minima animazione 700ms anche se la fetch è velocissima (cache).
     const minDuration = new Promise((r) => setTimeout(r, 700));
     try {
       await Promise.all([load(true), minDuration]);
@@ -235,6 +244,10 @@ const Panoramica = () => {
       setRefreshing(false);
     }
   };
+
+  // Il sync gira se: (a) c'è un refresh manuale in corso, (b) il backend
+  // sta arricchendo la cache via Orders API in background.
+  const syncSpinning = refreshing || isBgRefreshing;
 
   // ===== derived =====
   const kpi = data?.kpi;
@@ -279,9 +292,9 @@ const Panoramica = () => {
         eyebrow="Operazioni"
         title="Panoramica"
         backTo="/dashboard"
-        syncing={refreshing}
+        syncing={syncSpinning}
         onSyncClick={handleRefresh}
-        syncTitle="Aggiorna panoramica"
+        syncTitle={isBgRefreshing ? "Aggiornamento in corso (Amazon Orders API)…" : "Aggiorna panoramica"}
       />
 
       <main className="relative flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6">
