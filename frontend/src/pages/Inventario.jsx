@@ -19,8 +19,9 @@ import {
 } from "../utils/gestioneInventario";
 import { classificaProdotto } from "../utils/classificaProdotto";
 import NuovoProdottoModal from "../components/inventario/NuovoProdottoModal";
-import { Package, ArrowLeft, Plus, FileText, AlertCircle, Search, LayoutGrid, History, FolderTree, LogOut, Download } from "lucide-react";
+import { Package, Plus, FileText, AlertCircle, Search, LayoutGrid, History, FolderTree, Download } from "lucide-react";
 import { downloadCSV } from "../utils/exportCSV";
+import PageTopBar from "../components/PageTopBar";
 
 const STORAGE_KEY = "inventario_prodotti";
 const STORAGE_KEY_ACCESSORI = "inventario_accessori";
@@ -517,28 +518,14 @@ const Inventario = () => {
         }}
       />
 
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")}
-              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
-              title={isMagazzino ? "Torna a Magazzino" : "Torna a Dashboard"}
-              type="button"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center">
-              <Package className="w-[18px] h-[18px] text-emerald-400" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-[15px] font-semibold tracking-tight text-white">Inventario</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Merce e accessori</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+      <PageTopBar
+        icon={Package}
+        iconAccent="emerald"
+        eyebrow="Merce e accessori"
+        title="Inventario"
+        backTo={isMagazzino ? "/magazzino" : "/dashboard"}
+        actions={
+          <>
             <button
               onClick={() => setShowNuovoProdotto(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/40 hover:border-emerald-400/60 text-emerald-300 hover:text-emerald-200 text-[12px] font-medium transition-all"
@@ -566,9 +553,9 @@ const Inventario = () => {
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Esporta CSV</span>
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* === Hero compatto === */}
       <section className="relative">
