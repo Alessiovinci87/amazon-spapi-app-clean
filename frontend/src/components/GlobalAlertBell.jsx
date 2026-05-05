@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, X, ExternalLink, CheckCheck, AlertTriangle, TrendingDown, Package, RefreshCw, Sparkles, Puzzle, Boxes, Clock, CalendarX2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAlertBellHost } from "./AlertBellContext";
 
 const TIPO_CONFIG = {
   BUYBOX_LOST:        { label: "Buy Box persa",       icon: TrendingDown,   color: "text-red-400",    bg: "bg-red-500/10 border-red-500/20" },
@@ -42,7 +43,7 @@ function formatTs(ts) {
   return `${pad(d.getDate())}/${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export default function GlobalAlertBell() {
+export default function GlobalAlertBell({ inline = false }) {
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -50,6 +51,11 @@ export default function GlobalAlertBell() {
   const [marking, setMarking] = useState(false);
   const [rigenerando, setRigenerando] = useState(false);
   const panelRef = useRef(null);
+  const { inlineActive } = useAlertBellHost();
+
+  // Se siamo nella modalità flottante (default in Layout) e una pagina sta
+  // renderizzando un bell inline, non renderizziamo nulla per evitare doppi.
+  if (!inline && inlineActive) return null;
 
   async function fetchAlerts() {
     try {
@@ -127,25 +133,54 @@ export default function GlobalAlertBell() {
     }, 400);
   }
 
+  const wrapperClass = inline
+    ? "relative inline-block"
+    : "fixed top-4 right-4 z-50";
+
+  // Bottone trigger: rettangolare (inline) o cerchio flottante
+  const trigger = inline ? (
+    <button
+      onClick={() => setOpen(o => !o)}
+      className="relative inline-flex items-center gap-1.5 h-9 px-2.5 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 transition-colors"
+      title="Notifiche e alert"
+      type="button"
+    >
+      <Bell className={`w-4 h-4 ${unreadCount > 0 ? "text-yellow-400" : "text-slate-400"}`} />
+      <span className="text-[11px] uppercase tracking-wider text-slate-400">Alert</span>
+      {unreadCount > 0 && (
+        <span className="ml-0.5 min-w-[18px] h-[18px] bg-red-500/90 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      )}
+    </button>
+  ) : (
+    <button
+      onClick={() => setOpen(o => !o)}
+      className="relative w-11 h-11 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 transition-all shadow-lg flex items-center justify-center"
+      title="Notifiche e alert"
+      type="button"
+    >
+      <Bell className={`w-5 h-5 ${unreadCount > 0 ? "text-yellow-400" : "text-slate-400"}`} />
+      {unreadCount > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
+      )}
+    </button>
+  );
+
+  // Posizionamento del dropdown: in modalità inline lo allineiamo sotto il bottone
+  const panelClass = inline
+    ? "absolute top-11 left-1/2 -translate-x-1/2 w-96 max-w-[92vw] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50"
+    : "absolute top-14 right-0 w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden";
+
   return (
-    <div ref={panelRef} className="fixed top-4 right-4 z-50">
-      {/* Campana */}
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="relative w-11 h-11 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 transition-all shadow-lg flex items-center justify-center"
-        title="Notifiche e alert"
-      >
-        <Bell className={`w-5 h-5 ${unreadCount > 0 ? "text-yellow-400" : "text-slate-400"}`} />
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 shadow">
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </span>
-        )}
-      </button>
+    <div ref={panelRef} className={wrapperClass}>
+      {trigger}
 
       {/* Pannello dropdown */}
       {open && (
-        <div className="absolute top-14 right-0 w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+        <div className={panelClass}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700 bg-slate-800/50">
             <div className="flex items-center gap-2">

@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Truck,
   PackageSearch,
   RefreshCw,
@@ -24,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { fetchJSON, API_BASE } from "../utils/api";
 import QuotaBadge from "../components/tracking17/QuotaBadge";
+import PageTopBar from "../components/PageTopBar";
 
 // =============================================================
 // Mappa status -> meta UI
@@ -188,7 +187,6 @@ async function apiCall(path, options = {}) {
 }
 
 const Tracking17 = () => {
-  const navigate = useNavigate();
   const [tutti, setTutti] = useState([]);
   const [suggerimenti, setSuggerimenti] = useState([]);
   const [carriers, setCarriers] = useState([]);
@@ -415,53 +413,39 @@ const Tracking17 = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
-      {/* === Header === */}
-      <header className="sticky top-0 z-30 backdrop-blur bg-slate-950/85 border-b border-slate-800">
-        <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4 min-w-0">
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard")}
-              className="w-9 h-9 rounded-md border border-slate-800 hover:border-slate-700 hover:bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-              title="Indietro"
-              aria-label="Torna indietro"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="min-w-0">
-              <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Logistica</div>
-              <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-white">Tracking 17TRACK</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
+      <PageTopBar
+        icon={Truck}
+        iconAccent="blue"
+        eyebrow="Logistica"
+        title="Tracking 17TRACK"
+        backTo="/dashboard"
+        syncing={loading}
+        onSyncClick={loadAll}
+        syncTitle="Ricarica tracking"
+        actions={
+          <>
             <QuotaBadge refreshKey={quotaTick} />
-            <button
-              onClick={loadAll}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-slate-800 hover:border-slate-700 hover:bg-slate-900 text-slate-300 hover:text-white text-sm transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Ricarica
-            </button>
             <button
               onClick={() => setShowAddManual((v) => !v)}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-indigo-500/10 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/20 text-sm transition-colors"
+              type="button"
             >
               <PlusCircle className="w-4 h-4" />
-              Aggiungi manuale
+              <span className="hidden sm:inline">Aggiungi manuale</span>
             </button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 pb-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard label="Totali" value={stats.totale} accent="blue" />
-            <KpiCard label="In transito" value={stats.in_transito} accent="sky" />
-            <KpiCard label="Consegnati" value={stats.consegnati} accent="emerald" />
-            <KpiCard label="Problemi" value={stats.problemi} accent="rose" />
-          </div>
+      {/* KPI cards (sotto la top bar sticky) */}
+      <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 pt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <KpiCard label="Totali" value={stats.totale} accent="blue" />
+          <KpiCard label="In transito" value={stats.in_transito} accent="sky" />
+          <KpiCard label="Consegnati" value={stats.consegnati} accent="emerald" />
+          <KpiCard label="Problemi" value={stats.problemi} accent="rose" />
         </div>
-      </header>
+      </div>
 
       <main className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-6 space-y-6">
 

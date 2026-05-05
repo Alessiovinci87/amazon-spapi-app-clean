@@ -6,6 +6,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
+import { AlertBellProvider } from './components/AlertBellContext';
 import './custom.css';
 import './App.css';
 import App from './App.jsx';
@@ -15,8 +16,10 @@ createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <ThemeProvider>
-          <App />
-          <Toaster position="top-right" richColors closeButton />
+          <AlertBellProvider>
+            <App />
+            <Toaster position="top-right" richColors closeButton />
+          </AlertBellProvider>
         </ThemeProvider>
       </AuthProvider>
     </BrowserRouter>
