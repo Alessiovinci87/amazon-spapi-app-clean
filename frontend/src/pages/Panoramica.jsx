@@ -189,9 +189,9 @@ const Panoramica = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Selettore periodo
-  const initial = rangeFor("d7");
-  const [period, setPeriod] = useState({ presetId: "d7", from: initial.from, to: initial.to });
+  // Selettore periodo: di default "Oggi" (situazione live)
+  const initial = rangeFor("today");
+  const [period, setPeriod] = useState({ presetId: "today", from: initial.from, to: initial.to });
   const currentRange = period;
 
   const load = useCallback(async (force = false) => {
