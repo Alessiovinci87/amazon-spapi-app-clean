@@ -88,7 +88,7 @@ const StoricoSpedizioni = () => {
   const [filtroState, setFiltroState] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const isMagazzino = location.pathname.startsWith("/magazzino");
+  const isMagazzino = localStorage.getItem("auth") === "magazzino";
 
   const scaricaCSV = (s) => {
     const header = "ASIN;Prodotto;Quantita\n";

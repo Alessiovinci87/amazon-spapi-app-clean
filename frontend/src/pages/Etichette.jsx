@@ -64,7 +64,7 @@ const Etichette = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const isMagazzino = location.pathname.startsWith("/magazzino");
+  const isMagazzino = localStorage.getItem("auth") === "magazzino";
 
   useEffect(() => {
     fetch("/api/v2/etichette").then((r) => r.json()).then((d) => setRows(d.data || [])).catch(() => toast.error(t("etichette.toast_error_load")));
@@ -119,7 +119,7 @@ const Etichette = () => {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(-1)} type="button" title={t("common.back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")} type="button" title={t("common.back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center flex-shrink-0">

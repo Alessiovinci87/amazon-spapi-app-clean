@@ -1,12 +1,30 @@
 // backend_v2/modules/tracking17/tracking17Routes.js
 const express = require("express");
+const axios = require("axios");
 const { z } = require("zod");
 const { getDb } = require("../../db/database");
 const { validate } = require("../../middleware/validate");
 const logger = require("../../utils/logger");
 const service = require("./tracking17Service");
+const { getAccessToken } = require("../auth/authService");
 
 const router = express.Router();
+
+// Mappa paese DDT -> marketplaceId Amazon (per FBA inbound shipments)
+const PAESE_TO_MARKETPLACE = {
+  "Italia": "APJ6JRA9NG5V4",
+  "Francia": "A13V1IB3VIYZZH",
+  "Germania": "A1PA6795UKMFR9",
+  "Spagna": "A1RKKUPIHCS9HS",
+  "UK": "A1F83G8C2ARO7P",
+  "Regno Unito": "A1F83G8C2ARO7P",
+  "Belgio": "AMEN7PMS3EDWL",
+  "Olanda": "A1805IZSGTT6HS",
+  "Paesi Bassi": "A1805IZSGTT6HS",
+  "Polonia": "A1C3SOZRARQ6R3",
+  "Svezia": "A2NODRKZP88ZB9",
+};
+const DEFAULT_MARKETPLACE_ID = "APJ6JRA9NG5V4"; // Italia
 
 // =============================================================
 // Schema Zod
@@ -319,5 +337,131 @@ router.delete("/:trackingNumber", validate({ params: trackingNumberParam }), asy
     res.status(500).json({ ok: false, error: err.message });
   }
 });
+
+// =============================================================
+// GET /api/v2/tracking17/fba-shipment/:shipmentId
+//   Ritorna shipment summary + items con QuantityShipped / QuantityReceived
+//   via SP-API Fulfillment Inbound v0.
+//   Query: ?marketplaceId=XXX (oppure desunto dal DDT se presente)
+// =============================================================
+const fbaShipmentParam = z.object({
+  shipmentId: z.string().regex(/^FBA[A-Z0-9]{6,20}$/i, "Shipment ID FBA non valido"),
+});
+
+router.get(
+  "/fba-shipment/:shipmentId",
+  validate({ params: fbaShipmentParam }),
+  async (req, res) => {
+    const shipmentId = String(req.params.shipmentId).toUpperCase();
+    let marketplaceId = req.query.marketplaceId || null;
+
+    // Se non passato esplicitamente, prova a derivarlo dal DDT collegato
+    if (!marketplaceId) {
+      try {
+        const db = getDb();
+        const row = db
+          .prepare(
+            `SELECT paese FROM ddt_generici
+             WHERE UPPER(numeroDDT) = ? OR UPPER(numeroAmazon) = ? LIMIT 1`
+          )
+          .get(shipmentId, shipmentId);
+        if (row?.paese && PAESE_TO_MARKETPLACE[row.paese]) {
+          marketplaceId = PAESE_TO_MARKETPLACE[row.paese];
+        }
+      } catch { /* ignora */ }
+    }
+    if (!marketplaceId) marketplaceId = DEFAULT_MARKETPLACE_ID;
+
+    const base = "https://sellingpartnerapi-eu.amazon.com";
+
+    try {
+      const tokenData = await getAccessToken();
+      const access_token = tokenData.access_token;
+      const headers = {
+        "x-amz-access-token": access_token,
+        Authorization: `Bearer ${access_token}`,
+        Accept: "application/json",
+      };
+
+      // 1. Shipment summary
+      let shipmentSummary = null;
+      try {
+        const sumRes = await axios.get(`${base}/fba/inbound/v0/shipments`, {
+          params: {
+            ShipmentIdList: shipmentId,
+            MarketplaceId: marketplaceId,
+            QueryType: "SHIPMENT",
+          },
+          headers,
+        });
+        const list = sumRes.data?.payload?.ShipmentData || [];
+        shipmentSummary = list[0] || null;
+      } catch (err) {
+        logger.warn(
+          { err: err.response?.data || err.message, shipmentId },
+          "fba-shipment summary non recuperato"
+        );
+      }
+
+      // 2. Items — singola chiamata, NO paginazione.
+      //
+      // Bug noto di SP-API: l'endpoint /shipments/{id}/items NON propaga il filtro
+      // per shipmentId quando si usa NextToken. Le pagine successive vanno fatte a
+      // /shipmentItems (senza filtro) e contengono items di ALTRE spedizioni.
+      // Per il nostro caso una shipment FBA tipica entra in 1 pagina (default 50+
+      // SKU distinti), quindi facciamo una sola chiamata.
+      const items = [];
+      let truncated = false;
+      const itRes = await axios.get(
+        `${base}/fba/inbound/v0/shipments/${encodeURIComponent(shipmentId)}/items`,
+        { params: { MarketplaceId: marketplaceId }, headers }
+      );
+      const payload = itRes.data?.payload || {};
+      for (const it of payload.ItemData || []) {
+        items.push({
+          sellerSku: it.SellerSKU || null,
+          fnSku: it.FulfillmentNetworkSKU || null,
+          shippedQty: Number(it.QuantityShipped) || 0,
+          receivedQty: Number(it.QuantityReceived) || 0,
+          inCaseQty: it.QuantityInCase != null ? Number(it.QuantityInCase) : null,
+        });
+      }
+      // Se SP-API restituisce NextToken vuol dire che la shipment ha più items di
+      // quanti entrino in 1 pagina. Lo segnaliamo: l'utente vedrà comunque la
+      // maggior parte degli SKU. Caso raro per FBA inbound (limite ~100 SKU/shipment).
+      if (payload.NextToken) truncated = true;
+
+      const totals = items.reduce(
+        (acc, x) => {
+          acc.shipped += x.shippedQty;
+          acc.received += x.receivedQty;
+          return acc;
+        },
+        { shipped: 0, received: 0 }
+      );
+
+      res.json({
+        ok: true,
+        shipmentId,
+        marketplaceId,
+        summary: shipmentSummary,
+        items,
+        totals,
+        truncated,
+      });
+    } catch (err) {
+      const data = err.response?.data;
+      logger.error(
+        { err: data || err.message, shipmentId, marketplaceId },
+        "Errore SP-API fba-shipment"
+      );
+      res.status(err.response?.status || 500).json({
+        ok: false,
+        error: data?.errors?.[0]?.message || err.message,
+        details: data || null,
+      });
+    }
+  }
+);
 
 module.exports = router;

@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import MarketplaceCard from "../components/listing/MarketplaceCard";
 import {
   ArrowLeft,
@@ -22,7 +23,8 @@ const marketplaces = [
   { id: "A1C3SOZRARQ6R3", name: "Amazon Polonia",  countryCode: "PL", domainName: "amazon.pl",     defaultLanguageCode: "pl_PL", defaultCurrencyCode: "PLN" },
 ];
 
-function ListaMarketplace({ goBack }) {
+function ListaMarketplace() {
+  const navigate = useNavigate();
   const marketplacesEUR = marketplaces.filter(m => m.defaultCurrencyCode === "EUR");
   const marketplacesOther = marketplaces.filter(m => m.defaultCurrencyCode !== "EUR");
   const totalMarketplaces = marketplaces.length;
@@ -38,7 +40,7 @@ function ListaMarketplace({ goBack }) {
       <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <button onClick={goBack} type="button" title="Menu Europa" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
+            <button onClick={() => navigate("/europe")} type="button" title="Indietro" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center flex-shrink-0">

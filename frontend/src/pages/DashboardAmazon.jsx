@@ -91,7 +91,7 @@ function ModuleCard({ module: m, navigate, t, compact = false }) {
         <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${a.codeBg}`}>{m.code}</span>
       </div>
       <div className={`${compact ? "text-[13px]" : "text-sm"} font-semibold mb-1 ${a.labelColor}`}>{m.label}</div>
-      <p className={`text-[11px] text-slate-500 leading-snug ${compact ? "line-clamp-1" : "leading-relaxed"}`}>{m.desc}</p>
+      <p className={`text-[11px] text-slate-500 leading-snug ${compact ? "line-clamp-2" : "leading-relaxed"}`}>{m.desc}</p>
       {!compact && (
         <div className="mt-auto pt-4 flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-600 group-hover:text-slate-300 transition-colors">
           {t("dashboardAmazon.cta_apri")}

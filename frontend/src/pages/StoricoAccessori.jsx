@@ -16,7 +16,7 @@ const StoricoAccessori = () => {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
-  const isMagazzino = location.pathname.startsWith("/magazzino");
+  const isMagazzino = localStorage.getItem("auth") === "magazzino";
 
   useEffect(() => {
     const fetchStorico = async () => {

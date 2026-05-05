@@ -185,7 +185,7 @@ function StatTile({ icon: Icon, label, value, accent = "cyan" }) {
 const Sfuso = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isMagazzino = location.pathname.startsWith("/magazzino");
+  const isMagazzino = localStorage.getItem("auth") === "magazzino";
   const [sfusi, setSfusi] = useState([]);
   const [filtro, setFiltro] = useState("tutti");
   const [ricerca, setRicerca] = useState("");

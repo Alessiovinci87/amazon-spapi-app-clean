@@ -118,7 +118,7 @@ const is5litriProdotto = (prodotto) =>
 const Inventario = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isMagazzino = location.pathname.startsWith("/magazzino");
+  const isMagazzino = localStorage.getItem("auth") === "magazzino";
   const {
     prodotti,
     setProdotti,

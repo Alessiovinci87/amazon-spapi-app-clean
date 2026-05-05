@@ -18,6 +18,8 @@ import {
   MapPin,
   Building2,
   Info,
+  FileText,
+  Boxes,
 } from "lucide-react";
 import { toast } from "sonner";
 import { fetchJSON, API_BASE } from "../utils/api";
@@ -419,7 +421,7 @@ const Tracking17 = () => {
           <div className="flex items-center gap-4 min-w-0">
             <button
               type="button"
-              onClick={() => navigate(-1)}
+              onClick={() => navigate("/dashboard")}
               className="w-9 h-9 rounded-md border border-slate-800 hover:border-slate-700 hover:bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
               title="Indietro"
               aria-label="Torna indietro"
@@ -780,6 +782,41 @@ function DetailDrawer({ tracking, onClose, onRefresh, refreshing }) {
   const events = Array.isArray(tracking.events) ? tracking.events : [];
   const milestone = Array.isArray(tracking.milestone) ? tracking.milestone : [];
 
+  // Identifica shipment FBA dal numero DDT (formato FBAxxxxxxxxxx)
+  const fbaShipmentId = useMemo(() => {
+    const candidates = [tracking.ddt_numero, tracking.tracking_number, tracking.nota];
+    for (const c of candidates) {
+      if (!c) continue;
+      const m = String(c).match(/\bFBA[A-Z0-9]{6,20}\b/i);
+      if (m) return m[0].toUpperCase();
+    }
+    return null;
+  }, [tracking.ddt_numero, tracking.tracking_number, tracking.nota]);
+
+  // Fetch dati FBA Amazon (shippedQty / receivedQty) se applicabile
+  const [fba, setFba] = useState(null); // { loading, error, summary, items, totals }
+  useEffect(() => {
+    if (!fbaShipmentId) { setFba(null); return; }
+    let cancelled = false;
+    setFba({ loading: true });
+    fetchJSON(`tracking17/fba-shipment/${encodeURIComponent(fbaShipmentId)}`)
+      .then((data) => { if (!cancelled) setFba({ loading: false, ...data }); })
+      .catch((err) => { if (!cancelled) setFba({ loading: false, error: err?.message || "Errore SP-API" }); });
+    return () => { cancelled = true; };
+  }, [fbaShipmentId]);
+
+  const openDdtPdf = useCallback(async () => {
+    if (!tracking.ddt_id) return;
+    try {
+      const r = await fetch(`/api/v2/ddt/storico/${tracking.ddt_id}/pdf`);
+      if (!r.ok) throw new Error("pdf");
+      const blob = await r.blob();
+      window.open(window.URL.createObjectURL(blob), "_blank");
+    } catch {
+      toast.error("Errore generazione PDF DDT");
+    }
+  }, [tracking.ddt_id]);
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
@@ -852,6 +889,127 @@ function DetailDrawer({ tracking, onClose, onRefresh, refreshing }) {
               </div>
             ) : null}
           </div>
+
+          {/* Azione DDT */}
+          {tracking.ddt_id && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openDdtPdf}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-blue-500/10 border border-blue-500/40 hover:bg-blue-500/20 text-blue-300 text-xs transition-colors"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Apri PDF DDT {tracking.ddt_numero ? `· ${tracking.ddt_numero}` : ""}
+              </button>
+            </div>
+          )}
+
+          {/* Centro logistico Amazon — Shipped vs Received */}
+          {fbaShipmentId && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                  Centro logistico Amazon
+                </h3>
+                <span className="text-[10px] font-mono text-slate-600">{fbaShipmentId}</span>
+              </div>
+
+              {fba?.loading ? (
+                <div className="flex items-center gap-2 px-3 py-3 rounded-md bg-slate-900/40 border border-slate-800 text-xs text-slate-400">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Recupero dati Amazon SP-API…
+                </div>
+              ) : fba?.error ? (
+                <div className="px-3 py-2 rounded-md bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-medium">Errore SP-API</div>
+                    <div className="text-rose-200/80 mt-0.5">{fba.error}</div>
+                  </div>
+                </div>
+              ) : fba?.items ? (
+                <>
+                  {/* Riepilogo */}
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    <div className="px-3 py-2 rounded-md bg-slate-900/60 border border-slate-800">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Stato</div>
+                      <div className="text-sm text-white mt-0.5 truncate" title={fba.summary?.ShipmentStatus}>
+                        {fba.summary?.ShipmentStatus || "—"}
+                      </div>
+                    </div>
+                    <div className="px-3 py-2 rounded-md bg-slate-900/60 border border-slate-800">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Spediti</div>
+                      <div className="text-sm text-white mt-0.5 tabular-nums">{fba.totals?.shipped ?? 0}</div>
+                    </div>
+                    <div className="px-3 py-2 rounded-md bg-slate-900/60 border border-slate-800">
+                      <div className="text-[10px] uppercase tracking-wider text-slate-500">Ricevuti</div>
+                      <div className={`text-sm mt-0.5 tabular-nums ${
+                        (fba.totals?.received || 0) === (fba.totals?.shipped || 0)
+                          ? "text-emerald-300"
+                          : "text-amber-300"
+                      }`}>
+                        {fba.totals?.received ?? 0}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tabella items */}
+                  {fba.items.length > 0 ? (
+                    <div className="rounded-md border border-slate-800 overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/40">
+                            <th className="text-left py-2 px-2 font-medium">SKU</th>
+                            <th className="text-right py-2 px-2 font-medium">Spediti</th>
+                            <th className="text-right py-2 px-2 font-medium">Ricevuti</th>
+                            <th className="text-right py-2 px-2 font-medium">Diff.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {fba.items.map((it, i) => {
+                            const diff = (it.receivedQty || 0) - (it.shippedQty || 0);
+                            const cls = diff === 0 ? "text-emerald-300"
+                                      : diff < 0 ? "text-amber-300"
+                                      : "text-blue-300";
+                            return (
+                              <tr key={`${it.sellerSku}-${i}`} className="border-t border-slate-800/60">
+                                <td className="py-1.5 px-2 font-mono text-slate-300 truncate max-w-[180px]" title={it.sellerSku}>
+                                  {it.sellerSku || "—"}
+                                </td>
+                                <td className="py-1.5 px-2 text-right text-slate-300 tabular-nums">{it.shippedQty}</td>
+                                <td className={`py-1.5 px-2 text-right tabular-nums ${
+                                  it.receivedQty === it.shippedQty ? "text-emerald-300"
+                                  : it.receivedQty < it.shippedQty ? "text-amber-300"
+                                  : "text-blue-300"
+                                }`}>{it.receivedQty}</td>
+                                <td className={`py-1.5 px-2 text-right tabular-nums ${cls}`}>
+                                  {diff > 0 ? `+${diff}` : diff}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic">Nessun item restituito da SP-API.</p>
+                  )}
+
+                  {fba.truncated && (
+                    <div className="mt-2 px-2 py-1.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] flex items-start gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                      <div>Spedizione molto grande: alcuni SKU potrebbero non essere mostrati. I totali si riferiscono solo agli SKU visibili.</div>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-slate-600 mt-2 leading-relaxed flex items-start gap-1">
+                    <Boxes className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                    Dati live da Amazon SP-API · Fulfillment Inbound v0. La quantità ricevuta
+                    si aggiorna man mano che il centro logistico processa la spedizione.
+                  </p>
+                </>
+              ) : null}
+            </div>
+          )}
 
           {/* Milestone */}
           {milestone.length > 0 && (

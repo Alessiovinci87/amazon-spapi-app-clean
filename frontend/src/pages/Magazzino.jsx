@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import {
   Package,
   Boxes,
@@ -89,6 +90,7 @@ const ACCENT_ICON = {
 
 const Magazzino = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const isMagazzinoAuth = localStorage.getItem("auth") === "magazzino";
 
   const [stats, setStats] = useState({
@@ -104,7 +106,14 @@ const Magazzino = () => {
       .catch(err => console.error("Errore statistiche:", err));
   }, []);
 
-  const handleBack = () => navigate(isMagazzinoAuth ? "/" : "/dashboard");
+  const handleBack = () => {
+    if (isMagazzinoAuth) {
+      logout();
+      navigate("/", { replace: true });
+    } else {
+      navigate("/dashboard");
+    }
+  };
 
   return (
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">

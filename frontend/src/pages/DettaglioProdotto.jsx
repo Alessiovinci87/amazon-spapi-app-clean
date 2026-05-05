@@ -57,7 +57,8 @@ const DettaglioProdotto = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 antialiased">
       <div className="border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm px-6 py-3 flex items-center gap-4">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/uffici/listing")}
+          title="Indietro"
           className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft size={18} />

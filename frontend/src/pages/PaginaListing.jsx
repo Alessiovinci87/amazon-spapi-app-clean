@@ -138,7 +138,7 @@ export default function PaginaListing() {
         <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
-              onClick={() => navigate(`/uffici/listing/${asin}`)}
+              onClick={() => navigate("/uffici/listing")}
               type="button"
               title="Indietro"
               className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
