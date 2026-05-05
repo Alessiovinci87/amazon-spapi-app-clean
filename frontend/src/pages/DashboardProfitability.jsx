@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { downloadCSV } from "../utils/exportCSV";
 import PageTopBar from "../components/PageTopBar";
+import PeriodSelector, { rangeFor } from "../components/PeriodSelector";
 import {
   TrendingUp,
   TrendingDown,
@@ -72,9 +73,20 @@ const DashboardProfitability = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(() => searchParams.get("q") || "");
   const [selectedCountry, setSelectedCountry] = useState(() => searchParams.get("country") || "");
-  const [dateFrom, setDateFrom] = useState(() => searchParams.get("from") || "");
-  const [dateTo, setDateTo] = useState(() => searchParams.get("to") || "");
-  const [datePreset, setDatePreset] = useState("");
+
+  // Selettore periodo unificato (allineato a Panoramica)
+  const initialPeriod = (() => {
+    const fromQS = searchParams.get("from");
+    const toQS = searchParams.get("to");
+    const preset = searchParams.get("preset");
+    if (fromQS && toQS) return { presetId: preset || "custom", from: fromQS, to: toQS };
+    const r = rangeFor("d30");
+    return { presetId: "d30", from: r.from, to: r.to };
+  })();
+  const [period, setPeriod] = useState(initialPeriod);
+  const dateFrom = period.from;
+  const dateTo = period.to;
+
   const [sortBy, setSortBy] = useState("fatturato");
   const [sortDir, setSortDir] = useState("desc");
 
@@ -82,10 +94,11 @@ const DashboardProfitability = () => {
     const p = new URLSearchParams();
     if (search) p.set("q", search);
     if (selectedCountry) p.set("country", selectedCountry);
-    if (dateFrom) p.set("from", dateFrom);
-    if (dateTo) p.set("to", dateTo);
+    if (period.from) p.set("from", period.from);
+    if (period.to) p.set("to", period.to);
+    if (period.presetId) p.set("preset", period.presetId);
     setSearchParams(p, { replace: true });
-  }, [search, selectedCountry, dateFrom, dateTo]);
+  }, [search, selectedCountry, period]);
 
   const [syncingFees, setSyncingFees] = useState(false);
 
@@ -239,44 +252,18 @@ const DashboardProfitability = () => {
               ))}
             </div>
 
-            {/* Filtro date */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Preset rapidi — basati sull'ultima data disponibile nel DB */}
-              {(() => {
-                const maxDate = data?.date_range?.max || new Date().toISOString().slice(0,10);
-                const daysAgo = (n) => { const d = new Date(maxDate); d.setDate(d.getDate() - n); return d.toISOString().slice(0,10); };
-                return [
-                  { label: "Tutto (anno)", from: "", to: "", key: "all" },
-                  { label: "Ultimo giorno", from: maxDate, to: maxDate, key: "1gg" },
-                  { label: "Ultimi 3gg", from: daysAgo(2), to: maxDate, key: "3gg" },
-                  { label: "Ultimi 7gg", from: daysAgo(6), to: maxDate, key: "7gg" },
-                  { label: "Ultimi 30gg", from: daysAgo(29), to: maxDate, key: "30gg" },
-                ];
-              })().map(p => (
-                <button
-                  key={p.key}
-                  onClick={() => { setDateFrom(p.from); setDateTo(p.to); setDatePreset(p.key); }}
-                  type="button"
-                  className={`px-3 py-2 rounded-md text-xs font-medium border transition-colors ${datePreset === p.key || (!datePreset && p.key === "all" && !dateFrom && !dateTo) ? "bg-violet-500/15 border-violet-500/40 text-violet-300" : "bg-slate-800/60 border-slate-700 text-slate-500 hover:text-slate-300"}`}
-                >
-                  {p.label}
-                </button>
-              ))}
-
-              {/* Date picker custom */}
-              <div className="flex items-center gap-1.5 ml-2">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setDatePreset("custom"); }} className="bg-slate-800/60 border border-slate-700 rounded-md px-2.5 py-1.5 text-[11px] text-white focus:ring-1 focus:ring-violet-500/60 outline-none w-[130px]" />
-                <span className="text-[11px] text-slate-600">—</span>
-                <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setDatePreset("custom"); }} className="bg-slate-800/60 border border-slate-700 rounded-md px-2.5 py-1.5 text-[11px] text-white focus:ring-1 focus:ring-violet-500/60 outline-none w-[130px]" />
-              </div>
-
-              {/* Info */}
-              <span className="text-[10px] text-slate-600 ml-1">
-                {data?.stima_proporzionale ? "Stima proporzionale — " : ""}
-                {data?.date_range ? `Dati dal ${data.date_range.min} al ${data.date_range.max}` : ""}
-              </span>
-            </div>
+            {/* Filtro periodo unificato */}
+            <PeriodSelector
+              accent="violet"
+              value={period}
+              onChange={setPeriod}
+              rangeInfo={
+                <span className="text-[10px] text-slate-600">
+                  {data?.stima_proporzionale ? "Stima proporzionale — " : ""}
+                  {data?.date_range ? `Dati Amazon dal ${data.date_range.min} al ${data.date_range.max}` : ""}
+                </span>
+              }
+            />
 
             {/* Search + sort */}
             <div className="flex flex-wrap items-center gap-3">

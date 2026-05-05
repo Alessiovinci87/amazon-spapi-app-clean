@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import PageTopBar from "../components/PageTopBar";
+import PeriodSelector, { rangeFor } from "../components/PeriodSelector";
 import {
   LayoutDashboard,
   TrendingUp, TrendingDown, Minus,
   ShoppingCart, Euro, Package, RotateCcw,
   Bell, AlertTriangle, CheckCircle2, Clock, Activity,
   Truck, FileText, Tag, Factory, Globe, Users,
-  ArrowRight, RefreshCw, Calendar, Info, X,
+  ArrowRight, RefreshCw, Info,
 } from "lucide-react";
 
 // =============================================================
@@ -71,28 +72,6 @@ const flagEmoji = (cc) => {
   return map[cc.toUpperCase()] || "🌍";
 };
 
-// === Periodi predefiniti ===
-const fmtYmd = (d) => d.toISOString().slice(0, 10);
-const ymdOffset = (offset) => {
-  const d = new Date();
-  d.setDate(d.getDate() - offset);
-  return fmtYmd(d);
-};
-const yearStart = () => fmtYmd(new Date(new Date().getFullYear(), 0, 1));
-
-const PERIOD_PRESETS = [
-  { id: "today",     label: "Oggi",          from: () => ymdOffset(0),   to: () => ymdOffset(0) },
-  { id: "yesterday", label: "Ieri",          from: () => ymdOffset(1),   to: () => ymdOffset(1) },
-  { id: "d2",        label: "Altroieri",     from: () => ymdOffset(2),   to: () => ymdOffset(2) },
-  { id: "d7",        label: "7 giorni",      from: () => ymdOffset(7),   to: () => ymdOffset(1) },
-  { id: "d15",       label: "15 giorni",     from: () => ymdOffset(15),  to: () => ymdOffset(1) },
-  { id: "d30",       label: "30 giorni",     from: () => ymdOffset(30),  to: () => ymdOffset(1) },
-  { id: "d60",       label: "60 giorni",     from: () => ymdOffset(60),  to: () => ymdOffset(1) },
-  { id: "d90",       label: "90 giorni",     from: () => ymdOffset(90),  to: () => ymdOffset(1) },
-  { id: "m6",        label: "6 mesi",        from: () => ymdOffset(180), to: () => ymdOffset(1) },
-  { id: "m12",       label: "12 mesi",       from: () => ymdOffset(365), to: () => ymdOffset(1) },
-  { id: "ytd",       label: "Anno corrente", from: () => yearStart(),    to: () => ymdOffset(0) },
-];
 
 // =============================================================
 // UI atoms
@@ -211,17 +190,9 @@ const Panoramica = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Selettore periodo
-  const [presetId, setPresetId] = useState("d7"); // default 7 giorni
-  const [customRange, setCustomRange] = useState({ from: "", to: "" });
-  const [showCustom, setShowCustom] = useState(false);
-
-  const currentRange = useMemo(() => {
-    if (presetId === "custom") {
-      return { from: customRange.from, to: customRange.to };
-    }
-    const p = PERIOD_PRESETS.find((x) => x.id === presetId) || PERIOD_PRESETS[3];
-    return { from: p.from(), to: p.to() };
-  }, [presetId, customRange]);
+  const initial = rangeFor("d7");
+  const [period, setPeriod] = useState({ presetId: "d7", from: initial.from, to: initial.to });
+  const currentRange = period;
 
   const load = useCallback(async (force = false) => {
     try {
@@ -248,23 +219,6 @@ const Panoramica = () => {
     setRefreshing(true);
     await load(true);
     setRefreshing(false);
-  };
-
-  const handlePreset = (id) => {
-    setPresetId(id);
-    setShowCustom(false);
-  };
-  const handleCustomApply = () => {
-    if (!customRange.from || !customRange.to) {
-      toast.error("Seleziona entrambe le date");
-      return;
-    }
-    if (customRange.from > customRange.to) {
-      toast.error("La data 'da' deve essere precedente a 'a'");
-      return;
-    }
-    setPresetId("custom");
-    setShowCustom(false);
   };
 
   // ===== derived =====
@@ -324,86 +278,19 @@ const Panoramica = () => {
         ) : (
           <>
             {/* === Selettore periodo === */}
-            <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
-                <div className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Periodo</div>
-                <div className="text-[11px] text-slate-500">
-                  {data?.range && (
-                    <>
-                      {fmtDate(data.range.from)} → {fmtDate(data.range.to)}
-                      {data.range.giorni > 1 && <span className="text-slate-600 ml-1">({data.range.giorni}gg)</span>}
-                      {data.range.data_lag && data.range.last_available_date && (
-                        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                          <Info className="w-3 h-3" />
-                          dati Amazon fino al {fmtDate(data.range.last_available_date)}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {PERIOD_PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handlePreset(p.id)}
-                    className={`px-2.5 py-1 rounded text-[11px] uppercase tracking-wider transition-colors ${
-                      presetId === p.id
-                        ? "bg-indigo-500/20 border border-indigo-500/50 text-indigo-200"
-                        : "bg-slate-900/60 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setShowCustom(true)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] uppercase tracking-wider transition-colors ${
-                    presetId === "custom"
-                      ? "bg-indigo-500/20 border border-indigo-500/50 text-indigo-200"
-                      : "bg-slate-900/60 border border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                  }`}
-                >
-                  <Calendar className="w-3 h-3" />
-                  {presetId === "custom" ? `${customRange.from} → ${customRange.to}` : "Custom"}
-                </button>
-              </div>
-
-              {showCustom && (
-                <div className="mt-3 p-3 bg-slate-950/60 border border-slate-800 rounded-md flex items-center gap-2 flex-wrap">
-                  <span className="text-[11px] text-slate-500 uppercase tracking-wider">Da</span>
-                  <input
-                    type="date"
-                    value={customRange.from}
-                    onChange={(e) => setCustomRange((r) => ({ ...r, from: e.target.value }))}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-white"
-                  />
-                  <span className="text-[11px] text-slate-500 uppercase tracking-wider">A</span>
-                  <input
-                    type="date"
-                    value={customRange.to}
-                    onChange={(e) => setCustomRange((r) => ({ ...r, to: e.target.value }))}
-                    className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleCustomApply}
-                    className="px-3 py-1 rounded bg-indigo-500/20 border border-indigo-500/50 text-indigo-200 text-xs uppercase tracking-wider hover:bg-indigo-500/30"
-                  >
-                    Applica
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowCustom(false)}
-                    className="px-2 py-1 text-slate-500 hover:text-slate-300"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
+            <PeriodSelector
+              accent="indigo"
+              value={period}
+              onChange={setPeriod}
+              rangeInfo={
+                data?.range?.data_lag && data.range.last_available_date ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                    <Info className="w-3 h-3" />
+                    dati Amazon fino al {fmtDate(data.range.last_available_date)}
+                  </span>
+                ) : null
+              }
+            />
 
             {/* === 1) KPI === */}
             <div>
