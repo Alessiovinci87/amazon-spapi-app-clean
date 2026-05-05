@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import PageTopBar from "../components/PageTopBar";
@@ -582,9 +583,47 @@ const Etichette = () => {
   );
 };
 
-/* === Picker per aggiungere prodotti all'etichetta === */
+/* === Picker per aggiungere prodotti all'etichetta ===
+   Il dropdown è renderizzato via Portal con position: fixed così esce
+   dal container della card (che ha overflow-hidden per l'accent bar). */
 function AddProdottoPicker({ rowId, searchTerm, onSearch, prodottiDisponibili, alreadyLinkedAsin, onPick }) {
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+  const dropRef = useRef(null);
+  const [coords, setCoords] = useState({ left: 0, top: 0, width: 0 });
+
+  const recomputeCoords = () => {
+    if (!wrapRef.current) return;
+    const r = wrapRef.current.getBoundingClientRect();
+    setCoords({ left: r.left, top: r.bottom + 4, width: r.width });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    recomputeCoords();
+    const onScrollOrResize = () => recomputeCoords();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open]);
+
+  // Chiudi cliccando fuori
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (
+        wrapRef.current && !wrapRef.current.contains(e.target) &&
+        dropRef.current && !dropRef.current.contains(e.target)
+      ) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
   const filtered = (prodottiDisponibili || [])
     .filter((p) => !alreadyLinkedAsin.includes(p.asin))
     .filter((p) => {
@@ -595,52 +634,68 @@ function AddProdottoPicker({ rowId, searchTerm, onSearch, prodottiDisponibili, a
         (p.nome || "").toLowerCase().includes(q)
       );
     })
-    .slice(0, 20);
+    .slice(0, 50);
 
   return (
-    <div className="relative">
+    <div ref={wrapRef} className="relative">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
           <input
+            ref={inputRef}
             type="text"
             value={searchTerm}
-            placeholder="Cerca per ASIN o nome…"
+            placeholder="Cerca prodotto per ASIN o nome…"
             onChange={(e) => { onSearch(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-900/60 border border-slate-700 rounded text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+            className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700 rounded-md text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50"
           />
         </div>
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="px-2 py-1.5 rounded border border-slate-700 bg-slate-900/60 text-slate-400 hover:text-white text-xs"
+          onClick={() => { setOpen((v) => !v); inputRef.current?.focus(); }}
+          title={open ? "Nascondi elenco" : "Mostra elenco prodotti"}
+          className="px-2.5 py-2 rounded-md border border-slate-700 bg-slate-900/60 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4" />
         </button>
       </div>
-      {open && filtered.length > 0 && (
-        <div className="absolute left-0 right-0 mt-1 z-20 bg-slate-950 border border-slate-700 rounded shadow-xl max-h-60 overflow-y-auto">
-          {filtered.map((p) => (
-            <button
-              key={p.asin}
-              type="button"
-              onClick={() => { onPick(p.asin); setOpen(false); }}
-              className="w-full px-3 py-2 flex items-center gap-2 text-xs hover:bg-slate-800 text-left"
-            >
-              <span className="font-mono text-slate-400">{p.asin}</span>
-              <span className="text-slate-300 truncate flex-1">{p.nome}</span>
-              {p.formato && (
-                <span className="text-[10px] uppercase tracking-wider text-slate-500">{p.formato}</span>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-      {open && filtered.length === 0 && searchTerm && (
-        <div className="absolute left-0 right-0 mt-1 z-20 bg-slate-950 border border-slate-700 rounded shadow-xl px-3 py-2 text-xs text-slate-500 italic">
-          Nessun prodotto disponibile
-        </div>
+
+      {open && createPortal(
+        <div
+          ref={dropRef}
+          style={{ left: coords.left, top: coords.top, width: coords.width }}
+          className="fixed z-[60] bg-slate-950 border border-slate-700 rounded-md shadow-2xl max-h-72 overflow-y-auto"
+        >
+          {filtered.length === 0 ? (
+            <div className="px-3 py-3 text-sm text-slate-500 italic">
+              {searchTerm ? "Nessun prodotto trovato" : "Inizia a digitare ASIN o nome…"}
+            </div>
+          ) : (
+            filtered.map((p) => (
+              <button
+                key={p.asin}
+                type="button"
+                onClick={() => { onPick(p.asin); setOpen(false); }}
+                className="w-full px-3 py-2.5 flex items-center gap-3 text-sm hover:bg-slate-800 text-left border-b border-slate-800/60 last:border-b-0"
+              >
+                <span className="font-mono text-[12px] text-cyan-400 flex-shrink-0">{p.asin}</span>
+                <span className="text-slate-200 truncate flex-1">{p.nome || "(senza nome)"}</span>
+                {p.formato && (
+                  <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400 flex-shrink-0">
+                    {p.formato}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+          {filtered.length === 50 && (
+            <div className="px-3 py-2 text-[11px] text-slate-600 italic border-t border-slate-800 bg-slate-900/40">
+              Mostrati primi 50 risultati — affina la ricerca
+            </div>
+          )}
+        </div>,
+        document.body
       )}
     </div>
   );
