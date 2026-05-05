@@ -37,7 +37,7 @@ export default function PageTopBar({
   syncTitle,
   actions,
   showAlertBell = true,
-  containerClass = "max-w-screen-2xl mx-auto px-6 sm:px-8",
+  containerClass = "w-full px-4 sm:px-6 lg:px-8",
 }) {
   const navigate = useNavigate();
 
@@ -61,8 +61,8 @@ export default function PageTopBar({
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/85 backdrop-blur">
-      <div className={`${containerClass} py-3 flex items-center gap-3`}>
+    <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/85 backdrop-blur w-full overflow-hidden">
+      <div className={`${containerClass} py-3 flex items-center gap-3 min-w-0`}>
         {/* Sinistra: back + icon + eyebrow/title */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <button
@@ -80,7 +80,7 @@ export default function PageTopBar({
           )}
           <div className="flex flex-col leading-none min-w-0">
             {eyebrow && (
-              <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+              <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500 truncate">
                 {eyebrow}
               </span>
             )}
