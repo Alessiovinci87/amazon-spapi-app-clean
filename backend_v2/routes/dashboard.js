@@ -1,7 +1,7 @@
 // backend_v2/routes/dashboard.js
 // Endpoint aggregato per la pagina /uffici/panoramica.
 // Una sola chiamata che ritorna KPI + semafori + alert + operazioni in corso.
-// Cache in-memory 60s per evitare di ricalcolare tutto a ogni refresh.
+// Cache in-memory per evitare di ricalcolare tutto a ogni refresh.
 
 const express = require("express");
 const router = express.Router();
@@ -9,7 +9,9 @@ const { getDb } = require("../db/database");
 const logger = require("../utils/logger");
 
 const CACHE_TTL_MS = 60 * 1000;
-let _cache = { data: null, ts: 0 };
+// cache keyed by from-to (gli stati di sistema non dipendono dal periodo,
+// vengono ricalcolati ma sono leggeri)
+const _cache = new Map();
 
 function safe(fn, fallback = null) {
   try { return fn(); } catch (e) { logger.warn({ err: e.message }, "dashboard query failed"); return fallback; }
@@ -20,55 +22,74 @@ function pctDelta(curr, prev) {
   return Math.round(((curr - prev) / prev) * 1000) / 10;
 }
 
-function buildOverview() {
-  const db = getDb();
+// === Helpers data ===
+const fmtDate = (d) => d.toISOString().slice(0, 10);
+const todayYMD = () => fmtDate(new Date());
+const ymdOffset = (offsetDays) => {
+  const d = new Date();
+  d.setDate(d.getDate() - offsetDays);
+  return fmtDate(d);
+};
+function diffDays(from, to) {
+  const a = new Date(from + "T00:00:00Z");
+  const b = new Date(to + "T00:00:00Z");
+  return Math.round((b - a) / 86400000) + 1;
+}
+function shiftRangeBack(from, to) {
+  const days = diffDays(from, to);
+  const shiftFrom = new Date(from + "T00:00:00Z");
+  const shiftTo = new Date(to + "T00:00:00Z");
+  shiftFrom.setUTCDate(shiftFrom.getUTCDate() - days);
+  shiftTo.setUTCDate(shiftTo.getUTCDate() - days);
+  return { from: fmtDate(shiftFrom), to: fmtDate(shiftTo) };
+}
 
-  // ===== KPI vendite / ordini / resi 7gg vs 7gg precedenti =====
-  // sales_daily.date è in formato YYYY-MM-DD
-  const today = new Date();
-  const fmtDate = (d) => d.toISOString().slice(0, 10);
-  const ymd = (offsetDays) => {
-    const d = new Date(today);
-    d.setDate(d.getDate() - offsetDays);
-    return fmtDate(d);
-  };
-  const range7 = { from: ymd(7), to: ymd(0) };
-  const range7prev = { from: ymd(14), to: ymd(8) };
-
-  const salesAgg = (range) => safe(() => db.prepare(`
+function aggregateSales(db, from, to) {
+  const totale = safe(() => db.prepare(`
     SELECT
       COALESCE(SUM(units_ordered), 0)         AS units,
       COALESCE(SUM(ordered_product_sales), 0) AS revenue,
-      COALESCE(SUM(order_count), 0)           AS orders
+      COALESCE(SUM(order_count), 0)           AS orders,
+      COUNT(DISTINCT date)                    AS giorni_dati
     FROM sales_daily
     WHERE date >= ? AND date <= ?
-  `).get(range.from, range.to), { units: 0, revenue: 0, orders: 0 });
+  `).get(from, to), { units: 0, revenue: 0, orders: 0, giorni_dati: 0 });
 
-  const sales = salesAgg(range7);
-  const salesPrev = salesAgg(range7prev);
+  const per_country = safe(() => db.prepare(`
+    SELECT country,
+           COALESCE(SUM(units_ordered), 0)         AS units,
+           COALESCE(SUM(ordered_product_sales), 0) AS revenue,
+           COALESCE(SUM(order_count), 0)           AS orders
+    FROM sales_daily
+    WHERE date >= ? AND date <= ?
+    GROUP BY country
+    ORDER BY revenue DESC
+  `).all(from, to), []);
 
-  const resi7 = safe(() => db.prepare(`
+  return { totale, per_country };
+}
+
+function aggregateReturns(db, from, to) {
+  // fba_returns.return_date può essere ISO con orario; uso DATE()
+  return safe(() => db.prepare(`
     SELECT COALESCE(SUM(quantity), 0) AS qty
     FROM fba_returns
-    WHERE return_date >= ?
-  `).get(range7.from)?.qty, 0);
+    WHERE DATE(return_date) >= ? AND DATE(return_date) <= ?
+  `).get(from, to)?.qty, 0);
+}
 
-  const resi7prev = safe(() => db.prepare(`
-    SELECT COALESCE(SUM(quantity), 0) AS qty
+function aggregateReturnsByCountry(db, from, to) {
+  return safe(() => db.prepare(`
+    SELECT country, COALESCE(SUM(quantity), 0) AS qty
     FROM fba_returns
-    WHERE return_date >= ? AND return_date < ?
-  `).get(range7prev.from, range7.from)?.qty, 0);
+    WHERE DATE(return_date) >= ? AND DATE(return_date) <= ?
+    GROUP BY country
+  `).all(from, to), []);
+}
 
-  const kpi = {
-    revenue:       { value: sales.revenue, delta_pct: pctDelta(sales.revenue, salesPrev.revenue) },
-    orders:        { value: sales.orders,  delta_pct: pctDelta(sales.orders, salesPrev.orders) },
-    units:         { value: sales.units,   delta_pct: pctDelta(sales.units, salesPrev.units) },
-    returns_units: { value: resi7,         delta_pct: pctDelta(resi7, resi7prev) },
-    returns_pct: sales.units > 0 ? Math.round((resi7 / sales.units) * 1000) / 10 : null,
-    range_giorni: 7,
-  };
+function buildSistema() {
+  const db = getDb();
 
-  // ===== Stato sistema (semafori) =====
   const syncLog = safe(() => db.prepare(`SELECT * FROM sync_log ORDER BY last_run DESC`).all(), []);
 
   const tracking = safe(() => {
@@ -116,7 +137,6 @@ function buildOverview() {
   }, { senza_tracking: 0, totale: 0 });
 
   const buybox = safe(() => {
-    // Snapshot più recente per ASIN+marketplace, conta quelli con buybox_won = 0
     const persi = db.prepare(`
       WITH ultimi AS (
         SELECT s.*, ROW_NUMBER() OVER (PARTITION BY asin, marketplace_id ORDER BY snapshot_at DESC) AS rn
@@ -142,7 +162,15 @@ function buildOverview() {
     return { in_attesa };
   }, { in_attesa: 0 });
 
-  // ===== Alert recenti (ultimi 8 non letti) =====
+  return {
+    sync: syncLog,
+    tracking, etichette, produzioni, ddt, buybox, ordini_fornitori,
+  };
+}
+
+function buildAlertsAndOps() {
+  const db = getDb();
+
   const alerts = safe(() => db.prepare(`
     SELECT id, asin, tipo, marketplace_id, messaggio, valore_attuale,
            valore_precedente, source, nome, created_at
@@ -157,7 +185,6 @@ function buildOverview() {
     0
   );
 
-  // ===== Operazioni in corso (lista breve) =====
   const ddt_da_completare = safe(() => db.prepare(`
     SELECT id, brand, numeroDDT, paese, data, totUnita
     FROM ddt_generici
@@ -185,17 +212,6 @@ function buildOverview() {
   `).all(), []);
 
   return {
-    generated_at: new Date().toISOString(),
-    kpi,
-    sistema: {
-      sync: syncLog,
-      tracking,
-      etichette,
-      produzioni,
-      ddt,
-      buybox,
-      ordini_fornitori,
-    },
     alerts: { items: alerts, unread_total: alert_unread_total },
     operazioni: {
       ddt_da_completare,
@@ -205,14 +221,88 @@ function buildOverview() {
   };
 }
 
+function buildOverview({ from, to }) {
+  const db = getDb();
+
+  // KPI sul periodo richiesto
+  const sales = aggregateSales(db, from, to);
+  const prevRange = shiftRangeBack(from, to);
+  const salesPrev = aggregateSales(db, prevRange.from, prevRange.to);
+  const resi = aggregateReturns(db, from, to);
+  const resiPrev = aggregateReturns(db, prevRange.from, prevRange.to);
+  const resiCountry = aggregateReturnsByCountry(db, from, to);
+
+  // Ultimo giorno disponibile in sales_daily (= "fresh until")
+  const lastAvailable = safe(() =>
+    db.prepare("SELECT MAX(date) AS d FROM sales_daily").get()?.d, null);
+
+  // KPI top-level
+  const totale = sales.totale;
+  const totalePrev = salesPrev.totale;
+  const giorniRange = diffDays(from, to);
+
+  const kpi = {
+    revenue:       { value: totale.revenue, delta_pct: pctDelta(totale.revenue, totalePrev.revenue) },
+    orders:        { value: totale.orders,  delta_pct: pctDelta(totale.orders, totalePrev.orders) },
+    units:         { value: totale.units,   delta_pct: pctDelta(totale.units, totalePrev.units) },
+    returns_units: { value: resi,           delta_pct: pctDelta(resi, resiPrev) },
+    returns_pct: totale.units > 0 ? Math.round((resi / totale.units) * 1000) / 10 : null,
+  };
+
+  // Per paese: combina vendite + resi
+  const resiByCountry = Object.fromEntries(resiCountry.map(r => [r.country, r.qty]));
+  const per_country = sales.per_country.map(c => ({
+    ...c,
+    returns_units: resiByCountry[c.country] || 0,
+    returns_pct: c.units > 0 ? Math.round(((resiByCountry[c.country] || 0) / c.units) * 1000) / 10 : null,
+  }));
+
+  // === Sistema, alert, operazioni (non dipendono dal periodo) ===
+  const sistema = buildSistema();
+  const { alerts, operazioni } = buildAlertsAndOps();
+
+  return {
+    generated_at: new Date().toISOString(),
+    range: {
+      from, to,
+      giorni: giorniRange,
+      previous: prevRange,
+      data_lag: !!(lastAvailable && lastAvailable < to),
+      last_available_date: lastAvailable,
+    },
+    kpi,
+    per_country,
+    sistema,
+    alerts,
+    operazioni,
+  };
+}
+
 router.get("/overview", (req, res) => {
   try {
+    // Default: ultimi 7 giorni completi (today-7..today-1) → data lag-friendly
+    let from = String(req.query.from || ymdOffset(7));
+    let to = String(req.query.to || ymdOffset(1));
+    // Sanity check formato YYYY-MM-DD
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from)) from = ymdOffset(7);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(to)) to = ymdOffset(1);
+    if (from > to) [from, to] = [to, from];
+
+    const cacheKey = `${from}|${to}`;
     const now = Date.now();
-    if (req.query.refresh !== "1" && _cache.data && now - _cache.ts < CACHE_TTL_MS) {
-      return res.json({ ok: true, cached: true, ...(_cache.data) });
+    const hit = _cache.get(cacheKey);
+    if (req.query.refresh !== "1" && hit && now - hit.ts < CACHE_TTL_MS) {
+      return res.json({ ok: true, cached: true, ...(hit.data) });
     }
-    const data = buildOverview();
-    _cache = { data, ts: now };
+
+    const data = buildOverview({ from, to });
+    _cache.set(cacheKey, { data, ts: now });
+    // Limite cache: tieni al massimo 32 chiavi
+    if (_cache.size > 32) {
+      const oldestKey = [..._cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0][0];
+      _cache.delete(oldestKey);
+    }
+
     res.json({ ok: true, cached: false, ...data });
   } catch (err) {
     logger.error({ err }, "Errore /dashboard/overview");
