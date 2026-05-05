@@ -246,6 +246,7 @@ async function bootstrap() {
 
   app.use("/api/v2/scatolette", scatoletteRoutes);
   app.use("/api/v2/etichette", etichetteRoutes);
+  app.use("/api/v2/dashboard", require("./routes/dashboard"));
 
   // =========================================================
   // 🚚 SPEDIZIONI E DDT

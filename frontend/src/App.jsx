@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 // ==================== 🏠 PAGINA INIZIALE ==================== //
 import Home from "./pages/Home";
 import DashboardAmazon from "./pages/DashboardAmazon";
+import Panoramica from "./pages/Panoramica";
 
 // ==================== 🏗️ SEZIONE GESTIONALE ==================== //
 import Magazzino from "./pages/Magazzino";
@@ -88,6 +89,7 @@ function App() {
       <Route element={<Layout />}>
 
         {/* ==================== DASHBOARD ==================== */}
+        <Route path="/uffici/panoramica" element={<Panoramica />} />
         <Route path="/dashboard" element={<DashboardAmazon />} />
 
         {/* ==================== AREA MAGAZZINO ==================== */}

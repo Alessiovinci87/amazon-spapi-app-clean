@@ -34,7 +34,8 @@ import clsx from "clsx";
 import { useAuth } from "../context/AuthContext";
 
 const MENU = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/uffici/panoramica", label: "Panoramica", icon: LayoutDashboard },
+  { to: "/dashboard",  label: "Strumenti",  icon: ListChecks },
   { to: "/uffici/alert-center", label: "Centro Alert", icon: Bell },
   { to: "/europe",    label: "Europa",    icon: Flag },
   { to: "/magazzino", label: "Magazzino", icon: Boxes },

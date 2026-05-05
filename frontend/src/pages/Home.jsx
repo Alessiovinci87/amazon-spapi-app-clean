@@ -70,7 +70,7 @@ const Home = () => {
         setShowLogin(false);
         navigate("/magazzino");
       } else {
-        navigate("/dashboard");
+        navigate("/uffici/panoramica");
       }
     } catch (err) {
       setError(err.message || "Errore di autenticazione.");
