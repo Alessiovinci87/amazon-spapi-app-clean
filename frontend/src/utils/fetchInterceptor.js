@@ -30,14 +30,16 @@ window.fetch = function (input, init) {
   return originalFetch.call(this, input, init).then((response) => {
     if (url.startsWith("/api") && response.status === 401) {
       const isLoginCall = url.includes("/api/v2/auth-app/login");
-      if (!isLoginCall && localStorage.getItem("nexus_token")) {
+      const onHome = window.location.pathname === "/";
+      if (!isLoginCall && !onHome) {
+        // Pulisci eventuale token stale e rimanda al login.
+        // Questo gestisce SIA il caso "token presente ma scaduto" (cleanup
+        // dopo 401), SIA il caso "token mancante" (sessione persa silente).
         localStorage.removeItem("nexus_token");
         localStorage.removeItem("nexus_user");
         localStorage.removeItem("role");
         localStorage.removeItem("auth");
-        if (window.location.pathname !== "/") {
-          window.location.href = "/";
-        }
+        window.location.href = "/";
       }
     }
     return response;
