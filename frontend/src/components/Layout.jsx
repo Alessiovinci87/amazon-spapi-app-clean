@@ -16,7 +16,7 @@ const Layout = () => {
       {access === "magazzino" ? <SidebarMagazzino /> : <SidebarUffici />}
 
       <main
-        className="flex-1 bg-transparent overflow-auto transition-margin duration-300"
+        className="flex-1 bg-transparent transition-margin duration-300"
         style={{ marginLeft: "4rem" }} // per sidebar chiusa
       >
         <ErrorBoundary>
