@@ -84,15 +84,31 @@ const Etichette = () => {
   const isMagazzino = localStorage.getItem("auth") === "magazzino";
 
   const reload = async () => {
+    // Carica le due risorse in modo indipendente: se una fallisce
+    // l'altra deve comunque popolare l'UI.
     try {
-      const [r, p] = await Promise.all([
-        fetch("/api/v2/etichette").then((x) => x.json()),
-        fetch("/api/v2/etichette/prodotti").then((x) => x.json()),
-      ]);
-      setRows(r.data || []);
-      setProdottiDisponibili(p.data || []);
-    } catch {
-      toast.error(t("etichette.toast_error_load", "Errore caricamento etichette"));
+      const r = await fetch("/api/v2/etichette");
+      const j = await r.json();
+      if (r.ok && Array.isArray(j.data)) {
+        setRows(j.data);
+      } else {
+        toast.error(j?.error || `Errore caricamento etichette (HTTP ${r.status})`);
+      }
+    } catch (err) {
+      toast.error(`Errore di rete su /etichette: ${err?.message || err}`);
+    }
+
+    try {
+      const r = await fetch("/api/v2/etichette/prodotti");
+      const j = await r.json();
+      if (r.ok && Array.isArray(j.data)) {
+        setProdottiDisponibili(j.data);
+      } else {
+        // Non bloccante: senza prodotti il picker mostra solo "nessun prodotto"
+        console.warn("Errore /etichette/prodotti:", r.status, j);
+      }
+    } catch (err) {
+      console.warn("Errore di rete su /etichette/prodotti:", err);
     }
   };
 
