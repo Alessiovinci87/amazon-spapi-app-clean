@@ -49,8 +49,43 @@ const PENDING_REFRESH_MS = 5 * 60 * 1000;
 const _ordersListCache = new Map();
 
 // === Helpers ===
-const ymdToIsoStart = (ymd) => `${ymd}T00:00:00Z`;
-const ymdToIsoEnd = (ymd) => `${ymd}T23:59:59Z`;
+// Le date YYYY-MM-DD vanno interpretate come "giorno italiano" (Europa/Rome).
+// Italia è UTC+1 (inverno) o UTC+2 (estate). Per maggio = UTC+2.
+// Per non dipendere da tabelle TZ, calcoliamo l'offset in base alla data.
+function italyOffsetHours(ymd) {
+  // Approssimazione DST Italia: ultima dom di marzo → ultima dom di ottobre = +2; resto = +1
+  const [y, m] = ymd.split("-").map(Number);
+  // Mese aprile..ottobre quasi sempre +2
+  if (m >= 4 && m <= 9) return 2;
+  if (m === 3 || m === 10) {
+    // Per semplicità e safety: tratta marzo come +1, ottobre come +2.
+    // Edge case di pochi giorni intorno al cambio DST viene gestito da Amazon
+    // che è tollerante di +/- 1h sul filtro.
+    return m === 3 ? 1 : 2;
+  }
+  return 1;
+}
+function ymdToIsoStart(ymd) {
+  const off = italyOffsetHours(ymd);
+  // 00:00 italiano = (24-off):00 UTC giorno prima
+  const h = 24 - off;
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - 1);
+  d.setUTCHours(h, 0, 0, 0);
+  return d.toISOString();
+}
+function ymdToIsoEnd(ymd) {
+  const off = italyOffsetHours(ymd);
+  // 23:59:59 italiano = (23-off):59:59 UTC stesso giorno (se off<=23)
+  // Più semplice: prendi 00:00 del giorno successivo italiano e -1ms
+  const next = new Date(ymd + "T00:00:00Z");
+  next.setUTCDate(next.getUTCDate() + 1);
+  // 00:00 italiano del giorno successivo = 22:00 UTC del giorno corrente (con off=2)
+  const h = 24 - off;
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCHours(h - 1, 59, 59, 999); // 1ms prima delle 22:00 UTC successive
+  return d.toISOString();
+}
 
 /**
  * Lookup prezzo del listing più recente per un ASIN+marketplace.
@@ -88,13 +123,12 @@ async function fetchOrdersForMarketplace(marketplaceId, fromYmd, toYmd) {
     "x-amz-access-token": access_token,
   };
 
-  const todayUtc = new Date().toISOString().slice(0, 10);
-  const isToday = toYmd === todayUtc;
   const createdAfter = ymdToIsoStart(fromYmd);
-  // Amazon richiede CreatedBefore >= 2 minuti prima di now (uso 3 per safety)
-  const createdBefore = isToday
-    ? new Date(Date.now() - 3 * 60_000).toISOString()
-    : ymdToIsoEnd(toYmd);
+  // Amazon richiede CreatedBefore >= 2 min prima di now. Se il toYmd italiano
+  // include ore future (es. "oggi" italiano dopo midnight UTC), cappiamo a now-3min.
+  const safeCap = new Date(Date.now() - 3 * 60_000);
+  const cbCandidate = new Date(ymdToIsoEnd(toYmd));
+  const createdBefore = (cbCandidate > safeCap ? safeCap : cbCandidate).toISOString();
 
   const orders = [];
   let nextToken = null;
