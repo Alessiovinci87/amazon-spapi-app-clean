@@ -201,12 +201,21 @@ const Panoramica = () => {
       if (currentRange.to) params.set("to", currentRange.to);
       if (force) params.set("refresh", "1");
       const url = "/api/v2/dashboard/overview?" + params.toString();
-      const res = await fetch(url);
+      // Timeout di sicurezza 30s per evitare stati "syncing" stuck
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 30000);
+      let res;
+      try {
+        res = await fetch(url, { signal: ctrl.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       const j = await res.json();
       if (!res.ok) throw new Error(j?.error || `HTTP ${res.status}`);
       setData(j);
     } catch (err) {
-      toast.error(`Errore caricamento panoramica: ${err.message || err}`);
+      const msg = err?.name === "AbortError" ? "Timeout caricamento" : (err?.message || err);
+      toast.error(`Panoramica: ${msg}`);
     }
   }, [currentRange]);
 
@@ -217,8 +226,11 @@ const Panoramica = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await load(true);
-    setRefreshing(false);
+    try {
+      await load(true);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   // ===== derived =====
