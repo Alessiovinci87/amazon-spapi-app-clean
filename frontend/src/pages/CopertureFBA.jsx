@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { downloadCSV } from "../utils/exportCSV";
+import PageTopBar from "../components/PageTopBar";
 import {
-  ArrowLeft,
   ShieldAlert,
   Search,
   Download,
@@ -54,7 +54,6 @@ function worstRisk(rows) {
 }
 
 const CopertureFBA = () => {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -132,22 +131,18 @@ const CopertureFBA = () => {
     <div className="relative min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
       <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-      {/* Top bar */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/dashboard")} type="button" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"><ArrowLeft className="w-4 h-4" /></button>
-            <div className="w-9 h-9 rounded-md bg-rose-500/10 border border-rose-500/40 flex items-center justify-center flex-shrink-0"><ShieldAlert className="w-[18px] h-[18px] text-rose-400" /></div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Copertura FBA</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">Rischio stockout per prodotto</span>
-            </div>
-          </div>
+      <PageTopBar
+        icon={ShieldAlert}
+        iconAccent="rose"
+        eyebrow="Rischio stockout per prodotto"
+        title="Copertura FBA"
+        backTo="/dashboard"
+        actions={
           <button onClick={handleExport} type="button" className="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:text-amber-200 transition-colors">
             <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline">Esporta CSV</span>
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-6">
         {loading ? (

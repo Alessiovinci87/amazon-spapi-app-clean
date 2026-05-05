@@ -53,10 +53,6 @@ export default function GlobalAlertBell({ inline = false }) {
   const panelRef = useRef(null);
   const { inlineActive } = useAlertBellHost();
 
-  // Se siamo nella modalità flottante (default in Layout) e una pagina sta
-  // renderizzando un bell inline, non renderizziamo nulla per evitare doppi.
-  if (!inline && inlineActive) return null;
-
   async function fetchAlerts() {
     try {
       const res = await fetch("/api/v2/europa/alert-events?letto=0&limit=8");
@@ -84,6 +80,11 @@ export default function GlobalAlertBell({ inline = false }) {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
+
+  // Se siamo nella modalità flottante (default in Layout) e una pagina sta
+  // renderizzando un bell inline, non renderizziamo nulla per evitare doppi.
+  // ⚠️ Early return DOPO tutti gli hooks per rispettare le rules-of-hooks.
+  if (!inline && inlineActive) return null;
 
   async function segnaLetto(id) {
     await fetch(`/api/v2/europa/alert-events/${id}/letto`, { method: "PATCH" });
