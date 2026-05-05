@@ -84,7 +84,11 @@ async function fetchOrdersForMarketplace(marketplaceId, fromYmd, toYmd) {
   const todayUtc = new Date().toISOString().slice(0, 10);
   const isToday = toYmd === todayUtc;
   const createdAfter = ymdToIsoStart(fromYmd);
-  const createdBefore = isToday ? new Date(Date.now() - 60_000).toISOString() : ymdToIsoEnd(toYmd);
+  // Amazon Orders API richiede che CreatedBefore sia almeno 2 minuti prima
+  // del tempo corrente (vedi documentazione SP-API). Usiamo 3 minuti per safety.
+  const createdBefore = isToday
+    ? new Date(Date.now() - 3 * 60_000).toISOString()
+    : ymdToIsoEnd(toYmd);
 
   const orders = [];
   let nextToken = null;
