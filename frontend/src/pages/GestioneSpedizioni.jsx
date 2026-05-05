@@ -5,8 +5,8 @@ import SpedizioneCard from "../components/spedizioni/SpedizioneCard";
 import ExportCSVButton from "../components/ui/ExportCSVButton";
 import { PAESI, cleanText } from "../utils/gestioneSpedizioni";
 import { fetchJSON } from "../utils/api";
+import PageTopBar from "../components/PageTopBar";
 import {
-  ArrowLeft,
   Truck,
   Plus,
   Save,
@@ -22,7 +22,6 @@ import {
   Search,
   ShoppingCart,
   BarChart3,
-  LogOut,
 } from "lucide-react";
 
 /* ── Componenti Nexus locali ─────────────────────────────── */
@@ -243,34 +242,19 @@ const GestioneSpedizioni = () => {
       {/* Texture grid */}
       <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" title={t("gestioneSpedizioni.title_indietro")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center flex-shrink-0">
-              <Truck className="w-[18px] h-[18px] text-blue-400" />
-            </div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("gestioneSpedizioni.topbar_title")}</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{isUffici ? t("gestioneSpedizioni.topbar_eyebrow_uffici") : t("gestioneSpedizioni.topbar_eyebrow_magazzino")}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
-            <button onClick={() => navigate("/uffici/spedizioni/storico")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all">
-              <FileText className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t("gestioneSpedizioni.btn_storico")}</span>
-            </button>
-            <button onClick={() => navigate(isUffici ? "/dashboard" : "/magazzino")} type="button" className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors">
-              <LogOut className="w-3.5 h-3.5" />
-              {isUffici ? t("gestioneSpedizioni.btn_dashboard") : t("gestioneSpedizioni.btn_magazzino")}
-            </button>
-          </div>
-        </div>
-      </header>
+      <PageTopBar
+        icon={Truck}
+        iconAccent="blue"
+        eyebrow={isUffici ? t("gestioneSpedizioni.topbar_eyebrow_uffici") : t("gestioneSpedizioni.topbar_eyebrow_magazzino")}
+        title={t("gestioneSpedizioni.topbar_title")}
+        backTo={isUffici ? "/dashboard" : "/magazzino"}
+        actions={
+          <button onClick={() => navigate("/uffici/spedizioni/storico")} type="button" className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/40 hover:border-violet-400/60 text-violet-300 hover:text-violet-200 text-xs font-medium transition-all">
+            <FileText className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{t("gestioneSpedizioni.btn_storico")}</span>
+          </button>
+        }
+      />
 
       {/* === Hero === */}
       <section className="relative">

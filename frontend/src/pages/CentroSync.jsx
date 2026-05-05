@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import PageTopBar from "../components/PageTopBar";
 import {
-  ArrowLeft,
   RefreshCw,
   Loader2,
   CheckCircle,
@@ -64,7 +63,6 @@ function formatElapsed(sec) {
 }
 
 const CentroSync = () => {
-  const navigate = useNavigate();
   const [syncs, setSyncs] = useState([]);
   const [loading, setLoading] = useState(true);
   const pollingRef = useRef(null);
@@ -121,29 +119,21 @@ const CentroSync = () => {
       <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
       {/* Top bar */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate("/settings")} type="button" className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center flex-shrink-0">
-              <RefreshCw className={`w-[18px] h-[18px] text-cyan-400 ${runningCount > 0 ? "animate-spin" : ""}`} />
-            </div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">Centro Sincronizzazioni</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">
-                {runningCount > 0 ? `${runningCount} sync in corso...` : "Gestione sync Amazon SP-API"}
-              </span>
-            </div>
-          </div>
-          {runningCount > 0 && (
+      <PageTopBar
+        icon={RefreshCw}
+        iconAccent="cyan"
+        eyebrow={runningCount > 0 ? `${runningCount} sync in corso...` : "Gestione sync Amazon SP-API"}
+        title="Centro Sincronizzazioni"
+        backTo="/settings"
+        syncing={runningCount > 0}
+        actions={
+          runningCount > 0 ? (
             <span className="px-3 py-1.5 rounded-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-medium tabular-nums animate-pulse">
               {runningCount} attivi
             </span>
-          )}
-        </div>
-      </header>
+          ) : null
+        }
+      />
 
       <main className="relative flex-1 px-6 sm:px-10 lg:px-16 py-8 space-y-8">
         {loading ? (

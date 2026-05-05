@@ -5,8 +5,8 @@ import { useTheme } from "../context/ThemeContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import { SUPPORTED_LANGUAGES } from "../i18n";
+import PageTopBar from "../components/PageTopBar";
 import {
-  ArrowLeft,
   Settings2,
   Moon,
   Sun,
@@ -145,31 +145,13 @@ const Settings = () => {
       />
 
       {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => navigate(backPath)}
-              type="button"
-              title={t("common.back")}
-              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-indigo-500/10 border border-indigo-500/40 flex items-center justify-center flex-shrink-0">
-              <Settings2 className="w-[18px] h-[18px] text-indigo-400" />
-            </div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">
-                {t("settings.title")}
-              </span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">
-                {t("settings.topbar_eyebrow")}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageTopBar
+        icon={Settings2}
+        iconAccent="indigo"
+        eyebrow={t("settings.topbar_eyebrow")}
+        title={t("settings.title")}
+        backTo={backPath}
+      />
 
       {/* === Hero === */}
       <section className="relative">

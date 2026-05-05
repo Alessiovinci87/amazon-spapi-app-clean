@@ -2,13 +2,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
+import PageTopBar from "../components/PageTopBar";
 import {
-  ArrowLeft,
   FileText,
   FileCheck,
   Archive,
   ChevronRight,
-  LogOut,
 } from "lucide-react";
 
 function StatTile({ icon: Icon, label, value, accent = "violet" }) {
@@ -48,37 +47,13 @@ const DDTIndex = () => {
         }}
       />
 
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")}
-              type="button"
-              title={t("ddtIndex.topbar_back")}
-              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/40 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-[18px] h-[18px] text-violet-400" />
-            </div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("ddtIndex.topbar_title")}</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("ddtIndex.topbar_eyebrow")}</span>
-            </div>
-          </div>
-
-          <button
-            onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")}
-            type="button"
-            className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            {t("ddtIndex.topbar_dashboard")}
-          </button>
-        </div>
-      </header>
+      <PageTopBar
+        icon={FileText}
+        iconAccent="violet"
+        eyebrow={t("ddtIndex.topbar_eyebrow")}
+        title={t("ddtIndex.topbar_title")}
+        backTo={isMagazzino ? "/magazzino" : "/dashboard"}
+      />
 
       {/* === Hero === */}
       <section className="relative">

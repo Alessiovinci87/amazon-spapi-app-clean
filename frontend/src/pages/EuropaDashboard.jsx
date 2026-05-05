@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
-  ArrowLeft, Search, RefreshCw, Bell, Package,
+  Search, RefreshCw, Bell, Package,
   TrendingUp, ChevronDown, ChevronUp,
-  Settings, Image, Star, FileText, Globe, LogOut,
+  Settings, Image, Star, FileText, Globe,
   EyeOff, RotateCcw,
 } from "lucide-react";
 import AlertsPanel from "../components/europa/AlertsPanel";
+import PageTopBar from "../components/PageTopBar";
 import { toast } from "sonner";
 
 const Flag = ({ code, className = "h-4 w-auto inline-block align-middle" }) => (
@@ -369,28 +370,14 @@ export default function EuropaDashboard() {
         }}
       />
 
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate("/europe")}
-              className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center"
-              title={t("common.back")}
-              type="button"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-blue-500/10 border border-blue-500/40 flex items-center justify-center">
-              <Globe className="w-[18px] h-[18px] text-blue-400" />
-            </div>
-            <div className="flex flex-col leading-none">
-              <span className="text-[15px] font-semibold tracking-tight text-white">{t("europaDashboard.topbar_title")}</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("europaDashboard.topbar_eyebrow")}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 sm:gap-5">
+      <PageTopBar
+        icon={Globe}
+        iconAccent="blue"
+        eyebrow={t("europaDashboard.topbar_eyebrow")}
+        title={t("europaDashboard.topbar_title")}
+        backTo="/europe"
+        actions={
+          <>
             {fxInfo && (
               <div
                 className={`hidden md:inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-[10px] font-mono ${
@@ -412,18 +399,9 @@ export default function EuropaDashboard() {
               <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
               <span className="text-[11px] uppercase tracking-[0.12em] text-blue-400 font-medium">{t("europaDashboard.badge_9_paesi")}</span>
             </div>
-            <button
-              onClick={() => navigate("/")}
-              className="hidden sm:flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
-              title={t("europaDashboard.title_home")}
-              type="button"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              {t("common.logout")}
-            </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* === Hero compatto === */}
       <section className="relative">
