@@ -7,7 +7,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb } = require("../db/database");
 const logger = require("../utils/logger");
-const { aggregateOrdersLive } = require("../modules/reports/ordersLiveService");
+const { readOrdersLiveFromCache, refreshLiveInBackground } = require("../modules/reports/ordersLiveService");
 
 const CACHE_TTL_MS = 60 * 1000;
 // cache keyed by from-to (gli stati di sistema non dipendono dal periodo,
@@ -301,42 +301,44 @@ router.get("/overview", async (req, res) => {
 
     const data = buildOverview({ from, to });
 
-    // Integrazione live: se il range richiesto contiene giorni > last_available_date
-    // dei report Amazon, chiamiamo Orders API per i giorni mancanti e SOMMIAMO
-    // i risultati ai KPI/per_country.
+    // Integrazione live: leggiamo dalla cache DB amazon_order_cache (fast path).
+    // Il fetch effettivo da Amazon Orders API gira in background:
+    //  - SEMPRE quando includeLive (per mantenere fresca la cache)
+    //  - se ?refresh=1 forziamo l'avvio anche se uno è già in corso
+    // L'utente vede SUBITO i numeri attualmente in cache; se è il primo
+    // accesso al periodo "oggi" la cache è vuota → 0, ma il bg refresh
+    // partirà e nei prossimi N secondi (tipicamente 2-5 min) la cache
+    // sarà popolata, e bastano refresh successivi.
     const last = data?.range?.last_available_date;
     if (includeLive) {
       const liveFrom = last && last >= from ? ymdAddDays(last, 1) : from;
       if (liveFrom <= to) {
         try {
-          const live = await aggregateOrdersLive({ from: liveFrom, to });
+          const live = readOrdersLiveFromCache({ from: liveFrom, to });
           data.live = {
             applied: true,
             range: { from: liveFrom, to },
             totale_eur: live.totale_eur,
             non_eur: live.non_eur,
             per_country: live.per_country,
+            last_fetch: live.last_fetch,
           };
-          // Somma ai KPI: revenue/units/orders (solo EUR per il totale)
+          // Somma alla cache (KPI + per_country)
           data.kpi.revenue.value = Math.round((data.kpi.revenue.value + live.totale_eur.revenue) * 100) / 100;
           data.kpi.units.value = data.kpi.units.value + live.totale_eur.units;
           data.kpi.orders.value = data.kpi.orders.value + live.totale_eur.orders;
-          // I delta_pct in regime live perdono significato (non confrontiamo
-          // periodi misti). Li azzeriamo per chiarezza.
           data.kpi.revenue.delta_pct = null;
           data.kpi.units.delta_pct = null;
           data.kpi.orders.delta_pct = null;
-          // Per-country: aggiungi i delta live al breakdown sales_daily
           const liveByCountry = Object.fromEntries(live.per_country.map(c => [c.country, c]));
           for (const c of data.per_country) {
-            const liveC = liveByCountry[c.country];
-            if (liveC) {
-              c.revenue = Math.round((c.revenue + liveC.revenue) * 100) / 100;
-              c.units = c.units + liveC.units;
-              c.orders = c.orders + liveC.orders;
+            const lc = liveByCountry[c.country];
+            if (lc) {
+              c.revenue = Math.round((c.revenue + lc.revenue) * 100) / 100;
+              c.units = c.units + lc.units;
+              c.orders = c.orders + lc.orders;
             }
           }
-          // Aggiungi country live che potrebbe non essere in sales_daily
           for (const lc of live.per_country) {
             if (!data.per_country.some(c => c.country === lc.country) && (lc.revenue > 0 || lc.units > 0)) {
               data.per_country.push({
@@ -347,9 +349,11 @@ router.get("/overview", async (req, res) => {
           }
           data.per_country.sort((a, b) => b.revenue - a.revenue);
         } catch (err) {
-          logger.warn({ err: err.message }, "[overview] live integration failed");
+          logger.warn({ err: err.message }, "[overview] live read failed");
           data.live = { applied: false, error: err.message };
         }
+        // Trigger refresh in background (fire-and-forget)
+        refreshLiveInBackground({ from: liveFrom, to });
       } else {
         data.live = { applied: false, reason: "report Amazon coprono già il range" };
       }

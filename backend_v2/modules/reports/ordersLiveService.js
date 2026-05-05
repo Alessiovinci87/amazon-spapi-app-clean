@@ -410,4 +410,86 @@ async function aggregateOrdersLive({ from, to }) {
   return { range: { from, to }, per_country, totale_eur, non_eur };
 }
 
-module.exports = { aggregateOrdersLive, fetchOrdersForMarketplace, enrichOrderWithItems };
+/**
+ * Lettura veloce dalla cache DB per il range [from, to].
+ * NON fa chiamate Amazon — usa solo i dati già fetchati.
+ * Da chiamare nell'endpoint live che deve rispondere subito.
+ */
+function readOrdersLiveFromCache({ from, to }) {
+  const db = getDb();
+  // L'aggregazione raggruppa per marketplace_id usando la mappa
+  const rows = db.prepare(`
+    SELECT marketplace_id,
+      COUNT(*) AS orders,
+      COALESCE(SUM(units), 0) AS units,
+      COALESCE(SUM(revenue), 0) AS revenue,
+      COALESCE(SUM(is_pending_priced), 0) AS pending_priced
+    FROM amazon_order_cache
+    WHERE DATE(purchase_date) >= ? AND DATE(purchase_date) <= ?
+      AND COALESCE(status, '') != 'Canceled'
+    GROUP BY marketplace_id
+  `).all(from, to);
+
+  const per_country = MARKETPLACES.map((mp) => {
+    const r = rows.find((x) => x.marketplace_id === mp.id);
+    return {
+      country: mp.code,
+      currency: mp.currency,
+      revenue: r ? Math.round(r.revenue * 100) / 100 : 0,
+      units: r ? r.units : 0,
+      orders: r ? r.orders : 0,
+      pending_priced: r ? r.pending_priced : 0,
+    };
+  });
+
+  const totale_eur = per_country
+    .filter((c) => c.currency === "EUR")
+    .reduce((a, c) => ({
+      revenue: a.revenue + (c.revenue || 0),
+      units: a.units + (c.units || 0),
+      orders: a.orders + (c.orders || 0),
+    }), { revenue: 0, units: 0, orders: 0 });
+  totale_eur.revenue = Math.round(totale_eur.revenue * 100) / 100;
+
+  const non_eur = per_country.filter((c) => c.currency !== "EUR" && (c.revenue > 0 || c.units > 0));
+
+  // Ultimo fetch nella cache per indicare freshness
+  const lastFetch = db.prepare(`
+    SELECT MAX(items_fetched_at) AS ts
+    FROM amazon_order_cache
+    WHERE DATE(purchase_date) >= ? AND DATE(purchase_date) <= ?
+  `).get(from, to);
+
+  return {
+    range: { from, to },
+    per_country,
+    totale_eur,
+    non_eur,
+    last_fetch: lastFetch?.ts || null,
+  };
+}
+
+// === Background refresh: fire-and-forget per non bloccare l'endpoint ===
+let _bgRefreshing = new Set();
+async function refreshLiveInBackground({ from, to }) {
+  const key = `${from}|${to}`;
+  if (_bgRefreshing.has(key)) return; // già in corso
+  _bgRefreshing.add(key);
+  try {
+    logger.info({ from, to }, "[OrdersLive] background refresh start");
+    await aggregateOrdersLive({ from, to });
+    logger.info({ from, to }, "[OrdersLive] background refresh done");
+  } catch (err) {
+    logger.warn({ err: err.message, from, to }, "[OrdersLive] background refresh failed");
+  } finally {
+    _bgRefreshing.delete(key);
+  }
+}
+
+module.exports = {
+  aggregateOrdersLive,
+  fetchOrdersForMarketplace,
+  enrichOrderWithItems,
+  readOrdersLiveFromCache,
+  refreshLiveInBackground,
+};
