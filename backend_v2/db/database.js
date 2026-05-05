@@ -597,6 +597,23 @@ function runMigrations(db) {
     )
   `).run();
 
+  // Colonna da_stampare: debito accumulato dalle produzioni "In lavorazione"
+  // — viene incrementato quando una prenotazione_sfuso passa a "In lavorazione"
+  // — viene decrementato manualmente dall'utente con "Conferma stampa N"
+  const colsEtichette = db.pragma("table_info(etichette)");
+  if (colsEtichette.length > 0 && !colsEtichette.some(c => c.name === "da_stampare")) {
+    db.prepare("ALTER TABLE etichette ADD COLUMN da_stampare INTEGER NOT NULL DEFAULT 0").run();
+    logger.info("Migrazione: aggiunta colonna da_stampare a etichette");
+  }
+
+  // Mapping prodotto → etichetta (FK opzionale): un prodotto può avere
+  // un'etichetta associata; un'etichetta è usata da N prodotti.
+  const colsProdottiEtichetta = db.pragma("table_info(prodotti)");
+  if (colsProdottiEtichetta.length > 0 && !colsProdottiEtichetta.some(c => c.name === "etichetta_id")) {
+    db.prepare("ALTER TABLE prodotti ADD COLUMN etichetta_id INTEGER REFERENCES etichette(id) ON DELETE SET NULL").run();
+    logger.info("Migrazione: aggiunta colonna etichetta_id a prodotti");
+  }
+
   logger.info("Migrazione Scatolette/Etichette completata");
 
   // ===== EUROPA: product_catalog.image_count + tabella listing_hidden =====

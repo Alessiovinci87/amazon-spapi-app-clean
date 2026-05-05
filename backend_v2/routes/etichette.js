@@ -18,18 +18,70 @@ const patchSchema = z.object({
   soglia_minima: z.coerce.number().int().min(0).optional(),
 });
 
-// GET / — lista tutte le etichette
+const stampaSchema = z.object({
+  quantita: z.coerce.number().int().min(1, "Quantità deve essere almeno 1"),
+});
+
+const assignAsinSchema = z.object({
+  asin: z.string().min(1).max(50),
+});
+
+// =============================================================
+// GET / — lista tutte le etichette + ASIN collegati + da_stampare
+// =============================================================
 router.get("/", (req, res) => {
   try {
     const db = getDb();
-    const rows = db.prepare("SELECT * FROM etichette ORDER BY nome").all();
+    const rows = db.prepare(`
+      SELECT e.*,
+             COALESCE(json_group_array(
+               CASE WHEN p.asin IS NOT NULL
+                    THEN json_object('asin', p.asin, 'nome', p.nome, 'formato', p.formato)
+               END
+             ) FILTER (WHERE p.asin IS NOT NULL), '[]') AS prodotti_json
+      FROM etichette e
+      LEFT JOIN prodotti p ON p.etichetta_id = e.id
+      GROUP BY e.id
+      ORDER BY e.nome
+    `).all();
+
+    const data = rows.map(r => ({
+      ...r,
+      prodotti: (() => {
+        try { return JSON.parse(r.prodotti_json || "[]"); } catch { return []; }
+      })(),
+      prodotti_json: undefined,
+      netto: (r.quantita || 0) - (r.da_stampare || 0),
+    }));
+
+    res.json({ ok: true, data });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// =============================================================
+// GET /prodotti — elenco prodotti per il dropdown di mapping
+//   ritorna asin, nome, formato e l'eventuale etichetta_id
+// =============================================================
+router.get("/prodotti", (req, res) => {
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT asin, nome, formato, etichetta_id
+      FROM prodotti
+      WHERE asin IS NOT NULL AND TRIM(asin) <> ''
+      ORDER BY nome
+    `).all();
     res.json({ ok: true, data: rows });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
 
+// =============================================================
 // POST / — crea nuova etichetta
+// =============================================================
 router.post("/", validate({ body: createSchema }), (req, res) => {
   try {
     const db = getDb();
@@ -44,7 +96,10 @@ router.post("/", validate({ body: createSchema }), (req, res) => {
   }
 });
 
+// =============================================================
 // PATCH /:id — aggiorna etichetta (quantita, soglia_minima, nome)
+//   NB: NON tocca da_stampare (gestito da hook produzione e endpoint stampa)
+// =============================================================
 router.patch("/:id", validate({ params: idParam, body: patchSchema }), (req, res) => {
   try {
     const db = getDb();
@@ -60,7 +115,6 @@ router.patch("/:id", validate({ params: idParam, body: patchSchema }), (req, res
       "UPDATE etichette SET nome = ?, quantita = ?, soglia_minima = ?, updated_at = datetime('now','localtime') WHERE id = ?"
     ).run(nome, quantita, soglia_minima, id);
 
-    // Check alert dopo modifica
     const { checkSottoSogliaEtichette } = require("../services/stockAlerts.service");
     checkSottoSogliaEtichette(db, id);
 
@@ -71,7 +125,86 @@ router.patch("/:id", validate({ params: idParam, body: patchSchema }), (req, res
   }
 });
 
+// =============================================================
+// POST /:id/conferma-stampa — l'utente conferma di aver stampato N etichette
+//   → riduce il debito (da_stampare -= N, max 0)
+//   → NON modifica lo stock fisico (quantita) per scelta UX
+// =============================================================
+router.post(
+  "/:id/conferma-stampa",
+  validate({ params: idParam, body: stampaSchema }),
+  (req, res) => {
+    try {
+      const db = getDb();
+      const { id } = req.params;
+      const { quantita } = req.body;
+
+      const existing = db.prepare("SELECT * FROM etichette WHERE id = ?").get(id);
+      if (!existing) return res.status(404).json({ ok: false, error: "Etichetta non trovata" });
+
+      const nuovoDebito = Math.max(0, (existing.da_stampare || 0) - quantita);
+
+      db.prepare(
+        "UPDATE etichette SET da_stampare = ?, updated_at = datetime('now','localtime') WHERE id = ?"
+      ).run(nuovoDebito, id);
+
+      const row = db.prepare("SELECT * FROM etichette WHERE id = ?").get(id);
+      res.json({
+        ok: true,
+        data: row,
+        debito_ridotto_di: (existing.da_stampare || 0) - nuovoDebito,
+      });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// =============================================================
+// POST /:id/prodotti — associa un ASIN all'etichetta
+// =============================================================
+router.post(
+  "/:id/prodotti",
+  validate({ params: idParam, body: assignAsinSchema }),
+  (req, res) => {
+    try {
+      const db = getDb();
+      const { id } = req.params;
+      const { asin } = req.body;
+
+      const etichetta = db.prepare("SELECT id FROM etichette WHERE id = ?").get(id);
+      if (!etichetta) return res.status(404).json({ ok: false, error: "Etichetta non trovata" });
+
+      const prodotto = db.prepare("SELECT asin FROM prodotti WHERE asin = ?").get(asin);
+      if (!prodotto) return res.status(404).json({ ok: false, error: "Prodotto non trovato" });
+
+      db.prepare("UPDATE prodotti SET etichetta_id = ? WHERE asin = ?").run(id, asin);
+      res.json({ ok: true });
+    } catch (e) {
+      res.status(500).json({ ok: false, error: e.message });
+    }
+  }
+);
+
+// =============================================================
+// DELETE /:id/prodotti/:asin — rimuove l'associazione
+// =============================================================
+router.delete("/:id/prodotti/:asin", (req, res) => {
+  try {
+    const db = getDb();
+    const { id, asin } = req.params;
+    db.prepare(
+      "UPDATE prodotti SET etichetta_id = NULL WHERE asin = ? AND etichetta_id = ?"
+    ).run(asin, id);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// =============================================================
 // DELETE /:id — elimina etichetta
+// =============================================================
 router.delete("/:id", validate({ params: idParam }), (req, res) => {
   try {
     const db = getDb();
@@ -82,7 +215,9 @@ router.delete("/:id", validate({ params: idParam }), (req, res) => {
   }
 });
 
+// =============================================================
 // POST /seed — popola etichette iniziali (una tantum)
+// =============================================================
 router.post("/seed", (req, res) => {
   try {
     const db = getDb();

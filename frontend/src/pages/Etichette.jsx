@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import PageTopBar from "../components/PageTopBar";
 import {
-  ArrowLeft,
   Tag,
   Edit3,
   ChevronDown,
   ChevronUp,
-  Calendar,
   TrendingUp,
   AlertCircle,
   CheckCircle,
-  Truck,
   Search,
   X,
   Bell,
+  Printer,
+  Package,
+  Plus,
+  Trash2,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
 /* ── Shared UI ──────────────────────────────────────────── */
@@ -43,16 +46,26 @@ function StatTile({ icon: Icon, label, value, accent = "emerald" }) {
 
 /* ── Helpers quantita ────────────────────────────────────── */
 
-const getQuantitaAccent = (quantita) => {
+const getQuantitaAccent = (quantita, soglia) => {
   if (quantita === 0) return { bg: "bg-rose-500/10 border-rose-500/30", text: "text-rose-400" };
-  if (typeof quantita === "number" && quantita < 2000) return { bg: "bg-amber-500/10 border-amber-500/30", text: "text-amber-400" };
+  if (typeof soglia === "number" && soglia > 0 && quantita < soglia) return { bg: "bg-amber-500/10 border-amber-500/30", text: "text-amber-400" };
   return { bg: "bg-emerald-500/10 border-emerald-500/30", text: "text-emerald-400" };
 };
 
-const getQuantitaIcon = (quantita) => {
+const getQuantitaIcon = (quantita, soglia) => {
   if (quantita === 0) return <AlertCircle className="w-3.5 h-3.5" />;
-  if (typeof quantita === "number" && quantita < 2000) return <TrendingUp className="w-3.5 h-3.5" />;
+  if (typeof soglia === "number" && soglia > 0 && quantita < soglia) return <TrendingUp className="w-3.5 h-3.5" />;
   return <CheckCircle className="w-3.5 h-3.5" />;
+};
+
+// Netto = quantita - da_stampare
+//  >0  copertura ok (verde)
+//  =0  esattamente coperto (slate)
+//  <0  da stampare (rosso)
+const getNettoAccent = (netto) => {
+  if (netto < 0) return { bg: "bg-rose-500/10 border-rose-500/30", text: "text-rose-400" };
+  if (netto === 0) return { bg: "bg-slate-700/40 border-slate-600/40", text: "text-slate-300" };
+  return { bg: "bg-emerald-500/10 border-emerald-500/30", text: "text-emerald-400" };
 };
 
 /* ── Componente principale ───────────────────────────────── */
@@ -60,15 +73,32 @@ const getQuantitaIcon = (quantita) => {
 const Etichette = () => {
   const { t } = useTranslation();
   const [rows, setRows] = useState([]);
+  const [prodottiDisponibili, setProdottiDisponibili] = useState([]); // tutti i prodotti per dropdown mapping
   const [expandedCards, setExpandedCards] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [stampaModal, setStampaModal] = useState(null); // { etichetta, qty } | null
+  const [stampaQty, setStampaQty] = useState("");
+  const [stampaBusy, setStampaBusy] = useState(false);
+  const [asinPicker, setAsinPicker] = useState({}); // { [etichettaId]: searchTerm }
   const isMagazzino = localStorage.getItem("auth") === "magazzino";
 
+  const reload = async () => {
+    try {
+      const [r, p] = await Promise.all([
+        fetch("/api/v2/etichette").then((x) => x.json()),
+        fetch("/api/v2/etichette/prodotti").then((x) => x.json()),
+      ]);
+      setRows(r.data || []);
+      setProdottiDisponibili(p.data || []);
+    } catch {
+      toast.error(t("etichette.toast_error_load", "Errore caricamento etichette"));
+    }
+  };
+
   useEffect(() => {
-    fetch("/api/v2/etichette").then((r) => r.json()).then((d) => setRows(d.data || [])).catch(() => toast.error(t("etichette.toast_error_load")));
-  }, [t]);
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleCardExpansion = (id) => {
     setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -105,9 +135,77 @@ const Etichette = () => {
     } catch { toast.error(t("etichette.toast_soglia_err")); }
   };
 
+  // Conferma stampa: riduce il debito da_stampare di N pezzi
+  const apriStampaModal = (etichetta) => {
+    setStampaModal(etichetta);
+    setStampaQty(String(etichetta.da_stampare || 0));
+  };
+  const chiudiStampaModal = () => {
+    setStampaModal(null);
+    setStampaQty("");
+  };
+  const confermaStampa = async () => {
+    if (!stampaModal) return;
+    const qty = parseInt(stampaQty, 10);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Inserisci una quantità valida");
+      return;
+    }
+    setStampaBusy(true);
+    try {
+      const res = await fetch(`/api/v2/etichette/${stampaModal.id}/conferma-stampa`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantita: qty }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`Debito ridotto di ${qty} etichette`);
+      chiudiStampaModal();
+      await reload();
+    } catch {
+      toast.error("Errore conferma stampa");
+    } finally {
+      setStampaBusy(false);
+    }
+  };
+
+  // Mapping prodotto → etichetta
+  const aggiungiProdotto = async (etichettaId, asin) => {
+    try {
+      const res = await fetch(`/api/v2/etichette/${etichettaId}/prodotti`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ asin }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Prodotto associato");
+      setAsinPicker((p) => ({ ...p, [etichettaId]: "" }));
+      await reload();
+    } catch {
+      toast.error("Errore associazione prodotto");
+    }
+  };
+  const rimuoviProdotto = async (etichettaId, asin) => {
+    try {
+      const res = await fetch(
+        `/api/v2/etichette/${etichettaId}/prodotti/${encodeURIComponent(asin)}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error();
+      toast.success("Prodotto disassociato");
+      await reload();
+    } catch {
+      toast.error("Errore disassociazione");
+    }
+  };
+
   const filteredRows = rows.filter((row) => row.nome.toLowerCase().includes(searchTerm.toLowerCase()));
   const totalEtichette = filteredRows.reduce((acc, row) => acc + (typeof row.quantita === "number" ? row.quantita : 0), 0);
-  const etichetteBasse = filteredRows.filter((row) => typeof row.quantita === "number" && row.quantita > 0 && row.quantita < 2000).length;
+  const totaleDaStampare = filteredRows.reduce((acc, row) => acc + (row.da_stampare || 0), 0);
+  const etichetteSottoSoglia = filteredRows.filter((row) =>
+    typeof row.quantita === "number" && row.quantita > 0
+      && row.soglia_minima > 0 && row.quantita < row.soglia_minima
+  ).length;
   const etichetteEsaurite = filteredRows.filter((row) => row.quantita === 0).length;
 
   return (
@@ -115,23 +213,13 @@ const Etichette = () => {
       {/* Texture grid */}
       <div className="absolute inset-0 opacity-[0.035] pointer-events-none" style={{ backgroundImage: "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)", backgroundSize: "32px 32px" }} />
 
-      {/* === Top bar === */}
-      <header className="relative border-b border-slate-800 bg-slate-900/40 backdrop-blur-sm">
-        <div className="px-6 sm:px-10 lg:px-16 py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate(isMagazzino ? "/magazzino" : "/dashboard")} type="button" title={t("common.back")} className="w-9 h-9 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 hover:border-slate-700 text-slate-500 hover:text-slate-200 transition-colors flex items-center justify-center flex-shrink-0">
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="w-9 h-9 rounded-md bg-cyan-500/10 border border-cyan-500/40 flex items-center justify-center flex-shrink-0">
-              <Tag className="w-[18px] h-[18px] text-cyan-400" />
-            </div>
-            <div className="flex flex-col leading-none min-w-0">
-              <span className="text-[15px] font-semibold tracking-tight text-white truncate">{t("etichette.topbar_title")}</span>
-              <span className="text-[11px] uppercase tracking-[0.14em] text-slate-500 mt-1">{t("etichette.topbar_eyebrow")}</span>
-            </div>
-          </div>
-        </div>
-      </header>
+      <PageTopBar
+        icon={Tag}
+        iconAccent="cyan"
+        eyebrow={t("etichette.topbar_eyebrow")}
+        title={t("etichette.topbar_title")}
+        backTo={isMagazzino ? "/magazzino" : "/dashboard"}
+      />
 
       {/* === Hero === */}
       <section className="relative">
@@ -150,10 +238,11 @@ const Etichette = () => {
       <main className="relative flex-1 px-6 sm:px-10 lg:px-16 pb-12 space-y-6">
 
         {/* Statistiche */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <StatTile icon={CheckCircle} label={t("etichette.stat_totale")} value={totalEtichette.toLocaleString()} accent="emerald" />
-          <StatTile icon={TrendingUp} label={t("etichette.stat_basse")} value={etichetteBasse} accent="amber" />
-          <StatTile icon={AlertCircle} label={t("etichette.stat_esaurite")} value={etichetteEsaurite} accent="rose" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatTile icon={CheckCircle} label={t("etichette.stat_totale", "Stock totale")} value={totalEtichette.toLocaleString()} accent="emerald" />
+          <StatTile icon={Printer} label="Da stampare" value={totaleDaStampare.toLocaleString()} accent="rose" />
+          <StatTile icon={TrendingUp} label="Sotto soglia" value={etichetteSottoSoglia} accent="amber" />
+          <StatTile icon={AlertCircle} label={t("etichette.stat_esaurite", "Esaurite")} value={etichetteEsaurite} accent="rose" />
         </div>
 
         {/* Ricerca */}
@@ -211,7 +300,11 @@ const Etichette = () => {
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             {filteredRows.map((row) => {
               const isExpanded = expandedCards[row.id];
-              const qAccent = getQuantitaAccent(row.quantita);
+              const qAccent = getQuantitaAccent(row.quantita, row.soglia_minima);
+              const daStampare = row.da_stampare || 0;
+              const netto = (typeof row.netto === "number" ? row.netto : (row.quantita || 0) - daStampare);
+              const nettoAccent = getNettoAccent(netto);
+              const prodottiCollegati = Array.isArray(row.prodotti) ? row.prodotti : [];
 
               return (
                 <div key={row.id} className="relative bg-slate-900/60 border border-slate-800 rounded-lg overflow-hidden hover:border-slate-700 transition-all">
@@ -225,11 +318,30 @@ const Etichette = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-semibold text-white truncate capitalize">{row.nome}</h3>
-                        <div className="mt-1.5">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-medium ${qAccent.bg} ${qAccent.text}`}>
-                            {getQuantitaIcon(row.quantita)}
-                            {row.quantita} {t("etichette.unit_pz")}
+                        <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-medium ${qAccent.bg} ${qAccent.text}`}
+                                title="Stock fisico in giacenza">
+                            {getQuantitaIcon(row.quantita, row.soglia_minima)}
+                            {row.quantita.toLocaleString()} stock
                           </span>
+                          {daStampare > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-rose-500/30 bg-rose-500/10 text-rose-400 text-[11px] font-medium"
+                                  title="Etichette richieste da produzioni in lavorazione">
+                              <Printer className="w-3 h-3" />
+                              -{daStampare.toLocaleString()} pendenti
+                            </span>
+                          )}
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] font-medium ${nettoAccent.bg} ${nettoAccent.text}`}
+                                title="Stock netto = stock - pendenti">
+                            netto: {netto > 0 ? "+" : ""}{netto.toLocaleString()}
+                          </span>
+                          {prodottiCollegati.length > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-slate-700 bg-slate-800/40 text-slate-400 text-[10px] font-medium"
+                                  title="Prodotti collegati a questa etichetta">
+                              <Package className="w-3 h-3" />
+                              {prodottiCollegati.length}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <button type="button" className="text-slate-500 hover:text-slate-200 transition-colors flex-shrink-0" onClick={(e) => { e.stopPropagation(); toggleCardExpansion(row.id); }}>
@@ -281,6 +393,33 @@ const Etichette = () => {
                         </div>
                       </div>
 
+                      {/* Da stampare + conferma */}
+                      {daStampare > 0 && (
+                        <div className="bg-rose-500/5 border border-rose-500/30 rounded-md px-4 py-3">
+                          <p className="text-[10px] uppercase tracking-[0.14em] text-rose-400 mb-2 flex items-center gap-1">
+                            <Printer className="w-3 h-3" /> Etichette pendenti dalla produzione
+                          </p>
+                          <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div>
+                              <div className="text-2xl font-semibold text-rose-300 tabular-nums">
+                                {daStampare.toLocaleString()}
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                richieste da produzioni in lavorazione
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => apriStampaModal(row)}
+                              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-[12px] font-medium transition-all"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              Conferma stampa
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Alert stock */}
                       {row.quantita === 0 && (
                         <div className="bg-rose-500/5 border border-rose-500/30 rounded-md p-3 flex items-center gap-2">
@@ -288,12 +427,59 @@ const Etichette = () => {
                           <p className="text-rose-300 text-xs font-medium">{t("etichette.alert_esaurite")}</p>
                         </div>
                       )}
-                      {typeof row.quantita === "number" && row.quantita > 0 && row.quantita < 2000 && (
+                      {typeof row.quantita === "number" && row.quantita > 0 && row.soglia_minima > 0 && row.quantita < row.soglia_minima && (
                         <div className="bg-amber-500/5 border border-amber-500/30 rounded-md p-3 flex items-center gap-2">
                           <TrendingUp className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                          <p className="text-amber-300 text-xs font-medium">{t("etichette.alert_basse")}</p>
+                          <p className="text-amber-300 text-xs font-medium">
+                            Stock sotto la soglia minima ({row.soglia_minima.toLocaleString()})
+                          </p>
                         </div>
                       )}
+
+                      {/* Prodotti collegati */}
+                      <div className="bg-slate-800/40 border border-slate-700/60 rounded-md px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-slate-400 mb-2 flex items-center gap-1">
+                          <Package className="w-3 h-3" /> Prodotti collegati
+                          <span className="text-slate-500 ml-auto">{prodottiCollegati.length}</span>
+                        </p>
+                        {prodottiCollegati.length > 0 ? (
+                          <div className="space-y-1 mb-3">
+                            {prodottiCollegati.map((p) => (
+                              <div key={p.asin} className="flex items-center gap-2 text-xs bg-slate-900/40 border border-slate-800 rounded px-2 py-1.5">
+                                <span className="font-mono text-slate-400">{p.asin}</span>
+                                <span className="text-slate-300 truncate flex-1">{p.nome}</span>
+                                {p.formato && (
+                                  <span className="text-[10px] uppercase tracking-wider text-slate-500">{p.formato}</span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => rimuoviProdotto(row.id, p.asin)}
+                                  title="Rimuovi associazione"
+                                  className="text-slate-600 hover:text-rose-400 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500 italic mb-3">
+                            Nessun prodotto associato — il debito non verrà generato dalle produzioni
+                          </p>
+                        )}
+
+                        {/* Aggiungi prodotto */}
+                        <AddProdottoPicker
+                          rowId={row.id}
+                          searchTerm={asinPicker[row.id] || ""}
+                          onSearch={(v) => setAsinPicker((p) => ({ ...p, [row.id]: v }))}
+                          prodottiDisponibili={prodottiDisponibili.filter(
+                            (p) => p.etichetta_id == null || p.etichetta_id === row.id
+                          )}
+                          alreadyLinkedAsin={prodottiCollegati.map((p) => p.asin)}
+                          onPick={(asin) => aggiungiProdotto(row.id, asin)}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -310,8 +496,154 @@ const Etichette = () => {
           <span className="font-mono">v2.0</span>
         </div>
       </footer>
+
+      {/* === Modal Conferma Stampa === */}
+      {stampaModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={chiudiStampaModal} />
+          <div className="relative w-full max-w-md bg-slate-950 border border-slate-800 rounded-lg shadow-2xl overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-400/60" />
+            <div className="px-6 py-5 border-b border-slate-800 flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-md bg-rose-500/10 border border-rose-500/40 flex items-center justify-center flex-shrink-0">
+                  <Printer className="w-5 h-5 text-rose-400" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-base font-semibold text-white truncate">Conferma stampa etichette</h3>
+                  <p className="text-xs text-slate-500 mt-0.5 truncate">{stampaModal.nome}</p>
+                </div>
+              </div>
+              <button onClick={chiudiStampaModal} className="text-slate-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="px-2 py-2 rounded-md bg-slate-900/60 border border-slate-800">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Stock</div>
+                  <div className="text-lg font-semibold text-emerald-300 tabular-nums">{stampaModal.quantita?.toLocaleString() ?? 0}</div>
+                </div>
+                <div className="px-2 py-2 rounded-md bg-rose-500/5 border border-rose-500/30">
+                  <div className="text-[10px] uppercase tracking-wider text-rose-400">Pendenti</div>
+                  <div className="text-lg font-semibold text-rose-300 tabular-nums">{(stampaModal.da_stampare || 0).toLocaleString()}</div>
+                </div>
+                <div className="px-2 py-2 rounded-md bg-slate-900/60 border border-slate-800">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500">Netto</div>
+                  <div className={`text-lg font-semibold tabular-nums ${
+                    ((stampaModal.quantita || 0) - (stampaModal.da_stampare || 0)) < 0 ? "text-rose-300" : "text-emerald-300"
+                  }`}>
+                    {((stampaModal.quantita || 0) - (stampaModal.da_stampare || 0)).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] uppercase tracking-[0.14em] text-slate-400 mb-2">
+                  Quantità etichette stampate
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  autoFocus
+                  value={stampaQty}
+                  onChange={(e) => setStampaQty(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") confermaStampa(); }}
+                  className={inputCls}
+                />
+                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed flex items-start gap-1">
+                  <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0 text-amber-400" />
+                  La conferma riduce solo il debito di {stampaQty || "N"} unità. Lo stock fisico ({(stampaModal.quantita || 0).toLocaleString()}) NON viene modificato — usalo per inserire eventuali avanzi manualmente.
+                </p>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-800 bg-slate-900/30 flex items-center justify-end gap-2">
+              <button
+                onClick={chiudiStampaModal}
+                disabled={stampaBusy}
+                className="px-4 py-2 rounded-md border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white text-sm transition-colors disabled:opacity-50"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={confermaStampa}
+                disabled={stampaBusy || !stampaQty}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/40 hover:border-rose-400/60 text-rose-300 hover:text-rose-200 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {stampaBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                Conferma stampa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+/* === Picker per aggiungere prodotti all'etichetta === */
+function AddProdottoPicker({ rowId, searchTerm, onSearch, prodottiDisponibili, alreadyLinkedAsin, onPick }) {
+  const [open, setOpen] = useState(false);
+  const filtered = (prodottiDisponibili || [])
+    .filter((p) => !alreadyLinkedAsin.includes(p.asin))
+    .filter((p) => {
+      const q = (searchTerm || "").toLowerCase();
+      if (!q) return true;
+      return (
+        (p.asin || "").toLowerCase().includes(q) ||
+        (p.nome || "").toLowerCase().includes(q)
+      );
+    })
+    .slice(0, 20);
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            type="text"
+            value={searchTerm}
+            placeholder="Cerca per ASIN o nome…"
+            onChange={(e) => { onSearch(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+            className="w-full pl-8 pr-3 py-1.5 bg-slate-900/60 border border-slate-700 rounded text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="px-2 py-1.5 rounded border border-slate-700 bg-slate-900/60 text-slate-400 hover:text-white text-xs"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 mt-1 z-20 bg-slate-950 border border-slate-700 rounded shadow-xl max-h-60 overflow-y-auto">
+          {filtered.map((p) => (
+            <button
+              key={p.asin}
+              type="button"
+              onClick={() => { onPick(p.asin); setOpen(false); }}
+              className="w-full px-3 py-2 flex items-center gap-2 text-xs hover:bg-slate-800 text-left"
+            >
+              <span className="font-mono text-slate-400">{p.asin}</span>
+              <span className="text-slate-300 truncate flex-1">{p.nome}</span>
+              {p.formato && (
+                <span className="text-[10px] uppercase tracking-wider text-slate-500">{p.formato}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && searchTerm && (
+        <div className="absolute left-0 right-0 mt-1 z-20 bg-slate-950 border border-slate-700 rounded shadow-xl px-3 py-2 text-xs text-slate-500 italic">
+          Nessun prodotto disponibile
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default Etichette;

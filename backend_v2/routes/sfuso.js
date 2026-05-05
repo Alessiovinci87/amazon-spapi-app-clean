@@ -1319,6 +1319,35 @@ router.patch("/prenotazione/:id", validate({ params: idParam }), async (req, res
     `).run(gruppoFIFO, id));
       }
 
+      // 🏷️ Hook etichette: incrementa il debito (da_stampare) per l'etichetta
+      // associata al prodotto della prenotazione presa in carico.
+      // Skippa silenziosamente se l'asin non ha etichetta_id mappata.
+      try {
+        const prenForLabel = db
+          .prepare("SELECT asin_prodotto, prodotti FROM prenotazioni_sfuso WHERE id = ?")
+          .get(id);
+        if (prenForLabel?.asin_prodotto && prenForLabel?.prodotti > 0) {
+          const prod = db
+            .prepare("SELECT etichetta_id FROM prodotti WHERE asin = ?")
+            .get(prenForLabel.asin_prodotto);
+          if (prod?.etichetta_id) {
+            runWithRetry(() =>
+              db
+                .prepare(
+                  "UPDATE etichette SET da_stampare = da_stampare + ?, updated_at = datetime('now','localtime') WHERE id = ?"
+                )
+                .run(prenForLabel.prodotti, prod.etichetta_id)
+            );
+            logger.info(
+              { id_prenotazione: id, asin: prenForLabel.asin_prodotto, etichetta_id: prod.etichetta_id, qty: prenForLabel.prodotti },
+              "Etichette: debito incrementato per presa in carico"
+            );
+          }
+        }
+      } catch (errLabel) {
+        logger.warn({ err: errLabel, id }, "Etichette: errore aggiornamento da_stampare");
+      }
+
       return res.json({ ok: true, message: "Prenotazione in lavorazione", id });
     }
 
