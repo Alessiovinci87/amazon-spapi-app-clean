@@ -1,28 +1,28 @@
 // backend_v2/modules/reports/ordersLiveService.js
 //
-// Vendite "near real-time" via SP-API Orders API (GET /orders/v0/orders).
-// Necessario per coprire i giorni che il report Sales & Traffic non ha ancora
-// (oggi/ieri/altroieri spesso). Stesso meccanismo che usa Shopkeeper.
+// Vendite "near real-time" via SP-API Orders API.
 //
-// API doc: https://developer-docs.amazon.com/sp-api/docs/orders-api-v0-reference
+// Problema noto: per gli ordini in stato Pending Amazon NON rilascia né
+// OrderTotal.Amount né ItemPrice (è restricted finché il pagamento non è
+// confermato, di solito ~30 min). Su nuovi ordini freschi la maggior parte
+// è Pending, quindi sommare solo OrderTotal dà revenue ~10x sotto il reale.
 //
-// Comportamento:
-//   - Per ogni marketplace EU, fa GET /orders/v0/orders con CreatedAfter/Before
-//   - Pagina con NextToken
-//   - Esclude OrderStatus = "Canceled"
-//   - Aggrega per country: { revenue, units, orders }
-//   - Cache in-memory per (date, marketplace) — TTL 3 min
+// Strategia (la stessa di Shopkeeper):
+//   1. Per ogni ordine, fetch getOrderItems → ottieni ASIN + Quantity
+//   2. Se ItemPrice è valorizzato → usa quel revenue (Amazon-confermato)
+//   3. Altrimenti, lookup listings_snapshot.prezzo per ASIN+marketplace e
+//      stima revenue = prezzo_listing * quantity (flag is_pending_priced=1)
+//   4. Quando l'ordine passa a Shipped Amazon rilascia ItemPrice → al
+//      prossimo refresh il revenue è "Amazon-confermato" e flag scende a 0.
 //
-// Note importanti:
-//   - OrderTotal.Amount è già nella valuta del marketplace (EUR per IT/FR/DE/ES/NL/BE,
-//     GBP per UK, PLN per PL, SEK per SE). NON convertiamo: per "totale" sommiamo
-//     solo i marketplace EUR (quelli non-EUR vanno in own row).
-//   - units = NumberOfItemsShipped + NumberOfItemsUnshipped per ogni ordine.
-//   - Rate limit Orders API: burst 30/s, sustained 0.0167/s. Inserisco sleep
-//     tra le chiamate.
+// Cache persistente:
+//   - amazon_order_cache contiene ogni ordine con qty/revenue/status
+//   - Ordini in stato finale (Shipped/Delivered): mai rifetchare
+//   - Ordini Pending/Unshipped: rifetch se items_fetched_at > 5 min fa
 
 const axios = require("axios");
 const { getAccessToken } = require("../auth/authService");
+const { getDb } = require("../../db/database");
 const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
@@ -37,105 +37,48 @@ const MARKETPLACES = [
   { code: "BE", id: "AMEN7PMS3EDWL",  currency: "EUR" },
   { code: "PL", id: "A1C3SOZRARQ6R3", currency: "PLN" },
 ];
+const MP_ID_TO_CC = Object.fromEntries(MARKETPLACES.map(m => [m.id, m.code]));
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const CACHE_TTL_MS = 3 * 60 * 1000;
+const FINAL_STATUSES = new Set(["Shipped", "Delivered", "InvoiceUnconfirmed"]);
+const ORDERS_LIST_CACHE_TTL_MS = 3 * 60 * 1000;
+const PENDING_REFRESH_MS = 5 * 60 * 1000;
+
 // Cache lista ordini per (marketplace, range)
-const _cache = new Map();
-// Cache items per orderId (chiamata costa, ma gli items per un ordine non
-// cambiano dopo Shipped). TTL lungo per Shipped (24h) e breve per Pending (5min).
-const _itemsCache = new Map();
-const ITEMS_CACHE_TTL_FINAL_MS = 24 * 60 * 60 * 1000;
-const ITEMS_CACHE_TTL_PENDING_MS = 5 * 60 * 1000;
+const _ordersListCache = new Map();
+
+// === Helpers ===
+const ymdToIsoStart = (ymd) => `${ymd}T00:00:00Z`;
+const ymdToIsoEnd = (ymd) => `${ymd}T23:59:59Z`;
 
 /**
- * Costruisce il timestamp ISO per una YYYY-MM-DD locale (Europa/Rome).
- * Per "oggi": dalle 00:00 italiane → ISO UTC. Più semplice: usa direttamente Z.
- * In pratica per CreatedAfter/Before usiamo le date in UTC, accettando che
- * un ordine fatto a 23:30 italiane il giorno X possa cadere il giorno X+1 UTC.
+ * Lookup prezzo del listing più recente per un ASIN+marketplace.
+ * Usa il campo `prezzo` di listings_snapshot.
  */
-function ymdToIsoStart(ymd) {
-  return `${ymd}T00:00:00Z`;
-}
-function ymdToIsoEnd(ymd) {
-  return `${ymd}T23:59:59Z`;
-}
-
-/**
- * Per un singolo ordine, scarica gli items via Orders API e somma
- * ItemPrice.Amount. Necessario per gli ordini Pending dove OrderTotal
- * è ancora undefined su Amazon.
- *
- * Cache:
- *  - per ordini in stato finale (Shipped/Delivered): TTL 24h
- *  - per ordini Pending/Unshipped: TTL 5min (potrebbe essere già finalizzato)
- */
-async function fetchOrderItemsRevenue(orderId, orderStatus, headers) {
-  const cached = _itemsCache.get(orderId);
-  if (cached) {
-    const ttl = cached.isFinal ? ITEMS_CACHE_TTL_FINAL_MS : ITEMS_CACHE_TTL_PENDING_MS;
-    if (Date.now() - cached.ts < ttl) return cached.payload;
-  }
-
-  let revenue = 0;
-  let units = 0;
-  let nextToken = null;
-  let pages = 0;
-  do {
-    const url = `${BASE_URL}/orders/v0/orders/${encodeURIComponent(orderId)}/orderItems`;
-    const params = nextToken ? { NextToken: nextToken } : undefined;
-    try {
-      const res = await axios.get(url, { params, headers, timeout: 20_000 });
-      const payload = res.data?.payload || {};
-      const items = Array.isArray(payload.OrderItems) ? payload.OrderItems : [];
-      for (const it of items) {
-        const itemAmount = parseFloat(it.ItemPrice?.Amount || "0") || 0;
-        revenue += itemAmount; // ItemPrice è già il totale di QuantityOrdered (Amazon doc)
-        const q = parseInt(it.QuantityOrdered || "0") || 0;
-        units += q;
-      }
-      nextToken = payload.NextToken || null;
-      pages++;
-      if (pages > 5) break;
-    } catch (err) {
-      const status = err.response?.status;
-      if (status === 429) {
-        await sleep(30_000);
-        continue;
-      }
-      logger.warn(
-        { err: err.response?.data || err.message, orderId },
-        "[OrdersLive] errore getOrderItems"
-      );
-      break;
-    }
-  } while (nextToken);
-
-  const isFinal = ["Shipped", "Delivered"].includes(orderStatus);
-  const out = { revenue: Math.round(revenue * 100) / 100, units, derived: true };
-  _itemsCache.set(orderId, { payload: out, ts: Date.now(), isFinal });
-  // Limite cache items
-  if (_itemsCache.size > 2000) {
-    const oldest = [..._itemsCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0][0];
-    _itemsCache.delete(oldest);
-  }
-  return out;
+function getListingPrice(db, asin, marketplaceId) {
+  if (!asin || !marketplaceId) return null;
+  try {
+    const row = db.prepare(`
+      SELECT prezzo, currency
+      FROM listings_snapshot
+      WHERE asin = ? AND marketplace_id = ? AND prezzo IS NOT NULL AND prezzo > 0
+      ORDER BY snapshot_at DESC
+      LIMIT 1
+    `).get(asin, marketplaceId);
+    if (row?.prezzo) return { price: row.prezzo, currency: row.currency };
+    return null;
+  } catch { return null; }
 }
 
 /**
- * Recupera ordini di un marketplace per il range YYYY-MM-DD .. YYYY-MM-DD.
- * Filtra OrderStatus.
- *
- * @param {string} marketplaceId
- * @param {string} fromYmd inclusivo
- * @param {string} toYmd inclusivo
- * @returns {Promise<{ orders: Array, partial: boolean }>}
+ * Recupera lista ordini per un marketplace nel range [from, to].
+ * Cache in memoria 3 min.
  */
 async function fetchOrdersForMarketplace(marketplaceId, fromYmd, toYmd) {
   const cacheKey = `${marketplaceId}|${fromYmd}|${toYmd}`;
-  const hit = _cache.get(cacheKey);
-  if (hit && Date.now() - hit.ts < CACHE_TTL_MS) {
+  const hit = _ordersListCache.get(cacheKey);
+  if (hit && Date.now() - hit.ts < ORDERS_LIST_CACHE_TTL_MS) {
     return { orders: hit.orders, fromCache: true };
   }
 
@@ -145,13 +88,10 @@ async function fetchOrdersForMarketplace(marketplaceId, fromYmd, toYmd) {
     "x-amz-access-token": access_token,
   };
 
-  // Amazon richiede CreatedAfter strettamente nel passato (non oggi/futuro lato millisecondi).
-  // Per "oggi" usiamo CreatedAfter = inizio giornata, CreatedBefore = ora corrente.
   const todayUtc = new Date().toISOString().slice(0, 10);
   const isToday = toYmd === todayUtc;
   const createdAfter = ymdToIsoStart(fromYmd);
-  // Amazon Orders API richiede che CreatedBefore sia almeno 2 minuti prima
-  // del tempo corrente (vedi documentazione SP-API). Usiamo 3 minuti per safety.
+  // Amazon richiede CreatedBefore >= 2 minuti prima di now (uso 3 per safety)
   const createdBefore = isToday
     ? new Date(Date.now() - 3 * 60_000).toISOString()
     : ymdToIsoEnd(toYmd);
@@ -159,13 +99,11 @@ async function fetchOrdersForMarketplace(marketplaceId, fromYmd, toYmd) {
   const orders = [];
   let nextToken = null;
   let pages = 0;
-  let partial = false;
 
   do {
-    let url = `${BASE_URL}/orders/v0/orders`;
+    const url = `${BASE_URL}/orders/v0/orders`;
     let params;
     if (nextToken) {
-      // Le pagine successive vogliono SOLO MarketplaceIds + NextToken
       params = { MarketplaceIds: marketplaceId, NextToken: nextToken };
     } else {
       params = {
@@ -175,58 +113,199 @@ async function fetchOrdersForMarketplace(marketplaceId, fromYmd, toYmd) {
         MaxResultsPerPage: 100,
       };
     }
-
     try {
       const res = await axios.get(url, { params, headers, timeout: 30_000 });
       const payload = res.data?.payload || {};
-      const list = Array.isArray(payload.Orders) ? payload.Orders : [];
-      orders.push(...list);
+      orders.push(...(payload.Orders || []));
       nextToken = payload.NextToken || null;
       pages++;
-      if (pages > 50) { partial = true; break; }
-      if (nextToken) await sleep(700); // throttle
+      if (pages > 50) break;
+      if (nextToken) await sleep(700);
     } catch (err) {
       const status = err.response?.status;
       if (status === 429) {
-        logger.warn(`[OrdersLive] 429 su ${marketplaceId}, attendo 60s e riprovo…`);
         await sleep(60_000);
         continue;
       }
-      const data = err.response?.data;
-      logger.error(
-        { err: data || err.message, marketplaceId, params },
-        "[OrdersLive] errore lista ordini"
-      );
       throw err;
     }
   } while (nextToken);
 
-  _cache.set(cacheKey, { orders, ts: Date.now() });
-  // Limite cache (LRU semplice)
-  if (_cache.size > 64) {
-    const oldest = [..._cache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0][0];
-    _cache.delete(oldest);
+  _ordersListCache.set(cacheKey, { orders, ts: Date.now() });
+  if (_ordersListCache.size > 64) {
+    const oldest = [..._ordersListCache.entries()].sort((a, b) => a[1].ts - b[1].ts)[0][0];
+    _ordersListCache.delete(oldest);
   }
-
   logger.info(
-    `[OrdersLive] ${marketplaceId}: ${orders.length} ordini (${fromYmd}..${toYmd})${partial ? " [TRUNCATED]" : ""}`
+    `[OrdersLive] ${marketplaceId}: ${orders.length} ordini lista (${fromYmd}..${toYmd})`
   );
-  return { orders, partial, fromCache: false };
+  return { orders, fromCache: false };
 }
 
 /**
- * Restituisce un aggregato per country del range [fromYmd, toYmd].
- * Esclude OrderStatus = Canceled.
+ * Per un singolo ordine, ricava revenue e units:
+ *  - chiama getOrderItems (con cache persistente in DB)
+ *  - per items con ItemPrice valorizzato → usa quello
+ *  - per items senza ItemPrice → lookup listings_snapshot.prezzo
  *
- * Output:
- *   {
- *     range: { from, to },
- *     per_country: [{ country, currency, revenue, units, orders }],
- *     totale_eur: { revenue, units, orders },     // somma marketplaces EUR
- *     non_eur: [{ country, currency, revenue, units, orders }] // valute estere
- *   }
+ * Ritorna { revenue, units, isPendingPriced, currency }
+ */
+async function enrichOrderWithItems(order, headers, db) {
+  const orderId = order.AmazonOrderId;
+  const status = order.OrderStatus;
+  const marketplaceId = order.MarketplaceId;
+
+  // Cache hit: per stati finali, non rifetchare mai. Per Pending, rifetch
+  // se gli items sono stati fetchati > 5 min fa.
+  const cached = db.prepare(
+    "SELECT * FROM amazon_order_cache WHERE order_id = ?"
+  ).get(orderId);
+
+  if (cached && cached.units != null && cached.revenue != null) {
+    const isFinal = FINAL_STATUSES.has(cached.status);
+    if (isFinal) {
+      return {
+        revenue: cached.revenue,
+        units: cached.units,
+        isPendingPriced: !!cached.is_pending_priced,
+        currency: cached.currency,
+      };
+    }
+    // Pending in cache: rifetch solo se vecchio
+    const fetchedAt = cached.items_fetched_at
+      ? new Date(cached.items_fetched_at.replace(" ", "T")).getTime() : 0;
+    if (Date.now() - fetchedAt < PENDING_REFRESH_MS) {
+      return {
+        revenue: cached.revenue,
+        units: cached.units,
+        isPendingPriced: !!cached.is_pending_priced,
+        currency: cached.currency,
+      };
+    }
+  }
+
+  // Chiama getOrderItems (paginazione)
+  const items = [];
+  let nextToken = null;
+  let pages = 0;
+  do {
+    const url = `${BASE_URL}/orders/v0/orders/${encodeURIComponent(orderId)}/orderItems`;
+    const params = nextToken ? { NextToken: nextToken } : undefined;
+    try {
+      const res = await axios.get(url, { params, headers, timeout: 20_000 });
+      const payload = res.data?.payload || {};
+      items.push(...(payload.OrderItems || []));
+      nextToken = payload.NextToken || null;
+      pages++;
+      if (pages > 5) break;
+    } catch (err) {
+      const code = err.response?.status;
+      if (code === 429) {
+        await sleep(30_000);
+        continue;
+      }
+      logger.warn(
+        { err: err.response?.data || err.message, orderId },
+        "[OrdersLive] errore getOrderItems"
+      );
+      // Se cache esiste, restituisci la cache esistente per non bloccare
+      if (cached && cached.units != null) {
+        return {
+          revenue: cached.revenue || 0,
+          units: cached.units || 0,
+          isPendingPriced: !!cached.is_pending_priced,
+          currency: cached.currency,
+        };
+      }
+      return { revenue: 0, units: 0, isPendingPriced: true, currency: null };
+    }
+  } while (nextToken);
+
+  // Calcola revenue: per ogni item, ItemPrice se valorizzato, altrimenti
+  // lookup prezzo listing.
+  let revenue = 0;
+  let units = 0;
+  let usedFallbackForAny = false;
+  let firstAsin = null;
+  let firstTitle = null;
+  let currency = null;
+
+  for (const it of items) {
+    const qty = parseInt(it.QuantityOrdered || "0") || 0;
+    const itemPriceAmt = parseFloat(it.ItemPrice?.Amount || "0") || 0;
+    const itemPriceCcy = it.ItemPrice?.CurrencyCode;
+    const asin = it.ASIN;
+    if (!firstAsin) firstAsin = asin;
+    if (!firstTitle) firstTitle = it.Title;
+    if (itemPriceCcy && !currency) currency = itemPriceCcy;
+    units += qty;
+
+    if (itemPriceAmt > 0) {
+      revenue += itemPriceAmt;
+    } else {
+      // Fallback: lookup prezzo listing
+      const listing = getListingPrice(db, asin, marketplaceId);
+      if (listing?.price > 0) {
+        revenue += listing.price * qty;
+        usedFallbackForAny = true;
+        if (!currency) currency = listing.currency;
+      }
+    }
+  }
+
+  revenue = Math.round(revenue * 100) / 100;
+
+  // Salva in cache (UPSERT)
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  if (!currency) {
+    const mp = MARKETPLACES.find(m => m.id === marketplaceId);
+    currency = mp?.currency || null;
+  }
+  try {
+    db.prepare(`
+      INSERT INTO amazon_order_cache
+        (order_id, marketplace_id, asin, title, purchase_date,
+         status, units, revenue, currency, is_pending_priced,
+         fetched_at, items_fetched_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(order_id) DO UPDATE SET
+        marketplace_id = excluded.marketplace_id,
+        asin = COALESCE(excluded.asin, amazon_order_cache.asin),
+        title = COALESCE(excluded.title, amazon_order_cache.title),
+        purchase_date = COALESCE(excluded.purchase_date, amazon_order_cache.purchase_date),
+        status = excluded.status,
+        units = excluded.units,
+        revenue = excluded.revenue,
+        currency = excluded.currency,
+        is_pending_priced = excluded.is_pending_priced,
+        items_fetched_at = excluded.items_fetched_at
+    `).run(
+      orderId,
+      marketplaceId || null,
+      firstAsin || null,
+      firstTitle || null,
+      order.PurchaseDate || null,
+      status || null,
+      units,
+      revenue,
+      currency || null,
+      usedFallbackForAny ? 1 : 0,
+      now,
+      now,
+    );
+  } catch (err) {
+    logger.warn({ err: err.message, orderId }, "[OrdersLive] cache save failed");
+  }
+
+  return { revenue, units, isPendingPriced: usedFallbackForAny, currency };
+}
+
+/**
+ * Aggregato per country del range [fromYmd, toYmd].
+ * Filtra Canceled.
  */
 async function aggregateOrdersLive({ from, to }) {
+  const db = getDb();
   const per_country = [];
   const { access_token } = await getAccessToken();
   const headers = {
@@ -244,53 +323,31 @@ async function aggregateOrdersLive({ from, to }) {
         { err: err.response?.data || err.message, mp: mp.code },
         "[OrdersLive] skip marketplace per errore"
       );
-      per_country.push({ country: mp.code, currency: mp.currency, revenue: 0, units: 0, orders: 0, error: true });
+      per_country.push({
+        country: mp.code, currency: mp.currency,
+        revenue: 0, units: 0, orders: 0, error: true,
+      });
       continue;
     }
 
+    const valid = orders.filter((o) => o.OrderStatus !== "Canceled");
     let revenue = 0;
     let units = 0;
-    let count = 0;
-    let derivedCount = 0;
+    let pendingPriced = 0;
+    let confirmed = 0;
 
-    // Filtra ordini validi (esclude Canceled)
-    const validOrders = orders.filter((o) => o.OrderStatus !== "Canceled");
-
-    // Ordini con OrderTotal valorizzato → uso direttamente quel campo
-    const withTotal = validOrders.filter((o) => o.OrderTotal && parseFloat(o.OrderTotal.Amount || "0") > 0);
-    // Ordini senza OrderTotal → fetch items per calcolare revenue
-    const withoutTotal = validOrders.filter((o) => !o.OrderTotal || parseFloat(o.OrderTotal.Amount || "0") === 0);
-
-    for (const o of withTotal) {
-      revenue += parseFloat(o.OrderTotal.Amount) || 0;
-      units += (parseInt(o.NumberOfItemsShipped || "0") || 0)
-             + (parseInt(o.NumberOfItemsUnshipped || "0") || 0);
-      count++;
-    }
-
-    // Per gli ordini Pending: parallelize in piccoli batch (rispetto rate limit)
-    const BATCH = 5;
-    for (let i = 0; i < withoutTotal.length; i += BATCH) {
-      const slice = withoutTotal.slice(i, i + BATCH);
-      const results = await Promise.all(
-        slice.map((o) => fetchOrderItemsRevenue(o.AmazonOrderId, o.OrderStatus, headers).catch(() => null))
-      );
-      for (let j = 0; j < slice.length; j++) {
-        const o = slice[j];
-        const r = results[j];
-        if (r) {
-          revenue += r.revenue;
-          units += r.units;
-          derivedCount++;
-        } else {
-          // Fallback: almeno conto le unità dichiarate
-          units += (parseInt(o.NumberOfItemsShipped || "0") || 0)
-                 + (parseInt(o.NumberOfItemsUnshipped || "0") || 0);
-        }
-        count++;
-      }
-      // Throttle tra batch
-      if (i + BATCH < withoutTotal.length) await sleep(300);
+    // Sequenziale ma con cache aggressiva: dopo il primo run, le successive
+    // chiamate sono O(1) (DB lookup) finché gli ordini non passano a Shipped.
+    for (const o of valid) {
+      const enriched = await enrichOrderWithItems(o, headers, db);
+      revenue += enriched.revenue;
+      units += enriched.units;
+      if (enriched.isPendingPriced) pendingPriced++;
+      else confirmed++;
+      // Throttle: solo se NON è cache hit (per safety in caso di tanti Pending)
+      // Sappiamo se è cache hit dal fatto che la chiamata non ha latenza
+      // ma è difficile distinguere. Sleep brevissimo per non saturare.
+      await sleep(50);
     }
 
     per_country.push({
@@ -298,12 +355,13 @@ async function aggregateOrdersLive({ from, to }) {
       currency: mp.currency,
       revenue: Math.round(revenue * 100) / 100,
       units,
-      orders: count,
-      orders_pending_calculated: derivedCount, // diagnostica
+      orders: valid.length,
+      pending_priced: pendingPriced,    // ordini Pending con stima da listing
+      confirmed_priced: confirmed,       // ordini con prezzo Amazon-confermato
     });
   }
 
-  // Aggregato EUR (i 6 marketplace EUR)
+  // Aggregato EUR
   const totale_eur = per_country
     .filter((c) => c.currency === "EUR")
     .reduce((a, c) => ({
@@ -318,4 +376,4 @@ async function aggregateOrdersLive({ from, to }) {
   return { range: { from, to }, per_country, totale_eur, non_eur };
 }
 
-module.exports = { aggregateOrdersLive, fetchOrdersForMarketplace };
+module.exports = { aggregateOrdersLive, fetchOrdersForMarketplace, enrichOrderWithItems };

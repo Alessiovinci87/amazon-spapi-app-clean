@@ -463,6 +463,31 @@ function runMigrations(db) {
 
   logger.info("Migrazione Seller Feedback completata");
 
+  // === amazon_order_cache: campi extra per il sistema vendite live ===
+  // Ogni ordine può avere PIÙ items (quindi più asin/qty/price). Per
+  // semplicità memorizziamo l'aggregato per ordine (revenue totale + units
+  // totali) come campi calcolati. Se un ordine ha più items, salviamo:
+  //   - asin = primo asin (per riferimento, già in uso da feedbackService)
+  //   - units = sum QuantityOrdered di tutti gli items
+  //   - revenue = sum (ItemPrice o lookup listing) di tutti gli items
+  //   - currency = currency Amazon
+  //   - status = OrderStatus
+  //   - is_pending_priced = 1 se il revenue è derivato dal listing (fallback)
+  //                         0 se viene da Amazon ItemPrice/OrderTotal
+  const cacheCols = db.pragma("table_info(amazon_order_cache)").map(c => c.name);
+  const addIfMissing = (col, ddl) => {
+    if (!cacheCols.includes(col)) {
+      db.prepare(`ALTER TABLE amazon_order_cache ADD COLUMN ${col} ${ddl}`).run();
+      logger.info(`Migrazione: aggiunta colonna ${col} a amazon_order_cache`);
+    }
+  };
+  addIfMissing("status", "TEXT");
+  addIfMissing("units", "INTEGER DEFAULT 0");
+  addIfMissing("revenue", "REAL DEFAULT 0");
+  addIfMissing("currency", "TEXT");
+  addIfMissing("is_pending_priced", "INTEGER DEFAULT 0");
+  addIfMissing("items_fetched_at", "TEXT");
+
   // ===== SCADENZE LOTTI =====
   // Aggiunge data_scadenza e pao_mesi a sfuso se mancanti
   const colsSfusoScad = db.pragma("table_info(sfuso)");
