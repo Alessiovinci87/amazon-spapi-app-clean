@@ -49,10 +49,14 @@ function Write-Warn { param([string]$Msg) Write-Host "  $Msg" -ForegroundColor Y
 
 function Invoke-Ssh {
     param([Parameter(Mandatory)][string]$Cmd)
-    $out = & ssh -i $KeyFile -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new $ServerHost $Cmd 2>&1
+    # Redirige stderr REMOTO in stdout cosi PowerShell 5.1 non lo wrappa in
+    # ErrorRecord (che con $ErrorActionPreference=Stop bloccherebbe lo script
+    # anche su semplici warning come quello di browserslist in vite build).
+    $remoteCmd = "($Cmd) 2>&1"
+    $out = & ssh -i $KeyFile -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new $ServerHost $remoteCmd
     if ($LASTEXITCODE -ne 0) {
-        Write-Host $out -ForegroundColor Red
-        throw "SSH fallito (exit=$LASTEXITCODE): $Cmd"
+        Write-Host ($out | Out-String) -ForegroundColor Red
+        throw "SSH fallito (exit=$LASTEXITCODE)"
     }
     return $out
 }
