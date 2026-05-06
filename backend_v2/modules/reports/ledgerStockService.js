@@ -114,6 +114,15 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
 
   const iAsin = idx("asin");
   const iDisp = idx("disposition");
+  // SKU column: il Ledger Summary usa "msku" (merchant SKU). Fallback su altre
+  // varianti di header per robustezza.
+  const iSku  = (() => {
+    for (const name of ["msku", "merchant sku", "merchant-sku", "sku", "seller-sku"]) {
+      const i = idx(name);
+      if (i !== -1) return i;
+    }
+    return -1;
+  })();
 
   // Rileva formato: Summary vs Detail
   const iLoc    = idx("location");
@@ -124,14 +133,20 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
   const iDt     = idx("date and time");
 
   const isSummary = iLoc !== -1 && iEnd !== -1;
-  logger.info(`[Ledger] Formato: ${isSummary ? "SUMMARY (dati fisici per paese)" : "DETAIL (saldo running)"}`);
+  logger.info(`[Ledger] Formato: ${isSummary ? "SUMMARY (dati fisici per paese)" : "DETAIL (saldo running)"} — header SKU idx=${iSku}`);
+  // Stampa gli headers per debug (compatibile pino: in singolo msg, no extra args)
+  logger.info(`[Ledger] Headers presenti: ${headers.join(" | ")}`);
 
   if (iAsin === -1 || (!isSummary && iRecQty === -1)) {
-    logger.warn("[Ledger] ⚠️ Formato non riconosciuto. Headers:", headers.join(", "));
+    logger.warn(`[Ledger] ⚠️ Formato non riconosciuto. Headers: ${headers.join(", ")}`);
     return 0;
   }
 
-  // Per ogni ASIN+country SELLABLE: tieni solo la riga più recente
+  // Per ogni (asin, SKU, country) SELLABLE: tieni la riga più recente
+  // (il Summary puo riportare un giorno per riga, vogliamo l'ending balance del giorno piu recente).
+  // POI sommiamo TUTTI gli SKU per (asin, country): un ASIN puo avere piu MSKU
+  // attivi in FBA (es. SKU principale + "Amazon.Found.<asin>" per inventario
+  // trovato/non riconciliato). Tenendo solo un SKU si perdono unita.
   const latest = {};
 
   for (let i = 1; i < lines.length; i++) {
@@ -140,6 +155,7 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
     if (!asin || asin.length !== 10) continue;
     if (iDisp !== -1 && cols[iDisp] !== "SELLABLE") continue;
 
+    const sku = iSku !== -1 ? (cols[iSku] || "") : "";
     const country = isSummary
       ? ((iLoc !== -1 ? cols[iLoc] : null) || defaultCountry)
       : ((iCntry !== -1 ? cols[iCntry] : null) || defaultCountry);
@@ -150,19 +166,33 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
       ? (iDate !== -1 ? cols[iDate] : "")
       : (iDt !== -1 ? cols[iDt] : "");
 
-    const key = `${asin}|${country}`;
+    const key = `${asin}|${sku}|${country}`;
     if (!latest[key] || sortKey >= latest[key].sortKey) {
-      latest[key] = { asin, country, qty, sortKey };
+      latest[key] = { asin, sku, country, qty, sortKey };
     }
   }
 
+  // Aggrega: per ogni ASIN+country, somma le quantita di tutti gli SKU
   const agg = {};
-  for (const { asin, country, qty } of Object.values(latest)) {
+  let multiSkuCount = 0;
+  const skuPerAsinCountry = {}; // debug
+  for (const { asin, sku, country, qty } of Object.values(latest)) {
     if (!agg[asin]) agg[asin] = {};
-    agg[asin][country] = qty;
+    const acKey = `${asin}|${country}`;
+    if (!skuPerAsinCountry[acKey]) skuPerAsinCountry[acKey] = [];
+    skuPerAsinCountry[acKey].push({ sku, qty });
+    agg[asin][country] = (agg[asin][country] || 0) + qty;
+  }
+  for (const acKey of Object.keys(skuPerAsinCountry)) {
+    if (skuPerAsinCountry[acKey].length > 1) {
+      multiSkuCount++;
+      const detail = skuPerAsinCountry[acKey]
+        .map(x => `${x.sku}=${x.qty}`).join(", ");
+      logger.info(`[Ledger] Multi-SKU ${acKey}: ${detail}`);
+    }
   }
 
-  logger.info(`[Ledger] ASIN unici SELLABLE: ${Object.keys(agg).length}`);
+  logger.info(`[Ledger] ASIN unici SELLABLE: ${Object.keys(agg).length} — combo (asin,country) con piu SKU: ${multiSkuCount}`);
 
   const stmt = db.prepare(`
     INSERT INTO fba_stock (asin, sku, product_name, country, quantity, stock_totale, updated_at)
