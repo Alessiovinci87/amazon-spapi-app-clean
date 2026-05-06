@@ -879,33 +879,22 @@ function CatalogoRow({ item, espanso, onToggle, navigate, t, imagesVersion = 0, 
             )}
           </div>
 
-          {/* Stock totale — EU (exclude GB) e GB separati per coerenza con stock_eu_pool */}
+          {/* Stock totale — somma di tutti i paesi (EU + UK) */}
           {item.countries?.length > 0 && (() => {
-            const eu = item.countries.filter(c => c.country !== 'GB');
-            const gb = item.countries.find(c => c.country === 'GB');
-            const totalEU = eu.reduce((s, c) => s + (c.quantity ?? 0), 0);
-            const totalGB = gb?.quantity ?? 0;
+            // totalStock e stockBasso sono gia calcolati sopra (linee 763-766)
             const poolRow = item.countries.find(c => (c.reserved_qty ?? 0) > 0 || (c.inbound_receiving ?? 0) > 0);
             const res = poolRow?.reserved_qty ?? 0;
             const inb = poolRow?.inbound_receiving ?? 0;
             return (
               <div className="flex-shrink-0 text-right">
                 <div className="text-[10px] uppercase tracking-[0.12em] text-slate-500 mb-1 flex items-center gap-1.5 justify-end">
-                  <Flag code="eu" /> {t("europaDashboard.totale_eu")}
+                  <Globe className="w-3 h-3" /> {t("europaDashboard.totale_eu")}
                 </div>
                 <div className={`text-2xl sm:text-3xl font-semibold tabular-nums ${
-                  totalEU > 0 ? (stockBasso ? "text-amber-400" : "text-emerald-400") : "text-rose-400"
+                  totalStock > 0 ? (stockBasso ? "text-amber-400" : "text-emerald-400") : "text-rose-400"
                 }`}>
-                  {totalEU.toLocaleString("it-IT")}
+                  {totalStock.toLocaleString("it-IT")}
                 </div>
-                {gb && (
-                  <div className="text-[11px] text-slate-500 mt-1 tabular-nums flex items-center gap-1 justify-end">
-                    <Flag code="gb" className="h-3 w-auto" />
-                    <span className={totalGB > 0 ? "text-slate-300" : "text-slate-600"}>
-                      {totalGB.toLocaleString("it-IT")}
-                    </span>
-                  </div>
-                )}
                 {(res > 0 || inb > 0) && (
                   <div className="text-[11px] text-slate-500 mt-1 tabular-nums">
                     {res > 0 && <span>+{res} {t("europaDashboard.res_abbr")}</span>}
