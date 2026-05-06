@@ -5,7 +5,10 @@
   "scripts": {
     "backend": "nodemon backend_v2/index.js",
     "frontend": "cd frontend && npm run dev",
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "deploy": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1",
+    "deploy:skip-push": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -SkipPush",
+    "deploy:force": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 -ForceBuild"
   },
   "repository": {
     "type": "git",
