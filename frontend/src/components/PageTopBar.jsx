@@ -61,7 +61,7 @@ export default function PageTopBar({
   };
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/85 backdrop-blur w-full overflow-hidden">
+    <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/85 backdrop-blur w-full">
       <div className={`${containerClass} py-3 flex items-center gap-3 min-w-0`}>
         {/* Sinistra: back + icon + eyebrow/title */}
         <div className="flex items-center gap-3 min-w-0 flex-1">

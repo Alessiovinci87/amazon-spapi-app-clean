@@ -170,10 +170,11 @@ export default function GlobalAlertBell({ inline = false }) {
     </button>
   );
 
-  // Posizionamento del dropdown: in modalità inline lo allineiamo sotto il bottone
+  // Posizionamento del dropdown: in modalità inline lo allineiamo sotto il bottone.
+  // z-[100] per stare sopra qualsiasi sticky topbar (z-30) o overlay locali.
   const panelClass = inline
-    ? "absolute top-11 left-1/2 -translate-x-1/2 w-96 max-w-[92vw] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50"
-    : "absolute top-14 right-0 w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden";
+    ? "absolute top-11 left-1/2 -translate-x-1/2 w-96 max-w-[92vw] bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-[100]"
+    : "absolute top-14 right-0 w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-[100]";
 
   return (
     <div ref={panelRef} className={wrapperClass}>
