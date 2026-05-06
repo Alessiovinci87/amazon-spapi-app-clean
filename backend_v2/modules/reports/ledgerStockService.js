@@ -123,6 +123,24 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
     }
     return -1;
   })();
+  // Title column: per riconoscere righe "Amazon.Found.<asin>" (inventario
+  // trovato/non riconciliato che NON appartiene al catalogo del seller).
+  const iTitle = (() => {
+    for (const name of ["title", "product-name", "product name"]) {
+      const i = idx(name);
+      if (i !== -1) return i;
+    }
+    return -1;
+  })();
+  // Riconosci righe "fantasma" di Amazon: inventario Found/Lost/Removed che
+  // appare nel report ma non e' controllato dal seller. Includere queste
+  // righe gonfia (Found) o riduce (Lost) erroneamente lo stock visibile.
+  const isAmazonGhost = (sku, title) => {
+    const s = (sku || "").trim();
+    const t = (title || "").trim();
+    return /^amazon\.(found|lost|removed|disposed)\b/i.test(s)
+        || /^amazon\.(found|lost|removed|disposed)\b/i.test(t);
+  };
 
   // Rileva formato: Summary vs Detail
   const iLoc    = idx("location");
@@ -142,12 +160,14 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
     return 0;
   }
 
-  // Per ogni (asin, SKU, country) SELLABLE: tieni la riga più recente
-  // (il Summary puo riportare un giorno per riga, vogliamo l'ending balance del giorno piu recente).
-  // POI sommiamo TUTTI gli SKU per (asin, country): un ASIN puo avere piu MSKU
-  // attivi in FBA (es. SKU principale + "Amazon.Found.<asin>" per inventario
-  // trovato/non riconciliato). Tenendo solo un SKU si perdono unita.
+  // Per ogni (asin, SKU, country) SELLABLE: tieni la riga piu recente.
+  // Filtriamo via le righe "Amazon.Found.<asin>" (e simili Lost/Removed):
+  // sono inventario fantasma di Amazon che non corrisponde al catalogo del
+  // seller. POI per ogni (asin, country) sommiamo gli SKU LEGITTIMI rimasti
+  // (raro ma possibile: un ASIN puo avere piu SKU del seller, es. SKU vecchio
+  // + nuovo, e in tal caso la somma e' il dato fisico reale).
   const latest = {};
+  let ghostSkipped = 0;
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split("\t").map(c => c.trim().replace(/"/g, ""));
@@ -156,6 +176,14 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
     if (iDisp !== -1 && cols[iDisp] !== "SELLABLE") continue;
 
     const sku = iSku !== -1 ? (cols[iSku] || "") : "";
+    const title = iTitle !== -1 ? (cols[iTitle] || "") : "";
+
+    // Skip Amazon.Found / Lost / Removed / Disposed
+    if (isAmazonGhost(sku, title)) {
+      ghostSkipped++;
+      continue;
+    }
+
     const country = isSummary
       ? ((iLoc !== -1 ? cols[iLoc] : null) || defaultCountry)
       : ((iCntry !== -1 ? cols[iCntry] : null) || defaultCountry);
@@ -172,7 +200,7 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
     }
   }
 
-  // Aggrega: per ogni ASIN+country, somma le quantita di tutti gli SKU
+  // Aggrega: per ogni ASIN+country, somma le quantita degli SKU legittimi
   const agg = {};
   let multiSkuCount = 0;
   const skuPerAsinCountry = {}; // debug
@@ -192,7 +220,7 @@ function parsaEAggiorna(db, tsvText, defaultCountry) {
     }
   }
 
-  logger.info(`[Ledger] ASIN unici SELLABLE: ${Object.keys(agg).length} — combo (asin,country) con piu SKU: ${multiSkuCount}`);
+  logger.info(`[Ledger] ASIN unici SELLABLE: ${Object.keys(agg).length} — combo (asin,country) con piu SKU: ${multiSkuCount} — righe Amazon.Found/Lost scartate: ${ghostSkipped}`);
 
   const stmt = db.prepare(`
     INSERT INTO fba_stock (asin, sku, product_name, country, quantity, stock_totale, updated_at)
