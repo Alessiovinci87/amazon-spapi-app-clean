@@ -196,8 +196,13 @@ async function aggiornaFBAStock(forceNew = false) {
           const headers = lines.shift().split("\t").map((h) => h.trim().toLowerCase());
           const idx = (name) => headers.findIndex((h) => h === name.toLowerCase());
 
-          // UPSERT: se lo stesso ASIN×country esiste già, tieni la riga con stock_totale più alto
-          // Risolve il caso di ASIN con più SKU (uno attivo con stock, uno dismesso con qty=0)
+          // Reset coerente: cancello le righe vecchie del paese e reinserisco
+          // tutto da capo dentro una transazione, così il DB rispecchia
+          // sempre l'ultimo report Amazon (niente accumulo MAX su run successivi).
+          // Per ASIN con più SKU sommiamo le quantità (multi-SKU stesso ASIN).
+          await db.exec("BEGIN");
+          await db.run("DELETE FROM fba_stock WHERE country = ?", country);
+
           const stmt = await db.prepare(`
             INSERT INTO fba_stock (
               asin, sku, product_name, country,
@@ -208,13 +213,13 @@ async function aggiornaFBAStock(forceNew = false) {
             ON CONFLICT(asin, country) DO UPDATE SET
               sku = CASE WHEN excluded.stock_totale > stock_totale THEN excluded.sku ELSE sku END,
               product_name = CASE WHEN excluded.stock_totale > stock_totale THEN excluded.product_name ELSE product_name END,
-              quantity = MAX(quantity, excluded.quantity),
-              stock_totale = MAX(stock_totale, excluded.stock_totale),
-              reserved_qty = MAX(reserved_qty, excluded.reserved_qty),
-              inbound_working = MAX(inbound_working, excluded.inbound_working),
-              inbound_shipped = MAX(inbound_shipped, excluded.inbound_shipped),
-              inbound_receiving = MAX(inbound_receiving, excluded.inbound_receiving),
-              unfulfillable_qty = MAX(unfulfillable_qty, excluded.unfulfillable_qty),
+              quantity = quantity + excluded.quantity,
+              stock_totale = stock_totale + excluded.stock_totale,
+              reserved_qty = reserved_qty + excluded.reserved_qty,
+              inbound_working = inbound_working + excluded.inbound_working,
+              inbound_shipped = inbound_shipped + excluded.inbound_shipped,
+              inbound_receiving = inbound_receiving + excluded.inbound_receiving,
+              unfulfillable_qty = unfulfillable_qty + excluded.unfulfillable_qty,
               updated_at = CURRENT_TIMESTAMP
           `);
 
@@ -254,10 +259,13 @@ async function aggiornaFBAStock(forceNew = false) {
           }
 
           await stmt.finalize();
-          logger.info(`${country}: ${inserted} righe salvate`);
+          await db.exec("COMMIT");
+          logger.info(`${country}: ${inserted} righe salvate (reset + reinsert)`);
           totalInserted += inserted;
           success = true;
         } catch (err) {
+          // Annulla la transazione: il DB resta nello stato pre-run
+          try { await db.exec("ROLLBACK"); } catch {}
           lastError = err;
           const code = err.response?.status;
           if (code === 429 || code === 403) {

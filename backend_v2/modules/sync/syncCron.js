@@ -117,12 +117,52 @@ async function syncFBAFees() {
   await aggiornaFBAFees();
 }
 
+// ─── Stock Ledger (distribuzione fisica per paese) ────────
+async function syncStockLedger() {
+  const { aggiornaLedgerStock } = require("../reports/ledgerStockService");
+  await aggiornaLedgerStock();
+}
+
+// ─── Resi FBA ─────────────────────────────────────────────
+async function syncResiFBA() {
+  const { syncReturns } = require("../returns/returnsService");
+  await syncReturns({});
+}
+
 // ─── Catalog info (titolo + immagini per marketplace) ────
 async function syncCatalogInfo() {
   const { aggiornaProductCatalog } = require("../catalog/catalogInfoSync");
   const progress = { done: 0, total: 0, aggiornati: 0, errori: 0 };
   const res = await aggiornaProductCatalog(progress);
   logger.info(`[SyncCron] catalog-info — ${res.done}/${res.total} ASIN, ${res.aggiornati} righe aggiornate, ${res.errori} errori`);
+}
+
+// ─── Orders Live (Orders API near real-time per "oggi") ───
+// Pre-popola amazon_order_cache cosi quando l'utente apre /panoramica
+// trova i dati di oggi/ieri gia pronti senza dover aspettare il bg refresh.
+function todayItYmd() {
+  const now = new Date();
+  const m = now.getUTCMonth() + 1;
+  const offHours = (m >= 4 && m <= 9) ? 2 : (m === 3 || m === 10 ? (m === 3 ? 1 : 2) : 1);
+  return new Date(now.getTime() + offHours * 3600_000).toISOString().slice(0, 10);
+}
+function ymdMinusDays(ymd, n) {
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
+async function syncOrdersLiveToday() {
+  const { aggregateOrdersLive } = require("../reports/ordersLiveService");
+  const today = todayItYmd();
+  await aggregateOrdersLive({ from: today, to: today });
+}
+
+async function syncOrdersLiveYesterdayToday() {
+  const { aggregateOrdersLive } = require("../reports/ordersLiveService");
+  const today = todayItYmd();
+  const yesterday = ymdMinusDays(today, 1);
+  await aggregateOrdersLive({ from: yesterday, to: today });
 }
 
 // ─── Listing Editor cache (per paese) ────────────────────
@@ -158,11 +198,18 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 6:30: Vendite/Traffico (report del giorno prima) ──
   cron.schedule("30 6 * * *", () => runSafe("sales-traffic", syncSalesTraffic));
 
-  // ── OGNI GIORNO alle 4:00: FBA Stock Report completo ──
+  // ── OGNI GIORNO alle 4:00: FBA Stock Report completo (Pan-EU pool) ──
   cron.schedule("0 4 * * *", () => runSafe("fba-stock-report", syncFBAStockReport));
+
+  // ── OGNI GIORNO alle 4:30: Stock Ledger (sovrascrive IT col fisico per paese) ──
+  // DEVE girare DOPO fba-stock-report, altrimenti il Pan-EU lo riscrive sopra
+  cron.schedule("30 4 * * *", () => runSafe("stock-ledger", syncStockLedger), { timezone: "Europe/Rome" });
 
   // ── OGNI GIORNO alle 5:00: FBA Fees (commissioni per ASIN) ──
   cron.schedule("0 5 * * *", () => runSafe("fba-fees", syncFBAFees));
+
+  // ── OGNI GIORNO alle 5:30: Resi FBA ──
+  cron.schedule("30 5 * * *", () => runSafe("resi-fba", syncResiFBA), { timezone: "Europe/Rome" });
 
   // ── 09:00 e 14:00: Competitor Watch (conteggi keyword + top-20) ──
   cron.schedule("0 9,14 * * *", () => runSafe("competitor-snapshot", syncCompetitorSnapshot));
@@ -176,11 +223,23 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
   cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));
 
+  // ── OGNI 10 MIN tra 08:00 e 22:59: Orders Live "oggi" ──
+  // Mantiene amazon_order_cache fresca cosi /panoramica mostra subito
+  // le vendite di oggi senza aspettare il refresh on-demand.
+  cron.schedule("*/10 8-22 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
+
+  // ── OGNI GIORNO alle 03:30: Orders Live "ieri+oggi" (consolidamento notturno) ──
+  // A questa ora gli ordini di ieri sono ormai Shipped → revenue Amazon-confermato.
+  cron.schedule("30 3 * * *", () => runSafe("orders-live-night", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
+
   // ── OGNI DOMENICA alle 02:00: Catalog info (titoli + immagini) ──
   cron.schedule("0 2 * * 0", () => runSafe("catalog-info", syncCatalogInfo));
 
   // ── OGNI DOMENICA alle 3:00: Listing cache (tutti i paesi) ──
   cron.schedule("0 3 * * 0", () => runSafe("listing-cache", syncListingCache));
+
+  // ── Kick-off all'avvio: popola la cache "oggi" 30s dopo lo start del backend ──
+  setTimeout(() => runSafe("orders-live-startup", syncOrdersLiveToday), 30_000);
 
   logger.info("[SyncCron] Sync automatici schedulati:");
   logger.info("  Stock FBA:       ogni 3h (:10)");
@@ -188,8 +247,12 @@ function startSyncCrons() {
   logger.info("  Alert check:     ogni 3h (:50)");
   logger.info("  Sales/Traffic:   06:30 giornaliero");
   logger.info("  FBA Stock Report: 04:00 giornaliero");
+  logger.info("  Stock Ledger:    04:30 giornaliero (per paese fisico)");
   logger.info("  FBA Fees:        05:00 giornaliero");
+  logger.info("  Resi FBA:        05:30 giornaliero");
   logger.info("  ASIN Daily:      07:00 giornaliero");
+  logger.info("  Orders Live oggi: ogni 10min 08-22");
+  logger.info("  Orders Live notte: 03:30 (ieri+oggi)");
   logger.info("  Catalog info:    02:00 domenica");
   logger.info("  Listing cache:   03:00 domenica");
 }
