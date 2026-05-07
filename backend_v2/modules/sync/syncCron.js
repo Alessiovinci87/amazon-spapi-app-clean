@@ -228,13 +228,16 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
   cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));
 
-  // ── OGNI 5 MIN tra 08:00 e 22:59: Orders Live "oggi" ──
-  // Mantiene amazon_order_cache fresca cosi /panoramica mostra subito
-  // le vendite di oggi senza aspettare il refresh on-demand.
-  cron.schedule("*/5 8-22 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
+  // ── OGNI 5 MIN tra 08:00 e 23:59: Orders Live "ieri + oggi" ──
+  // Sincronizza sempre 2 giorni: il giorno corrente è in continuo aggiornamento
+  // (Pending → Shipped, OrderTotal popolato), e "ieri" può ancora cambiare fino
+  // alla mezzanotte (Pending tardivi che si confermano). Dopo le 00:00 il "nuovo
+  // ieri" è quello che era "oggi" → coperto naturalmente dal range mobile.
+  cron.schedule("*/5 8-23 * * *", () => runSafe("orders-live-tick", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
 
-  // ── OGNI GIORNO alle 03:30: Orders Live "ieri+oggi" (consolidamento notturno) ──
-  // A questa ora gli ordini di ieri sono ormai Shipped → revenue Amazon-confermato.
+  // ── OGNI GIORNO alle 03:30: consolidamento notturno (ieri + oggi) ──
+  // Pesca eventuali ordini delle ultime ore di ieri non catturati dall'ultimo
+  // tick del giorno prima.
   cron.schedule("30 3 * * *", () => runSafe("orders-live-night", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
 
   // ── OGNI DOMENICA alle 02:00: Catalog info (titoli + immagini) ──
@@ -243,8 +246,8 @@ function startSyncCrons() {
   // ── OGNI DOMENICA alle 3:00: Listing cache (tutti i paesi) ──
   cron.schedule("0 3 * * 0", () => runSafe("listing-cache", syncListingCache));
 
-  // ── Kick-off all'avvio: popola la cache "oggi" 30s dopo lo start del backend ──
-  setTimeout(() => runSafe("orders-live-startup", syncOrdersLiveToday), 30_000);
+  // ── Kick-off all'avvio: popola la cache "ieri+oggi" 30s dopo lo start del backend ──
+  setTimeout(() => runSafe("orders-live-startup", syncOrdersLiveYesterdayToday), 30_000);
 
   logger.info("[SyncCron] Sync automatici schedulati:");
   logger.info("  Stock FBA:       ogni 3h (:10)");
@@ -256,7 +259,7 @@ function startSyncCrons() {
   logger.info("  FBA Fees:        05:00 giornaliero");
   logger.info("  Resi FBA:        05:30 giornaliero");
   logger.info("  ASIN Daily:      07:00 giornaliero");
-  logger.info("  Orders Live oggi: ogni 10min 08-22");
+  logger.info("  Orders Live tick: ogni 5min 08-23 (ieri+oggi)");
   logger.info("  Orders Live notte: 03:30 (ieri+oggi)");
   logger.info("  Catalog info:    02:00 domenica");
   logger.info("  Listing cache:   03:00 domenica");
