@@ -234,6 +234,13 @@ const Panoramica = () => {
     return () => clearInterval(id);
   }, [isBgRefreshing, load]);
 
+  // Auto-refresh ogni 60s mentre la pagina è aperta: il cron sul backend gira
+  // ogni 2 min, quindi 60s ci garantisce di non perdere mai un ciclo.
+  useEffect(() => {
+    const id = setInterval(() => { load(false); }, 60000);
+    return () => clearInterval(id);
+  }, [load]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     // Durata minima animazione 700ms anche se la fetch è velocissima (cache).

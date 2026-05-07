@@ -228,12 +228,15 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
   cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));
 
-  // ── OGNI 5 MIN tra 08:00 e 23:59: Orders Live "ieri + oggi" ──
-  // Sincronizza sempre 2 giorni: il giorno corrente è in continuo aggiornamento
-  // (Pending → Shipped, OrderTotal popolato), e "ieri" può ancora cambiare fino
-  // alla mezzanotte (Pending tardivi che si confermano). Dopo le 00:00 il "nuovo
-  // ieri" è quello che era "oggi" → coperto naturalmente dal range mobile.
-  cron.schedule("*/5 8-23 * * *", () => runSafe("orders-live-tick", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
+  // ── OGNI 2 MIN tra 08:00 e 23:59: tick aggressivo SOLO "oggi" ──
+  // Tick leggero (1 giorno × 8 marketplace) per allinearsi a Shopkeeper sui
+  // numeri "live" del giorno corrente. Completa in ~30-60s.
+  cron.schedule("*/2 8-23 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
+
+  // ── OGNI 15 MIN tra 08:00 e 23:59: tick "ieri + oggi" ──
+  // Più rado, perché "ieri" cambia lentamente (Pending tardivi che si
+  // confermano in Shipped). 2 giorni × 8 marketplace.
+  cron.schedule("*/15 8-23 * * *", () => runSafe("orders-live-tick", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
 
   // ── OGNI GIORNO alle 03:30: consolidamento notturno (ieri + oggi) ──
   // Pesca eventuali ordini delle ultime ore di ieri non catturati dall'ultimo
