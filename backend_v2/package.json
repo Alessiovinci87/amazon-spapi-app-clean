@@ -8,6 +8,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1044.0",
     "amazon-sp-api": "^1.2.1",
     "aws4": "^1.13.2",
     "better-sqlite3": "^12.4.1",
