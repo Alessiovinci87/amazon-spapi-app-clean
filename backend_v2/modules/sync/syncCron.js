@@ -228,10 +228,10 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
   cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));
 
-  // ── OGNI 10 MIN tra 08:00 e 22:59: Orders Live "oggi" ──
+  // ── OGNI 5 MIN tra 08:00 e 22:59: Orders Live "oggi" ──
   // Mantiene amazon_order_cache fresca cosi /panoramica mostra subito
   // le vendite di oggi senza aspettare il refresh on-demand.
-  cron.schedule("*/10 8-22 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
+  cron.schedule("*/5 8-22 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
 
   // ── OGNI GIORNO alle 03:30: Orders Live "ieri+oggi" (consolidamento notturno) ──
   // A questa ora gli ordini di ieri sono ormai Shipped → revenue Amazon-confermato.

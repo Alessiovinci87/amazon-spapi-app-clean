@@ -42,7 +42,7 @@ const MP_ID_TO_CC = Object.fromEntries(MARKETPLACES.map(m => [m.id, m.code]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const FINAL_STATUSES = new Set(["Shipped", "Delivered", "InvoiceUnconfirmed"]);
-const ORDERS_LIST_CACHE_TTL_MS = 3 * 60 * 1000;
+const ORDERS_LIST_CACHE_TTL_MS = 30 * 1000;
 const PENDING_REFRESH_MS = 5 * 60 * 1000;
 
 // Cache lista ordini per (marketplace, range)
