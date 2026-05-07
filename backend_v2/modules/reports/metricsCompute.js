@@ -62,20 +62,75 @@ function loadEnrichments(db) {
 }
 
 // Calcola metriche per un singolo giorno e fa upsert.
-// Strategia:
-//  - Se sales_daily ha dati per (date, country) → usa quello (consolidato)
-//  - Altrimenti aggrega amazon_order_cache (live, ASIN da firstAsin)
+// Strategia: usa SEMPRE amazon_order_cache (preciso per ASIN) se ha dati per
+// (country, date). Solo come fallback (giorni vecchi senza cache live) usa la
+// stima proporzionale da sales_traffic + sales_daily.
 function computeDay(db, ymd, enrichments) {
   const { costMap, feeMap, feeAvgByCountry } = enrichments;
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
-  // 1. Country che hanno sales_daily per questo giorno (consolidato)
-  const consolidatedCountries = new Set(
-    db.prepare("SELECT DISTINCT country FROM sales_daily WHERE date = ?").all(ymd).map(r => r.country)
-  );
+  // 1. Aggrega tutti gli ordini live di quel giorno per (asin, country)
+  const liveRows = db.prepare(`
+    SELECT marketplace_id, asin,
+      COUNT(*) AS orders,
+      COALESCE(SUM(units), 0) AS units,
+      COALESCE(SUM(revenue), 0) AS revenue
+    FROM amazon_order_cache
+    WHERE DATE(purchase_date) = ?
+      AND COALESCE(status, '') != 'Canceled'
+      AND asin IS NOT NULL AND asin != ''
+    GROUP BY marketplace_id, asin
+  `).all(ymd);
 
-  // 2. Per i country consolidati: stima per-ASIN proporzionale da sales_traffic (annuo)
+  const liveCountries = new Set();
+  for (const r of liveRows) {
+    const cc = MP_TO_CC[r.marketplace_id];
+    if (cc) liveCountries.add(cc);
+  }
+
+  // Pulizia: rimuovi i record vecchi del giorno per i country che andiamo
+  // a riscrivere (così se un ordine viene cancellato/ASIN cambiato, non resta).
+  if (liveCountries.size > 0) {
+    const placeholders = [...liveCountries].map(() => "?").join(",");
+    db.prepare(`DELETE FROM asin_daily_metrics WHERE metric_date = ? AND country IN (${placeholders}) AND source = 'orders_live'`)
+      .run(ymd, ...liveCountries);
+  }
+
+  const upsertLive = db.prepare(`
+    INSERT INTO asin_daily_metrics
+      (asin, country, metric_date, units, revenue, fee_total, cost_total, margin, source, computed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'orders_live', ?)
+    ON CONFLICT(asin, country, metric_date) DO UPDATE SET
+      units = excluded.units, revenue = excluded.revenue,
+      fee_total = excluded.fee_total, cost_total = excluded.cost_total,
+      margin = excluded.margin, source = excluded.source, computed_at = excluded.computed_at
+  `);
+
+  const txLive = db.transaction((rows) => {
+    for (const r of rows) {
+      const country = MP_TO_CC[r.marketplace_id];
+      if (!country) continue;
+      const units = r.units || 0;
+      const revenue = Math.round((r.revenue || 0) * 100) / 100;
+      const feePerUnit = feeMap.get(`${r.asin}|${country}`) ?? feeAvgByCountry.get(country) ?? 0;
+      const costPerUnit = costMap.get(r.asin) ?? 0;
+      const fee = Math.round(feePerUnit * units * 100) / 100;
+      const cost = Math.round(costPerUnit * units * 100) / 100;
+      const margin = Math.round((revenue - fee - cost) * 100) / 100;
+      upsertLive.run(r.asin, country, ymd, units, revenue, fee, cost, margin, now);
+    }
+  });
+  txLive(liveRows);
+
+  // 2. Per i country presenti in sales_daily ma SENZA dati live (giorni vecchi),
+  //    fallback alla stima proporzionale da sales_traffic.
+  const consolidatedCountries = db.prepare(
+    "SELECT DISTINCT country FROM sales_daily WHERE date = ?"
+  ).all(ymd).map(r => r.country);
+
   for (const country of consolidatedCountries) {
+    if (liveCountries.has(country)) continue; // già coperto da live (più preciso)
+
     const dayTotal = db.prepare(`
       SELECT SUM(units_ordered) AS u, SUM(ordered_product_sales) AS f
       FROM sales_daily WHERE country = ? AND date = ?
@@ -108,6 +163,8 @@ function computeDay(db, ymd, enrichments) {
         margin = excluded.margin, source = excluded.source, computed_at = excluded.computed_at
     `);
 
+    db.prepare(`DELETE FROM asin_daily_metrics WHERE metric_date = ? AND country = ? AND source = 'sales_daily'`).run(ymd, country);
+
     const tx = db.transaction((rows) => {
       for (const r of rows) {
         const units = Math.round(r.u * ratioU);
@@ -123,52 +180,6 @@ function computeDay(db, ymd, enrichments) {
     });
     tx(asinAnnual);
   }
-
-  // 3. Per i country NON in sales_daily: aggrega da amazon_order_cache
-  const liveRows = db.prepare(`
-    SELECT marketplace_id, asin,
-      COUNT(*) AS orders,
-      COALESCE(SUM(units), 0) AS units,
-      COALESCE(SUM(revenue), 0) AS revenue
-    FROM amazon_order_cache
-    WHERE DATE(purchase_date) = ?
-      AND COALESCE(status, '') != 'Canceled'
-      AND asin IS NOT NULL AND asin != ''
-    GROUP BY marketplace_id, asin
-  `).all(ymd);
-
-  const upsertLive = db.prepare(`
-    INSERT INTO asin_daily_metrics
-      (asin, country, metric_date, units, revenue, fee_total, cost_total, margin, source, computed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'orders_live', ?)
-    ON CONFLICT(asin, country, metric_date) DO UPDATE SET
-      units = excluded.units, revenue = excluded.revenue,
-      fee_total = excluded.fee_total, cost_total = excluded.cost_total,
-      margin = excluded.margin, source = excluded.source, computed_at = excluded.computed_at
-  `);
-
-  const txLive = db.transaction((rows) => {
-    for (const r of rows) {
-      const country = MP_TO_CC[r.marketplace_id];
-      if (!country) continue;
-      // Se questo country è già in sales_daily, skip (ha priorità)
-      if (consolidatedCountries.has(country)) continue;
-      const units = r.units || 0;
-      const revenue = Math.round((r.revenue || 0) * 100) / 100;
-      const feePerUnit = feeMap.get(`${r.asin}|${country}`) ?? feeAvgByCountry.get(country) ?? 0;
-      const costPerUnit = costMap.get(r.asin) ?? 0;
-      const fee = Math.round(feePerUnit * units * 100) / 100;
-      const cost = Math.round(costPerUnit * units * 100) / 100;
-      const margin = Math.round((revenue - fee - cost) * 100) / 100;
-      upsertLive.run(r.asin, country, ymd, units, revenue, fee, cost, margin, now);
-    }
-  });
-  txLive(liveRows);
-
-  // 4. Pulizia: rimuovi righe metric_date=ymd per ASIN non più presenti né
-  //    in sales_traffic né in amazon_order_cache (es. ordini cancellati).
-  //    Per semplicità saltiamo questo step nell'MVP — i dati stantii vengono
-  //    sovrascritti al prossimo run del giorno.
 }
 
 function computeAsinDailyMetricsForRange(fromYmd, toYmd) {
