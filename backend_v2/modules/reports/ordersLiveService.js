@@ -257,41 +257,49 @@ async function enrichOrderWithItems(order, headers, db) {
     }
   } while (nextToken);
 
-  // Calcola revenue: per ogni item, ItemPrice se valorizzato, altrimenti
-  // lookup prezzo listing.
-  let revenue = 0;
+  // Formula GROSS (allineata a Shopkeeper / Pics-Keeper):
+  //   revenue = item_price + item_tax + shipping_price + shipping_tax - promotion_discount
+  // Per item Pending senza ItemPrice valorizzato, salviamo 0; al passaggio di
+  // status (Pending → Shipped) il nostro caller forza il rifetch e Amazon
+  // restituisce i campi reali.
+  let itemPrice = 0;
+  let itemTax = 0;
+  let shippingPrice = 0;
+  let shippingTax = 0;
+  let promotionDiscount = 0;
   let units = 0;
-  let usedFallbackForAny = false;
   let firstAsin = null;
   let firstTitle = null;
   let currency = null;
 
   for (const it of items) {
     const qty = parseInt(it.QuantityOrdered || "0") || 0;
-    const itemPriceAmt = parseFloat(it.ItemPrice?.Amount || "0") || 0;
-    const itemPriceCcy = it.ItemPrice?.CurrencyCode;
-    const asin = it.ASIN;
-    if (!firstAsin) firstAsin = asin;
+    const ip = parseFloat(it.ItemPrice?.Amount || "0") || 0;
+    const itx = parseFloat(it.ItemTax?.Amount || "0") || 0;
+    const sp = parseFloat(it.ShippingPrice?.Amount || "0") || 0;
+    const stx = parseFloat(it.ShippingTax?.Amount || "0") || 0;
+    const pd = parseFloat(it.PromotionDiscount?.Amount || "0") || 0;
+    const ccy = it.ItemPrice?.CurrencyCode || it.ItemTax?.CurrencyCode;
+    if (!firstAsin) firstAsin = it.ASIN;
     if (!firstTitle) firstTitle = it.Title;
-    if (itemPriceCcy && !currency) currency = itemPriceCcy;
+    if (ccy && !currency) currency = ccy;
     units += qty;
-
-    if (itemPriceAmt > 0) {
-      revenue += itemPriceAmt;
-    } else {
-      // Fallback: lookup prezzo listing
-      const listing = getListingPrice(db, asin, marketplaceId);
-      if (listing?.price > 0) {
-        revenue += listing.price * qty;
-        usedFallbackForAny = true;
-        if (!currency) currency = listing.currency;
-      }
-    }
+    itemPrice += ip;
+    itemTax += itx;
+    shippingPrice += sp;
+    shippingTax += stx;
+    promotionDiscount += pd;
   }
 
-  revenue = Math.round(revenue * 100) / 100;
+  const revenue = Math.round((itemPrice + itemTax + shippingPrice + shippingTax - promotionDiscount) * 100) / 100;
+  itemPrice = Math.round(itemPrice * 100) / 100;
+  itemTax = Math.round(itemTax * 100) / 100;
+  shippingPrice = Math.round(shippingPrice * 100) / 100;
+  shippingTax = Math.round(shippingTax * 100) / 100;
+  promotionDiscount = Math.round(promotionDiscount * 100) / 100;
 
-  // Salva in cache (UPSERT)
+  const isPendingNoPrice = itemPrice === 0 && status === "Pending";
+
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
   if (!currency) {
     const mp = MARKETPLACES.find(m => m.id === marketplaceId);
@@ -302,8 +310,9 @@ async function enrichOrderWithItems(order, headers, db) {
       INSERT INTO amazon_order_cache
         (order_id, marketplace_id, asin, title, purchase_date,
          status, units, revenue, currency, is_pending_priced,
+         item_price, item_tax, shipping_price, shipping_tax, promotion_discount,
          fetched_at, items_fetched_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(order_id) DO UPDATE SET
         marketplace_id = excluded.marketplace_id,
         asin = COALESCE(excluded.asin, amazon_order_cache.asin),
@@ -314,6 +323,11 @@ async function enrichOrderWithItems(order, headers, db) {
         revenue = excluded.revenue,
         currency = excluded.currency,
         is_pending_priced = excluded.is_pending_priced,
+        item_price = excluded.item_price,
+        item_tax = excluded.item_tax,
+        shipping_price = excluded.shipping_price,
+        shipping_tax = excluded.shipping_tax,
+        promotion_discount = excluded.promotion_discount,
         items_fetched_at = excluded.items_fetched_at
     `).run(
       orderId,
@@ -325,7 +339,12 @@ async function enrichOrderWithItems(order, headers, db) {
       units,
       revenue,
       currency || null,
-      usedFallbackForAny ? 1 : 0,
+      isPendingNoPrice ? 1 : 0,
+      itemPrice,
+      itemTax,
+      shippingPrice,
+      shippingTax,
+      promotionDiscount,
       now,
       now,
     );
@@ -333,7 +352,7 @@ async function enrichOrderWithItems(order, headers, db) {
     logger.warn({ err: err.message, orderId }, "[OrdersLive] cache save failed");
   }
 
-  return { revenue, units, isPendingPriced: usedFallbackForAny, currency };
+  return { revenue, units, isPendingPriced: isPendingNoPrice, currency };
 }
 
 /**

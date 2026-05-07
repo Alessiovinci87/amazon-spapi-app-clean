@@ -487,6 +487,13 @@ function runMigrations(db) {
   addIfMissing("currency", "TEXT");
   addIfMissing("is_pending_priced", "INTEGER DEFAULT 0");
   addIfMissing("items_fetched_at", "TEXT");
+  // Breakdown revenue GROSS (formula Picskeeper):
+  //   revenue = item_price + item_tax + shipping_price + shipping_tax - promotion_discount
+  addIfMissing("item_price", "REAL DEFAULT 0");
+  addIfMissing("item_tax", "REAL DEFAULT 0");
+  addIfMissing("shipping_price", "REAL DEFAULT 0");
+  addIfMissing("shipping_tax", "REAL DEFAULT 0");
+  addIfMissing("promotion_discount", "REAL DEFAULT 0");
 
   // ===== SCADENZE LOTTI =====
   // Aggiunge data_scadenza e pao_mesi a sfuso se mancanti
