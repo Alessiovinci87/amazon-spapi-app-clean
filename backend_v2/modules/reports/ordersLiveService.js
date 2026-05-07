@@ -195,9 +195,9 @@ async function enrichOrderWithItems(order, headers, db) {
     "SELECT * FROM amazon_order_cache WHERE order_id = ?"
   ).get(orderId);
 
-  if (cached && cached.units != null && cached.revenue != null) {
-    // units=0 con status finale è dato corrotto (race condition o errore al primo
-    // fetch): forza il rifetch indipendentemente dallo status.
+  if (cached && cached.units != null && cached.revenue != null && cached.items_fetched_at != null) {
+    // items_fetched_at=NULL viene usato come "forza rifetch" dopo migrazioni di
+    // schema. units=0 con status finale è dato corrotto al primo fetch.
     const looksCorrupted = cached.units === 0 && cached.revenue === 0;
     const isFinal = FINAL_STATUSES.has(cached.status);
     if (isFinal && !looksCorrupted) {
