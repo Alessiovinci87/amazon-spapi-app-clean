@@ -189,15 +189,21 @@ async function enrichOrderWithItems(order, headers, db) {
   const status = order.OrderStatus;
   const marketplaceId = order.MarketplaceId;
 
-  // Cache hit: per stati finali, non rifetchare mai. Per Pending, rifetch
-  // se gli items sono stati fetchati > 5 min fa.
+  // Verità live dal payload /orders (sempre disponibili anche per Pending,
+  // a differenza di /orderItems che restituisce items vuoti per Pending):
+  //  - NumberOfItemsShipped + NumberOfItemsUnshipped → unità totali
+  //  - OrderTotal.Amount → revenue gross-customer (item+tax+ship+promo)
+  const orderUnits =
+    (parseInt(order.NumberOfItemsShipped || "0") || 0) +
+    (parseInt(order.NumberOfItemsUnshipped || "0") || 0);
+  const orderTotalAmt = parseFloat(order.OrderTotal?.Amount || "0") || 0;
+  const orderTotalCcy = order.OrderTotal?.CurrencyCode || null;
+
   const cached = db.prepare(
     "SELECT * FROM amazon_order_cache WHERE order_id = ?"
   ).get(orderId);
 
   if (cached && cached.units != null && cached.revenue != null && cached.items_fetched_at != null) {
-    // items_fetched_at=NULL viene usato come "forza rifetch" dopo migrazioni di
-    // schema. units=0 con status finale è dato corrotto al primo fetch.
     const looksCorrupted = cached.units === 0 && cached.revenue === 0;
     const isFinal = FINAL_STATUSES.has(cached.status);
     if (isFinal && !looksCorrupted) {
@@ -220,85 +226,82 @@ async function enrichOrderWithItems(order, headers, db) {
     }
   }
 
-  // Chiama getOrderItems (paginazione)
+  // /orderItems serve solo per il breakdown per-item (ASIN, item_price, tax, ship, promo).
+  // Per ordini Pending è quasi sempre vuoto: skippiamo, useremo OrderTotal/NumberOfItems
+  // dal payload /orders (già letti sopra). Quando l'ordine passa a Shipped, il prossimo
+  // ciclo di refresh chiamerà /orderItems normalmente.
   const items = [];
-  let nextToken = null;
-  let pages = 0;
-  do {
-    const url = `${BASE_URL}/orders/v0/orders/${encodeURIComponent(orderId)}/orderItems`;
-    const params = nextToken ? { NextToken: nextToken } : undefined;
-    try {
-      const res = await axios.get(url, { params, headers, timeout: 20_000 });
-      const payload = res.data?.payload || {};
-      items.push(...(payload.OrderItems || []));
-      nextToken = payload.NextToken || null;
-      pages++;
-      if (pages > 5) break;
-    } catch (err) {
-      const code = err.response?.status;
-      if (code === 429) {
-        await sleep(30_000);
-        continue;
+  let getItemsFailed = false;
+  if (status !== "Pending") {
+    let nextToken = null;
+    let pages = 0;
+    do {
+      const url = `${BASE_URL}/orders/v0/orders/${encodeURIComponent(orderId)}/orderItems`;
+      const params = nextToken ? { NextToken: nextToken } : undefined;
+      try {
+        const res = await axios.get(url, { params, headers, timeout: 20_000 });
+        const payload = res.data?.payload || {};
+        items.push(...(payload.OrderItems || []));
+        nextToken = payload.NextToken || null;
+        pages++;
+        if (pages > 5) break;
+      } catch (err) {
+        const code = err.response?.status;
+        if (code === 429) { await sleep(30_000); continue; }
+        logger.warn(
+          { err: err.response?.data || err.message, orderId },
+          "[OrdersLive] errore getOrderItems"
+        );
+        getItemsFailed = true;
+        break;
       }
-      logger.warn(
-        { err: err.response?.data || err.message, orderId },
-        "[OrdersLive] errore getOrderItems"
-      );
-      // Se cache esiste, restituisci la cache esistente per non bloccare
-      if (cached && cached.units != null) {
-        return {
-          revenue: cached.revenue || 0,
-          units: cached.units || 0,
-          isPendingPriced: !!cached.is_pending_priced,
-          currency: cached.currency,
-        };
-      }
-      return { revenue: 0, units: 0, isPendingPriced: true, currency: null };
-    }
-  } while (nextToken);
+    } while (nextToken);
+  }
 
-  // Formula GROSS (allineata a Shopkeeper / Pics-Keeper):
-  //   revenue = item_price + item_tax + shipping_price + shipping_tax - promotion_discount
-  // Per item Pending senza ItemPrice valorizzato, salviamo 0; al passaggio di
-  // status (Pending → Shipped) il nostro caller forza il rifetch e Amazon
-  // restituisce i campi reali.
   let itemPrice = 0;
   let itemTax = 0;
   let shippingPrice = 0;
   let shippingTax = 0;
   let promotionDiscount = 0;
-  let units = 0;
+  let unitsFromItems = 0;
   let firstAsin = null;
   let firstTitle = null;
   let currency = null;
 
   for (const it of items) {
-    const qty = parseInt(it.QuantityOrdered || "0") || 0;
-    const ip = parseFloat(it.ItemPrice?.Amount || "0") || 0;
-    const itx = parseFloat(it.ItemTax?.Amount || "0") || 0;
-    const sp = parseFloat(it.ShippingPrice?.Amount || "0") || 0;
-    const stx = parseFloat(it.ShippingTax?.Amount || "0") || 0;
-    const pd = parseFloat(it.PromotionDiscount?.Amount || "0") || 0;
+    unitsFromItems += parseInt(it.QuantityOrdered || "0") || 0;
+    itemPrice += parseFloat(it.ItemPrice?.Amount || "0") || 0;
+    itemTax += parseFloat(it.ItemTax?.Amount || "0") || 0;
+    shippingPrice += parseFloat(it.ShippingPrice?.Amount || "0") || 0;
+    shippingTax += parseFloat(it.ShippingTax?.Amount || "0") || 0;
+    promotionDiscount += parseFloat(it.PromotionDiscount?.Amount || "0") || 0;
     const ccy = it.ItemPrice?.CurrencyCode || it.ItemTax?.CurrencyCode;
     if (!firstAsin) firstAsin = it.ASIN;
     if (!firstTitle) firstTitle = it.Title;
     if (ccy && !currency) currency = ccy;
-    units += qty;
-    itemPrice += ip;
-    itemTax += itx;
-    shippingPrice += sp;
-    shippingTax += stx;
-    promotionDiscount += pd;
   }
 
-  const revenue = Math.round((itemPrice + itemTax + shippingPrice + shippingTax - promotionDiscount) * 100) / 100;
+  // units: preferenza al payload /orders (sempre presente). Fallback a items.
+  const units = orderUnits > 0 ? orderUnits : unitsFromItems;
+
+  // revenue (gross): preferenza a OrderTotal del payload /orders.
+  // Fallback al calcolo dai 5 campi degli items (utile se per qualche motivo
+  // OrderTotal non è popolato ma gli items sì, e per coerenza storica).
+  const fromItems = itemPrice + itemTax + shippingPrice + shippingTax - promotionDiscount;
+  let revenue = 0;
+  if (orderTotalAmt > 0) revenue = orderTotalAmt;
+  else if (fromItems > 0) revenue = fromItems;
+  revenue = Math.round(revenue * 100) / 100;
+
   itemPrice = Math.round(itemPrice * 100) / 100;
   itemTax = Math.round(itemTax * 100) / 100;
   shippingPrice = Math.round(shippingPrice * 100) / 100;
   shippingTax = Math.round(shippingTax * 100) / 100;
   promotionDiscount = Math.round(promotionDiscount * 100) / 100;
 
-  const isPendingNoPrice = itemPrice === 0 && status === "Pending";
+  if (orderTotalCcy && !currency) currency = orderTotalCcy;
+
+  const isPendingNoPrice = revenue === 0 && status === "Pending";
 
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
   if (!currency) {
