@@ -186,6 +186,14 @@ async function syncListingCache() {
 }
 
 function startSyncCrons() {
+  // Flag per disabilitare TUTTI i cron sync. Utile in locale (dev) per evitare
+  // doppie chiamate Amazon quando il backend di produzione gira già: il dev
+  // legge il DB locale ma non rifetcha autonomamente. Va impostato in .env.
+  if (process.env.DISABLE_SYNC === "true") {
+    logger.info("[SyncCron] DISABLE_SYNC=true → tutti i cron sync disattivati");
+    return;
+  }
+
   // ── OGNI 3 ORE: Stock FBA (Inventory API, veloce ~30s) ──
   // 0:00, 3:00, 6:00, 9:00, 12:00, 15:00, 18:00, 21:00
   cron.schedule("10 */3 * * *", () => runSafe("stock-fba", syncStockFBA));
