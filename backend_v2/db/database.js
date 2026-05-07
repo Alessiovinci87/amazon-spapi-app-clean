@@ -534,6 +534,28 @@ function runMigrations(db) {
     logger.info("Migrazione: aggiunta colonna costo_totale a ordini_fornitori");
   }
 
+  // ===== ASIN DAILY METRICS: tabella denormalizzata per dashboard =====
+  // Pre-calcolata da un compute job ogni 5 min, sostituisce le query al volo.
+  // Una riga per (asin, country, metric_date) con tutti i KPI già aggregati.
+  db.prepare(`
+    CREATE TABLE IF NOT EXISTS asin_daily_metrics (
+      asin         TEXT NOT NULL,
+      country      TEXT NOT NULL,
+      metric_date  TEXT NOT NULL,
+      units        INTEGER DEFAULT 0,
+      revenue      REAL DEFAULT 0,
+      fee_total    REAL DEFAULT 0,
+      cost_total   REAL DEFAULT 0,
+      margin       REAL DEFAULT 0,
+      source       TEXT,
+      computed_at  TEXT NOT NULL,
+      PRIMARY KEY (asin, country, metric_date)
+    )
+  `).run();
+  db.prepare("CREATE INDEX IF NOT EXISTS idx_adm_date ON asin_daily_metrics(metric_date)").run();
+  db.prepare("CREATE INDEX IF NOT EXISTS idx_adm_country_date ON asin_daily_metrics(country, metric_date)").run();
+  logger.info("Migrazione asin_daily_metrics completata");
+
   // ===== TRACKING 17TRACK: tabella cache stati spedizioni =====
   db.prepare(`
     CREATE TABLE IF NOT EXISTS tracking_17track (

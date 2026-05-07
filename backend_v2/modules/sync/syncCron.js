@@ -160,6 +160,11 @@ async function syncOrdersLiveToday() {
   await aggregateOrdersLive({ from: today, to: today });
 }
 
+async function computeMetrics() {
+  const { computeMetricsLast7Days } = require("../reports/metricsCompute");
+  computeMetricsLast7Days();
+}
+
 async function syncOrdersLiveYesterdayToday() {
   const { aggregateOrdersLive } = require("../reports/ordersLiveService");
   const today = todayItYmd();
@@ -251,6 +256,11 @@ function startSyncCrons() {
   // tick del giorno prima.
   cron.schedule("30 3 * * *", () => runSafe("orders-live-night", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
 
+  // ── OGNI 5 MIN: ricalcolo asin_daily_metrics (ultimi 7 giorni) ──
+  // Compute job che alimenta la tabella denormalizzata letta dalla dashboard.
+  // Aggrega amazon_order_cache + sales_traffic + fees + costi → metrica unica.
+  cron.schedule("*/5 * * * *", () => runSafe("compute-metrics", computeMetrics), { timezone: "Europe/Rome" });
+
   // ── OGNI DOMENICA alle 02:00: Catalog info (titoli + immagini) ──
   cron.schedule("0 2 * * 0", () => runSafe("catalog-info", syncCatalogInfo));
 
@@ -259,6 +269,9 @@ function startSyncCrons() {
 
   // ── Kick-off all'avvio: popola la cache "ieri+oggi" 30s dopo lo start del backend ──
   setTimeout(() => runSafe("orders-live-startup", syncOrdersLiveYesterdayToday), 30_000);
+
+  // ── Kick-off compute metrics 60s dopo lo start (dopo che orders-live ha popolato) ──
+  setTimeout(() => runSafe("compute-metrics-startup", computeMetrics), 60_000);
 
   logger.info("[SyncCron] Sync automatici schedulati:");
   logger.info("  Stock FBA:       ogni 3h (:10)");

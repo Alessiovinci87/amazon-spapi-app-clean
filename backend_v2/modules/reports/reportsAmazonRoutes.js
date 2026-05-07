@@ -487,12 +487,32 @@ router.get("/profitability", (req, res) => {
 
     const periodo = usePeriod ? `${from || "inizio"} — ${to || "oggi"}` : "ultimi 365 giorni (aggregato)";
 
-    // Se ci sono filtri data, usa la stima proporzionale; altrimenti dati annui diretti
+    // Strategia (FASE 1):
+    //  - Con range date: legge dalla tabella denormalizzata asin_daily_metrics,
+    //    popolata dal compute job ogni 5 min. Coerente con Panoramica/Vendite.
+    //  - Senza range: aggregato annuo su sales_traffic (fallback legacy).
     let salesData;
-    if (usePeriod) {
-      salesData = getAsinSalesForPeriod(from || null, to || null, countryFilter);
+    if (usePeriod && from && to) {
+      const countryWhere = countryFilter.length > 0
+        ? ` AND country IN (${countryFilter.map(() => "?").join(",")})` : "";
+      const params = [from, to, ...countryFilter];
+      salesData = db.prepare(`
+        SELECT asin,
+          SUM(units) AS unita,
+          SUM(revenue) AS fatturato,
+          SUM(fee_total) AS fee_total_pre,
+          SUM(cost_total) AS cost_total_pre,
+          SUM(margin) AS margin_pre,
+          0 AS sessioni, 0 AS visualizzazioni
+        FROM asin_daily_metrics
+        WHERE metric_date >= ? AND metric_date <= ?${countryWhere}
+        GROUP BY asin
+      `).all(...params);
+      // Aggiungo sku da prodotti
+      const skuMap = {};
+      db.prepare("SELECT asin, sku FROM amazon_listings WHERE asin IS NOT NULL").all().forEach(r => skuMap[r.asin] = r.sku);
+      salesData = salesData.map(r => ({ ...r, sku: skuMap[r.asin] || "" }));
     } else {
-      // Query diretta su sales_traffic (aggregato annuo)
       let whereExtra = "";
       const stParams = [];
       if (countryFilter.length > 0) {
@@ -550,11 +570,21 @@ router.get("/profitability", (req, res) => {
     ).all().map(r => r.country);
 
     let totRicavi = 0, totFee = 0, totCosti = 0, totUnita = 0;
+    const fromMetrics = !!(usePeriod && from && to);
 
     const prodotti = rows.map((r) => {
-      const feeTotale = (r.fee_media || 0) * (r.unita || 0);
-      const costoTotale = (r.costo_unitario || 0) * (r.unita || 0);
-      const margine = (r.fatturato || 0) - feeTotale - costoTotale;
+      // Se i dati vengono da asin_daily_metrics, fee/cost/margin sono GIÀ
+      // aggregati e precisi (sommati per giorno+country). Altrimenti
+      // calcoliamo on-the-fly da fee_media e costo_unitario.
+      const feeTotale = fromMetrics
+        ? (r.fee_total_pre || 0)
+        : (r.fee_media || 0) * (r.unita || 0);
+      const costoTotale = fromMetrics
+        ? (r.cost_total_pre || 0)
+        : (r.costo_unitario || 0) * (r.unita || 0);
+      const margine = fromMetrics
+        ? (r.margin_pre || 0)
+        : (r.fatturato || 0) - feeTotale - costoTotale;
       const marginePct = r.fatturato > 0 ? Math.round((margine / r.fatturato) * 1000) / 10 : 0;
       const prezzoMedio = r.unita > 0 ? r.fatturato / r.unita : 0;
 
@@ -585,62 +615,11 @@ router.get("/profitability", (req, res) => {
       };
     });
 
-    // Integrazione Orders Live nei KPI totali: per i giorni del range non
-    // ancora coperti da sales_daily (T-2 di Amazon), aggiungiamo il contributo
-    // live dagli ordini cache. Fee e costi vengono stimati con i medi del
-    // periodo già calcolati. La tabella per-ASIN resta su stima proporzionale.
-    let liveApplied = null;
-    if (usePeriod && from && to) {
-      let lastAvail = null;
-      try {
-        lastAvail = db.prepare(`
-          SELECT MIN(d) AS d FROM (SELECT country, MAX(date) AS d FROM sales_daily GROUP BY country)
-        `).get()?.d || null;
-      } catch { lastAvail = null; }
-      let liveFrom = from;
-      if (lastAvail && lastAvail >= from) {
-        const next = new Date(lastAvail + "T00:00:00Z");
-        next.setUTCDate(next.getUTCDate() + 1);
-        liveFrom = next.toISOString().slice(0, 10);
-      }
-      if (liveFrom <= to) {
-        const countryWhereLive = countryFilter.length > 0
-          ? ` AND marketplace_id IN (${countryFilter.map(() => "?").join(",")})` : "";
-        const MP = { IT: "APJ6JRA9NG5V4", FR: "A13V1IB3VIYZZH", ES: "A1RKKUPIHCS9HS", DE: "A1PA6795UKMFR9", UK: "A1F83G8C2ARO7P", NL: "A1805IZSGTT6HS", BE: "AMEN7PMS3EDWL", PL: "A1C3SOZRARQ6R3" };
-        const liveParams = [liveFrom, to, ...countryFilter.map(c => MP[c]).filter(Boolean)];
-        let live = { unita: 0, revenue: 0 };
-        try {
-          live = db.prepare(`
-            SELECT COALESCE(SUM(units), 0) AS unita, COALESCE(SUM(revenue), 0) AS revenue
-            FROM amazon_order_cache
-            WHERE DATE(purchase_date) >= ? AND DATE(purchase_date) <= ?
-              AND COALESCE(status, '') != 'Canceled'${countryWhereLive}
-          `).get(...liveParams) || live;
-        } catch { /* keep zero */ }
-
-        const liveRevenue = live?.revenue || 0;
-        const liveUnits = live?.unita || 0;
-        const feePctMedia = totRicavi > 0 ? totFee / totRicavi : 0;
-        const costoMedioUnit = totUnita > 0 ? totCosti / totUnita : 0;
-
-        totRicavi += liveRevenue;
-        totFee += liveRevenue * feePctMedia;
-        totCosti += liveUnits * costoMedioUnit;
-        totUnita += liveUnits;
-
-        liveApplied = {
-          from: liveFrom, to,
-          units: liveUnits,
-          revenue: Math.round(liveRevenue * 100) / 100,
-        };
-      }
-    }
-
     const totMargine = totRicavi - totFee - totCosti;
 
     res.json({
       ok: true,
-      live_applied: liveApplied,
+      source: fromMetrics ? "asin_daily_metrics" : "sales_traffic_legacy",
       kpi: {
         ricavi_totali: Math.round(totRicavi * 100) / 100,
         fee_totali: Math.round(totFee * 100) / 100,
