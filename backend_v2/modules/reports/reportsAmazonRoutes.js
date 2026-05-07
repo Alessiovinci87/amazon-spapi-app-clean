@@ -85,18 +85,28 @@ router.get("/sales-traffic", async (req, res) => {
 // Query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD
 // Usa sales_daily per totali/trend (dati giornalieri reali da Amazon)
 // Usa sales_traffic per dettaglio ASIN (aggregato intero periodo)
+// Mappa marketplace_id Amazon → country code (allineato a sales_daily.country)
+const MP_ID_TO_CC = {
+  "APJ6JRA9NG5V4": "IT",
+  "A13V1IB3VIYZZH": "FR",
+  "A1RKKUPIHCS9HS": "ES",
+  "A1PA6795UKMFR9": "DE",
+  "A1F83G8C2ARO7P": "UK",
+  "A1805IZSGTT6HS": "NL",
+  "AMEN7PMS3EDWL":  "BE",
+  "A1C3SOZRARQ6R3": "PL",
+};
+
 router.get("/sales-traffic/summary", async (req, res) => {
   try {
     const { getDb } = require("../../db/database");
     const db = getDb();
     const { from, to } = req.query;
 
-    // Filtro date per sales_daily (dati giornalieri)
     const dailyFilter = (from && to) ? "WHERE date >= ? AND date <= ?" : "WHERE 1=1";
     const dateParams = (from && to) ? [from, to] : [];
 
-    // Totali nel periodo (da sales_daily)
-    const totals = db.prepare(`
+    const dailyTotals = db.prepare(`
       SELECT
         COALESCE(SUM(units_ordered), 0) AS unita_totali,
         COALESCE(SUM(ordered_product_sales), 0) AS fatturato_totale,
@@ -108,30 +118,23 @@ router.get("/sales-traffic/summary", async (req, res) => {
       FROM sales_daily ${dailyFilter}
     `).get(...dateParams);
 
-    // Conta ASIN attivi da sales_traffic
     const asinCount = db.prepare(
       "SELECT COUNT(DISTINCT asin) AS cnt FROM sales_traffic WHERE asin != ''"
     ).get();
-    totals.asin_attivi = asinCount?.cnt || 0;
 
-    // Data più recente disponibile nel DB (utile quando il range selezionato non ha dati)
     const lastAvailable = db.prepare(
       "SELECT MAX(date) AS ultima_data FROM sales_daily"
     ).get();
-    totals.ultima_data_disponibile = lastAvailable?.ultima_data || null;
 
-    // Per marketplace (da sales_daily)
-    const perMarketplace = db.prepare(`
+    const dailyPerMarketplace = db.prepare(`
       SELECT country,
         SUM(units_ordered) AS unita,
         SUM(ordered_product_sales) AS fatturato,
         COUNT(DISTINCT date) AS giorni
       FROM sales_daily ${dailyFilter}
       GROUP BY country
-      ORDER BY fatturato DESC
     `).all(...dateParams);
 
-    // Top ASIN per fatturato (da sales_traffic — aggregato periodo intero, no filtro date)
     const topAsin = db.prepare(`
       SELECT st.asin, st.sku,
         SUM(st.units_ordered) AS unita,
@@ -148,8 +151,7 @@ router.get("/sales-traffic/summary", async (req, res) => {
       LIMIT 50
     `).all();
 
-    // Per data — trend giornaliero (da sales_daily)
-    const perData = db.prepare(`
+    const dailyPerData = db.prepare(`
       SELECT date,
         SUM(units_ordered) AS unita,
         SUM(ordered_product_sales) AS fatturato,
@@ -158,6 +160,93 @@ router.get("/sales-traffic/summary", async (req, res) => {
       GROUP BY date
       ORDER BY date ASC
     `).all(...dateParams);
+
+    // Fallback Orders Live: Amazon pubblica sales_daily con T-2,
+    // quindi per i giorni del range non ancora consolidati leggiamo
+    // da amazon_order_cache (Orders API near-real-time).
+    const livePerData = [];
+    const livePerMarketplace = {};
+    const liveTotals = { unita: 0, fatturato: 0, ordini: 0, countries: new Set() };
+
+    if (from && to) {
+      const allDates = [];
+      const cursor = new Date(from + "T00:00:00Z");
+      const endDate = new Date(to + "T00:00:00Z");
+      while (cursor <= endDate) {
+        allDates.push(cursor.toISOString().slice(0, 10));
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+      const coveredDates = new Set(dailyPerData.map((r) => r.date));
+      const missingDates = allDates.filter((d) => !coveredDates.has(d));
+
+      if (missingDates.length > 0) {
+        const placeholders = missingDates.map(() => "?").join(",");
+        const liveRows = db.prepare(`
+          SELECT marketplace_id, DATE(purchase_date) AS date,
+            COUNT(*) AS ordini,
+            COALESCE(SUM(units), 0) AS unita,
+            COALESCE(SUM(revenue), 0) AS fatturato
+          FROM amazon_order_cache
+          WHERE DATE(purchase_date) IN (${placeholders})
+            AND COALESCE(status, '') != 'Canceled'
+          GROUP BY marketplace_id, DATE(purchase_date)
+        `).all(...missingDates);
+
+        const byDate = {};
+        for (const r of liveRows) {
+          const country = MP_ID_TO_CC[r.marketplace_id];
+          if (!country) continue;
+          liveTotals.unita += r.unita;
+          liveTotals.fatturato += r.fatturato;
+          liveTotals.ordini += r.ordini;
+          liveTotals.countries.add(country);
+
+          if (!byDate[r.date]) {
+            byDate[r.date] = { date: r.date, unita: 0, fatturato: 0, sessioni: 0, is_live: 1 };
+          }
+          byDate[r.date].unita += r.unita;
+          byDate[r.date].fatturato += r.fatturato;
+
+          if (!livePerMarketplace[country]) {
+            livePerMarketplace[country] = { country, unita: 0, fatturato: 0, giorni: 0 };
+          }
+          livePerMarketplace[country].unita += r.unita;
+          livePerMarketplace[country].fatturato += r.fatturato;
+          livePerMarketplace[country].giorni += 1;
+        }
+        livePerData.push(...Object.values(byDate));
+      }
+    }
+
+    const dailyCountries = new Set(dailyPerMarketplace.map((r) => r.country));
+    const allCountries = new Set([...dailyCountries, ...liveTotals.countries]);
+
+    const totals = {
+      unita_totali: (dailyTotals.unita_totali || 0) + liveTotals.unita,
+      fatturato_totale: Math.round(((dailyTotals.fatturato_totale || 0) + liveTotals.fatturato) * 100) / 100,
+      marketplace_attivi: allCountries.size,
+      giorni_con_dati: (dailyTotals.giorni_con_dati || 0) + livePerData.length,
+      data_inizio: dailyTotals.data_inizio,
+      data_fine: dailyTotals.data_fine,
+      ordini_totali: (dailyTotals.ordini_totali || 0) + liveTotals.ordini,
+      asin_attivi: asinCount?.cnt || 0,
+      ultima_data_disponibile: lastAvailable?.ultima_data || null,
+      live_days_count: livePerData.length,
+    };
+
+    const mergedPerMarketplace = {};
+    for (const r of dailyPerMarketplace) mergedPerMarketplace[r.country] = { ...r };
+    for (const r of Object.values(livePerMarketplace)) {
+      if (!mergedPerMarketplace[r.country]) {
+        mergedPerMarketplace[r.country] = { country: r.country, unita: 0, fatturato: 0, giorni: 0 };
+      }
+      mergedPerMarketplace[r.country].unita += r.unita;
+      mergedPerMarketplace[r.country].fatturato += r.fatturato;
+      mergedPerMarketplace[r.country].giorni += r.giorni;
+    }
+    const perMarketplace = Object.values(mergedPerMarketplace).sort((a, b) => b.fatturato - a.fatturato);
+
+    const perData = [...dailyPerData, ...livePerData].sort((a, b) => a.date.localeCompare(b.date));
 
     res.json({ ok: true, totals, perMarketplace, topAsin, perData });
   } catch (err) {

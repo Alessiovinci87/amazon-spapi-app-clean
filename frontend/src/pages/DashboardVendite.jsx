@@ -418,15 +418,33 @@ const DashboardVendite = () => {
                       <tbody className="divide-y divide-slate-800/50">
                         {perData.map((d) => (
                           <tr key={d.date} className="hover:bg-slate-800/30 transition-colors">
-                            <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{fmtDate(d.date)}</td>
+                            <td className="px-4 py-3 text-slate-300 whitespace-nowrap">
+                              {fmtDate(d.date)}
+                              {d.is_live ? (
+                                <span
+                                  className="ml-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-400/10 text-amber-300 border border-amber-400/30"
+                                  title="Dato in tempo reale (Orders API). Si consoliderà automaticamente quando Amazon pubblicherà il report ufficiale (T-2)."
+                                >
+                                  LIVE
+                                </span>
+                              ) : null}
+                            </td>
                             <td className="px-4 py-3 text-right text-emerald-400 font-semibold tabular-nums">{fmtEuro(d.fatturato)}</td>
                             <td className="px-4 py-3 text-right text-blue-400 tabular-nums">{fmtNum(d.unita)}</td>
-                            <td className="px-4 py-3 text-right text-slate-400 tabular-nums">{fmtNum(d.sessioni)}</td>
+                            <td className="px-4 py-3 text-right text-slate-400 tabular-nums">
+                              {d.is_live ? <span className="text-slate-600">—</span> : fmtNum(d.sessioni)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                  {totals.live_days_count > 0 && (
+                    <div className="px-5 py-3 border-t border-slate-800 bg-slate-900/40 text-[11px] text-slate-400">
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-400/10 text-amber-300 border border-amber-400/30 mr-2">LIVE</span>
+                      = giorno in tempo reale dagli ordini (Orders API). Si consolida quando Amazon pubblica il report ufficiale (T-2). Le sessioni non sono disponibili in tempo reale.
+                    </div>
+                  )}
                 </div>
               </div>
             )}
