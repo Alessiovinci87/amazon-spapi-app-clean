@@ -45,7 +45,14 @@ function shiftRangeBack(from, to) {
   return { from: fmtDate(shiftFrom), to: fmtDate(shiftTo) };
 }
 
-function aggregateSales(db, from, to) {
+function aggregateSales(db, from, to, capDate) {
+  // capDate: ultima data per cui sales_daily è completo per TUTTI i marketplace.
+  // I giorni successivi vengono coperti da Orders Live a livello di endpoint,
+  // quindi qui li dobbiamo escludere per non contare due volte.
+  const effectiveTo = capDate && capDate < to ? capDate : to;
+  if (effectiveTo < from) {
+    return { totale: { units: 0, revenue: 0, orders: 0, giorni_dati: 0 }, per_country: [] };
+  }
   const totale = safe(() => db.prepare(`
     SELECT
       COALESCE(SUM(units_ordered), 0)         AS units,
@@ -54,7 +61,7 @@ function aggregateSales(db, from, to) {
       COUNT(DISTINCT date)                    AS giorni_dati
     FROM sales_daily
     WHERE date >= ? AND date <= ?
-  `).get(from, to), { units: 0, revenue: 0, orders: 0, giorni_dati: 0 });
+  `).get(from, effectiveTo), { units: 0, revenue: 0, orders: 0, giorni_dati: 0 });
 
   const per_country = safe(() => db.prepare(`
     SELECT country,
@@ -65,7 +72,7 @@ function aggregateSales(db, from, to) {
     WHERE date >= ? AND date <= ?
     GROUP BY country
     ORDER BY revenue DESC
-  `).all(from, to), []);
+  `).all(from, effectiveTo), []);
 
   return { totale, per_country };
 }
@@ -225,17 +232,27 @@ function buildAlertsAndOps() {
 function buildOverview({ from, to }) {
   const db = getDb();
 
-  // KPI sul periodo richiesto
-  const sales = aggregateSales(db, from, to);
+  // Ultimo giorno COMPLETO in sales_daily: il MAX(date) globale può essere
+  // raggiunto solo da alcuni paesi (Amazon pubblica il report con tempi
+  // diversi per marketplace). Usiamo MIN(MAX(date)) per paese, così garantiamo
+  // che TUTTI i marketplace attivi siano coperti da sales_daily fino a quella
+  // data. Per i giorni successivi useremo Orders Live.
+  const lastAvailable = safe(() =>
+    db.prepare(`
+      SELECT MIN(d) AS d FROM (
+        SELECT country, MAX(date) AS d FROM sales_daily GROUP BY country
+      )
+    `).get()?.d, null);
+
+  // KPI sul periodo richiesto. aggregateSales legge sales_daily fino a
+  // lastAvailable (incluso); i giorni successivi vengono coperti dal merge
+  // con Orders Live più sotto nell'endpoint.
+  const sales = aggregateSales(db, from, to, lastAvailable);
   const prevRange = shiftRangeBack(from, to);
-  const salesPrev = aggregateSales(db, prevRange.from, prevRange.to);
+  const salesPrev = aggregateSales(db, prevRange.from, prevRange.to, lastAvailable);
   const resi = aggregateReturns(db, from, to);
   const resiPrev = aggregateReturns(db, prevRange.from, prevRange.to);
   const resiCountry = aggregateReturnsByCountry(db, from, to);
-
-  // Ultimo giorno disponibile in sales_daily (= "fresh until")
-  const lastAvailable = safe(() =>
-    db.prepare("SELECT MAX(date) AS d FROM sales_daily").get()?.d, null);
 
   // KPI top-level
   const totale = sales.totale;
