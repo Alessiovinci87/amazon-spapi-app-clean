@@ -371,7 +371,12 @@ async function aggregateOrdersLive({ from, to }) {
     "x-amz-access-token": access_token,
   };
 
-  for (const mp of MARKETPLACES) {
+  for (let mpIdx = 0; mpIdx < MARKETPLACES.length; mpIdx++) {
+    const mp = MARKETPLACES[mpIdx];
+    // Sleep tra marketplace per non saturare il quota burst Amazon (20 req).
+    // 8 marketplace × ≥1 chiamata /orders + N /orderItems possono saturare
+    // facilmente. 4s è il valore raccomandato (Pics-Keeper).
+    if (mpIdx > 0) await sleep(4000);
     let orders = [];
     try {
       const r = await fetchOrdersForMarketplace(mp.id, from, to);
