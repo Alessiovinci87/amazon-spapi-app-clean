@@ -196,8 +196,11 @@ async function enrichOrderWithItems(order, headers, db) {
   ).get(orderId);
 
   if (cached && cached.units != null && cached.revenue != null) {
+    // units=0 con status finale è dato corrotto (race condition o errore al primo
+    // fetch): forza il rifetch indipendentemente dallo status.
+    const looksCorrupted = cached.units === 0 && cached.revenue === 0;
     const isFinal = FINAL_STATUSES.has(cached.status);
-    if (isFinal) {
+    if (isFinal && !looksCorrupted) {
       return {
         revenue: cached.revenue,
         units: cached.units,
@@ -205,10 +208,9 @@ async function enrichOrderWithItems(order, headers, db) {
         currency: cached.currency,
       };
     }
-    // Pending in cache: rifetch solo se vecchio
     const fetchedAt = cached.items_fetched_at
       ? new Date(cached.items_fetched_at.replace(" ", "T")).getTime() : 0;
-    if (Date.now() - fetchedAt < PENDING_REFRESH_MS) {
+    if (!looksCorrupted && Date.now() - fetchedAt < PENDING_REFRESH_MS) {
       return {
         revenue: cached.revenue,
         units: cached.units,
