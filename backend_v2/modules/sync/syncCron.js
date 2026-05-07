@@ -80,9 +80,11 @@ async function syncAlertCheck() {
 }
 
 // ─── Sales & Traffic report (giornaliero) ────────────────
+// force=true: ignora il check "<12h fa, skip" interno — il cron deve sempre
+// andare in fondo, anche se c'e' stato un sync manuale poco prima.
 async function syncSalesTraffic() {
   const { aggiornaSalesTraffic } = require("../reports/salesTrafficService");
-  await aggiornaSalesTraffic();
+  await aggiornaSalesTraffic({ force: true });
 }
 
 // ─── FBA Stock Report (alternativo, piu completo) ────────
@@ -195,8 +197,11 @@ function startSyncCrons() {
   // ── OGNI 3 ORE: Alert check (offset 50min, dopo stock+prezzi) ──
   cron.schedule("50 */3 * * *", () => runSafe("alert-check", syncAlertCheck));
 
-  // ── OGNI GIORNO alle 6:30: Vendite/Traffico (report del giorno prima) ──
-  cron.schedule("30 6 * * *", () => runSafe("sales-traffic", syncSalesTraffic));
+  // ── OGNI GIORNO alle 6:30 e 22:00: Vendite/Traffico ──
+  // 06:30 = primo tentativo del giorno, 22:00 = retry quando il dato T-2
+  // di Amazon e' effettivamente disponibile (a volte non lo e' la mattina).
+  cron.schedule("30 6 * * *", () => runSafe("sales-traffic", syncSalesTraffic), { timezone: "Europe/Rome" });
+  cron.schedule("0 22 * * *", () => runSafe("sales-traffic-evening", syncSalesTraffic), { timezone: "Europe/Rome" });
 
   // ── OGNI GIORNO alle 4:00: FBA Stock Report completo (Pan-EU pool) ──
   cron.schedule("0 4 * * *", () => runSafe("fba-stock-report", syncFBAStockReport));
@@ -245,7 +250,7 @@ function startSyncCrons() {
   logger.info("  Stock FBA:       ogni 3h (:10)");
   logger.info("  Prezzi+BuyBox:   ogni 3h (:30)");
   logger.info("  Alert check:     ogni 3h (:50)");
-  logger.info("  Sales/Traffic:   06:30 giornaliero");
+  logger.info("  Sales/Traffic:   06:30 + 22:00 giornaliero");
   logger.info("  FBA Stock Report: 04:00 giornaliero");
   logger.info("  Stock Ledger:    04:30 giornaliero (per paese fisico)");
   logger.info("  FBA Fees:        05:00 giornaliero");

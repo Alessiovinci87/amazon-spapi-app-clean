@@ -8,8 +8,9 @@ const { MARKETPLACES, syncMarketplaceFeedback } = require("./feedbackService");
 
 let isRunning = false;
 
-// Ogni 4 ore di default; override via FEEDBACK_CRON env
-const SCHEDULE = process.env.FEEDBACK_CRON || "0 */4 * * *";
+// Ogni 4 ore di default; offset :15 per non collidere con i cron Reports
+// schedulati a :00 (es. fba-stock-report alle 04:00 saturava la quota)
+const SCHEDULE = process.env.FEEDBACK_CRON || "15 */4 * * *";
 const DAYS     = Number(process.env.FEEDBACK_CRON_DAYS) || 30; // finestra corta per essere rapidi
 
 async function eseguiCiclo() {

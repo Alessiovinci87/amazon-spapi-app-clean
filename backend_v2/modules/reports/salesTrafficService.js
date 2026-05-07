@@ -91,8 +91,10 @@ async function checkExistingReport(access_token, marketplaceId) {
 }
 
 // Aggiorna dati di vendita e traffico
-async function aggiornaSalesTraffic() {
-  logger.info("[SalesTraffic] Avvio aggiornamento...");
+// force=true bypassa il check "skip se aggiornato <12h fa" (usato dai cron schedulati,
+// che devono sempre andare in fondo per pescare il dato T-2 di Amazon).
+async function aggiornaSalesTraffic({ force = false } = {}) {
+  logger.info(`[SalesTraffic] Avvio aggiornamento${force ? " (force)" : ""}...`);
   ensureTable();
 
   const db = getDb();
@@ -119,7 +121,7 @@ async function aggiornaSalesTraffic() {
       "SELECT COUNT(DISTINCT date) AS days FROM sales_daily WHERE country = ?"
     ).get(country);
 
-    if (dataCount && dataCount.days >= 30) {
+    if (!force && dataCount && dataCount.days >= 30) {
       const lastUpdate = db.prepare(
         "SELECT MAX(created_at) AS last_ts FROM sales_daily WHERE country = ?"
       ).get(country);
