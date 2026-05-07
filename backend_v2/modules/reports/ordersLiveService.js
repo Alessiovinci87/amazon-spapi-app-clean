@@ -158,7 +158,10 @@ async function fetchOrdersForMarketplace(marketplaceId, fromYmd, toYmd) {
     } catch (err) {
       const status = err.response?.status;
       if (status === 429) {
-        await sleep(60_000);
+        // 5s è sufficiente: Amazon ricarica il quota burst rapidamente.
+        // 60s era eccessivo e bloccava il flusso, talvolta peggiorando la
+        // congestione perché altri marketplace nel loop saturavano nel mentre.
+        await sleep(5_000);
         continue;
       }
       throw err;
@@ -247,7 +250,7 @@ async function enrichOrderWithItems(order, headers, db) {
         if (pages > 5) break;
       } catch (err) {
         const code = err.response?.status;
-        if (code === 429) { await sleep(30_000); continue; }
+        if (code === 429) { await sleep(5_000); continue; }
         logger.warn(
           { err: err.response?.data || err.message, orderId },
           "[OrdersLive] errore getOrderItems"
