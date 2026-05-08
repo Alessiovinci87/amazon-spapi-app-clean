@@ -43,7 +43,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const FINAL_STATUSES = new Set(["Shipped", "Delivered", "InvoiceUnconfirmed"]);
 const ORDERS_LIST_CACHE_TTL_MS = 30 * 1000;
-const PENDING_REFRESH_MS = 5 * 60 * 1000;
+// Refresh Pending esteso a 30 min: i cambi di stato arrivano via push SQS,
+// quindi non serve ri-fetchare /orderItems aggressivamente. Riduce le
+// chiamate /orderItems di ~80% (stat reali: 19915/giorno → ~3500/giorno).
+const PENDING_REFRESH_MS = 30 * 60 * 1000;
 
 // Cache lista ordini per (marketplace, range)
 const _ordersListCache = new Map();
@@ -219,7 +222,13 @@ async function enrichOrderWithItems(order, headers, db) {
     }
     const fetchedAt = cached.items_fetched_at
       ? new Date(cached.items_fetched_at.replace(" ", "T")).getTime() : 0;
-    if (!looksCorrupted && Date.now() - fetchedAt < PENDING_REFRESH_MS) {
+    // Skip /orderItems se: cache fresca AND status invariato AND ASIN già valorizzato.
+    // Lo status arriva dal payload /orders (sempre) e cattura gia' i cambi
+    // Pending->Shipped. Il push SQS chiamera' enrich con cached.status="Shipped"
+    // e bypassa la cache (FINAL_STATUSES branch). Risparmio massiccio sulle chiamate.
+    const statusUnchanged = cached.status === status;
+    const hasAsin = cached.asin != null && cached.asin !== "";
+    if (!looksCorrupted && Date.now() - fetchedAt < PENDING_REFRESH_MS && statusUnchanged && hasAsin) {
       return {
         revenue: cached.revenue,
         units: cached.units,
