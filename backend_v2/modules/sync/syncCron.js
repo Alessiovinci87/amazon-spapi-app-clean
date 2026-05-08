@@ -284,7 +284,8 @@ function startSyncCrons() {
   logger.info("  FBA Fees:        05:00 giornaliero");
   logger.info("  Resi FBA:        05:30 giornaliero");
   logger.info("  ASIN Daily:      07:00 giornaliero");
-  logger.info("  Orders Live tick: ogni 5min 08-23 (ieri+oggi)");
+  logger.info("  Orders Live today: ogni ora 08-23 (safety net, push SQS primario)");
+  logger.info("  Orders Live tick: ogni 6h (safety net, push SQS primario)");
   logger.info("  Orders Live notte: 03:30 (ieri+oggi)");
   logger.info("  Catalog info:    02:00 domenica");
   logger.info("  Listing cache:   03:00 domenica");
