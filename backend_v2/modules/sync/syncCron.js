@@ -241,15 +241,16 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
   cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));
 
-  // ── OGNI 2 MIN tra 08:00 e 23:59: tick aggressivo SOLO "oggi" ──
-  // Tick leggero (1 giorno × 8 marketplace) per allinearsi a Shopkeeper sui
-  // numeri "live" del giorno corrente. Completa in ~30-60s.
-  cron.schedule("*/2 8-23 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
+  // ── OGNI ORA tra 08:00 e 23:59: backup "oggi" ──
+  // Da 2026-05-08 il flusso primario di refresh ordini avviene via SP-API
+  // Notifications push (worker SQS): qui restiamo come safety net se la coda
+  // perde messaggi o se il worker è giù. Era */2 prima del setup notifiche.
+  cron.schedule("0 8-23 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
 
-  // ── OGNI 15 MIN tra 08:00 e 23:59: tick "ieri + oggi" ──
-  // Più rado, perché "ieri" cambia lentamente (Pending tardivi che si
-  // confermano in Shipped). 2 giorni × 8 marketplace.
-  cron.schedule("*/15 8-23 * * *", () => runSafe("orders-live-tick", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
+  // ── OGNI 6 ORE tra 08:00 e 23:59: backup "ieri + oggi" ──
+  // Era */15 prima del setup notifiche. Cattura Pending tardivi che si
+  // confermano in Shipped e che il worker SQS dovrebbe già avere processato.
+  cron.schedule("0 */6 * * *", () => runSafe("orders-live-tick", syncOrdersLiveYesterdayToday), { timezone: "Europe/Rome" });
 
   // ── OGNI GIORNO alle 03:30: consolidamento notturno (ieri + oggi) ──
   // Pesca eventuali ordini delle ultime ore di ieri non catturati dall'ultimo
