@@ -2,7 +2,7 @@
 // Strategia: Network First per tutto (dev-friendly)
 // La cache serve solo come fallback offline
 
-const CACHE_NAME = "nexus-v3";
+const CACHE_NAME = "nexus-v4-2026-05-08";
 const STATIC_ASSETS = ["/", "/index.html"];
 
 // Install: pre-cache della shell
