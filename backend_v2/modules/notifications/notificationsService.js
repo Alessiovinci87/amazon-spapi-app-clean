@@ -19,17 +19,18 @@ const SCOPE = "sellingpartnerapi::notifications";
 const DEFAULT_DESTINATION_NAME = "picsnails-spapi";
 
 // Tipi che vogliamo ricevere come push real-time. Ogni tipo va sottoscritto
-// separatamente. Tenuti solo i tipi effettivamente abilitati per l'app:
-//   - ORDER_STATUS_CHANGE: vendite live (cuore del setup, sostituisce
-//     ORDER_CHANGE che richiede onboarding non posseduto)
+// separatamente.
+//   - NEW_ORDER: nuovi ordini in tempo reale (push 1-2s) — chiave per
+//     allineamento Shopkeeper-grade. Richiede ruolo specifico SP-API.
+//   - ORDER_STATUS_CHANGE: cambi di stato (Pending->Shipped) sempre utile
 //   - ANY_OFFER_CHANGED: prezzi competitor
-// Esclusi (testati e non autorizzati / non abilitati):
-//   - ORDER_CHANGE (InvalidInput su qualsiasi payload)
-//   - LISTINGS_ITEM_STATUS_CHANGE / LISTINGS_ITEM_ISSUES_CHANGE
-//   - MFN_ORDER_STATUS_CHANGE (richiede ruolo Direct-to-Consumer Shipping)
+//   - MFN_ORDER_STATUS_CHANGE: solo se vendiamo FBM (richiede ruolo Direct
+//     to Consumer Shipping). Lasciato qui, fallback se non autorizzato è ok.
 const DEFAULT_TYPES = [
+  "NEW_ORDER",
   "ORDER_STATUS_CHANGE",
   "ANY_OFFER_CHANGED",
+  "MFN_ORDER_STATUS_CHANGE",
 ];
 
 // Marketplace IDs EU (allineati a ordersLiveService.MARKETPLACES).

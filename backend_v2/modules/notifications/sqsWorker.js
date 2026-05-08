@@ -123,10 +123,52 @@ async function handleAnyOfferChanged(notification) {
   logger.info({ asin, marketplaceId }, "[SQS] ANY_OFFER_CHANGED ricevuto");
 }
 
+async function handleNewOrder(notification) {
+  // Payload NEW_ORDER:
+  // { Payload: { OrderNotification: { AmazonOrderId, OrderStatus,
+  //   PurchaseDate, MarketplaceID, ... } } }
+  const inner = notification?.Payload?.OrderNotification;
+  const orderId = inner?.AmazonOrderId;
+  if (!orderId) {
+    logger.warn({ notification }, "[SQS] NEW_ORDER senza AmazonOrderId");
+    return;
+  }
+  logger.info({ orderId, status: inner?.OrderStatus }, "[SQS] NEW_ORDER ricevuto");
+
+  // Stessa logica di ORDER_STATUS_CHANGE: fetch dettagli + enrich + upsert
+  const order = await fetchOrderById(orderId);
+  if (!order || !order.AmazonOrderId) {
+    logger.warn({ orderId }, "[SQS] fetchOrderById non ha restituito un ordine");
+    return;
+  }
+  const { access_token } = await getAccessToken();
+  const headers = {
+    Authorization: `Bearer ${access_token}`,
+    "x-amz-access-token": access_token,
+  };
+  const db = getDb();
+  const enriched = await enrichOrderWithItems(order, headers, db);
+  logger.info(
+    {
+      orderId,
+      status: order.OrderStatus,
+      units: enriched.units,
+      revenue: enriched.revenue,
+      currency: enriched.currency,
+    },
+    "[SQS] new order upserted in cache"
+  );
+  scheduleMetricsCompute();
+}
+
 async function dispatch(notification) {
   const type = notification?.NotificationType;
   switch (type) {
+    case "NEW_ORDER":
+      await handleNewOrder(notification);
+      break;
     case "ORDER_STATUS_CHANGE":
+    case "MFN_ORDER_STATUS_CHANGE":
       await handleOrderStatusChange(notification);
       break;
     case "ANY_OFFER_CHANGED":
