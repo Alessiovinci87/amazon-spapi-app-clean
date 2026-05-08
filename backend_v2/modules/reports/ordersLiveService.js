@@ -502,6 +502,23 @@ function readOrdersLiveFromCache({ from, to }) {
 }
 
 // === Background refresh: fire-and-forget per non bloccare l'endpoint ===
+/**
+ * Fetch di un singolo ordine via /orders/v0/orders/{orderId}.
+ * Usato dal worker SQS per processare notifiche ORDER_STATUS_CHANGE.
+ * Ritorna l'oggetto Order normalizzato (stesso shape di quelli in fetchOrdersForMarketplace).
+ */
+async function fetchOrderById(orderId) {
+  if (!orderId) throw new Error("orderId richiesto");
+  const { access_token } = await getAccessToken();
+  const headers = {
+    Authorization: `Bearer ${access_token}`,
+    "x-amz-access-token": access_token,
+  };
+  const url = `${BASE_URL}/orders/v0/orders/${encodeURIComponent(orderId)}`;
+  const res = await axios.get(url, { headers, timeout: 30_000 });
+  return res.data?.payload || null;
+}
+
 let _bgRefreshing = new Set();
 async function refreshLiveInBackground({ from, to }) {
   const key = `${from}|${to}`;
@@ -525,6 +542,7 @@ function isBgRefreshing({ from, to }) {
 module.exports = {
   aggregateOrdersLive,
   fetchOrdersForMarketplace,
+  fetchOrderById,
   enrichOrderWithItems,
   readOrdersLiveFromCache,
   refreshLiveInBackground,

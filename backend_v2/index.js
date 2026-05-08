@@ -441,6 +441,13 @@ async function bootstrap() {
   // Cron 17TRACK (ogni 30 min): refresh tracking pendenti registrati nelle ultime 48h
   const { startTracking17Cron } = require("./modules/tracking17/tracking17Cron");
   startTracking17Cron();
+
+  // Worker SP-API Notifications via SQS (push real-time per ORDER_STATUS_CHANGE
+  // e ANY_OFFER_CHANGED). Si avvia solo se le credenziali AWS sono configurate.
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_ACCOUNT_ID) {
+    const { startSqsWorker } = require("./modules/notifications/sqsWorker");
+    startSqsWorker();
+  }
 }
 
 bootstrap().catch((err) => {
