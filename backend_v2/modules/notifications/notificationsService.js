@@ -4,12 +4,14 @@
 //   1. createDestination(queueArn) — registra la coda SQS come destination
 //      (richiede grantless token, scope sellingpartnerapi::notifications)
 //   2. createSubscription(type, destinationId) — sottoscrive un notification
-//      type (es. ORDER_CHANGE) a quella destination
+//      type (es. ORDER_CHANGE) a quella destination. La maggior parte dei tipi
+//      seller-specific richiedono il token REGOLARE (refresh_token-based), non
+//      quello grantless: solo destination/listDestinations usano grantless.
 //
 // Tutte le funzioni "ensure*" sono idempotenti: se esiste già le riusano.
 
 const axios = require("axios");
-const { getGrantlessToken } = require("../auth/authService");
+const { getAccessToken, getGrantlessToken } = require("../auth/authService");
 const logger = require("../../utils/logger");
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
@@ -26,7 +28,7 @@ const DEFAULT_TYPES = [
   "MFN_ORDER_STATUS_CHANGE",
 ];
 
-async function spapiHeaders() {
+async function spapiHeadersGrantless() {
   const { access_token } = await getGrantlessToken(SCOPE);
   return {
     Authorization: `Bearer ${access_token}`,
@@ -35,8 +37,17 @@ async function spapiHeaders() {
   };
 }
 
+async function spapiHeadersRegular() {
+  const { access_token } = await getAccessToken();
+  return {
+    Authorization: `Bearer ${access_token}`,
+    "x-amz-access-token": access_token,
+    "Content-Type": "application/json",
+  };
+}
+
 async function listDestinations() {
-  const headers = await spapiHeaders();
+  const headers = await spapiHeadersGrantless();
   const r = await axios.get(`${BASE_URL}/notifications/v1/destinations`, {
     headers, timeout: 30_000,
   });
@@ -44,7 +55,7 @@ async function listDestinations() {
 }
 
 async function createDestination({ name, queueArn }) {
-  const headers = await spapiHeaders();
+  const headers = await spapiHeadersGrantless();
   const body = {
     name,
     resourceSpecification: { sqs: { arn: queueArn } },
@@ -70,7 +81,7 @@ async function ensureDestination(queueArn, name = DEFAULT_DESTINATION_NAME) {
 }
 
 async function getSubscription(notificationType, payloadVersion = "1.0") {
-  const headers = await spapiHeaders();
+  const headers = await spapiHeadersRegular();
   try {
     const r = await axios.get(
       `${BASE_URL}/notifications/v1/subscriptions/${notificationType}`,
@@ -84,7 +95,7 @@ async function getSubscription(notificationType, payloadVersion = "1.0") {
 }
 
 async function createSubscription(notificationType, destinationId, payloadVersion = "1.0") {
-  const headers = await spapiHeaders();
+  const headers = await spapiHeadersRegular();
   const body = { payloadVersion, destinationId };
   const r = await axios.post(
     `${BASE_URL}/notifications/v1/subscriptions/${notificationType}`,
