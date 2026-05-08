@@ -19,13 +19,17 @@ const SCOPE = "sellingpartnerapi::notifications";
 const DEFAULT_DESTINATION_NAME = "picsnails-spapi";
 
 // Tipi che vogliamo ricevere come push real-time. Ogni tipo va sottoscritto
-// separatamente. Il primo target è ORDER_CHANGE (vendite live).
-// MFN_ORDER_STATUS_CHANGE escluso: richiede ruolo Direct-to-Consumer Shipping.
+// separatamente. Tenuti solo i tipi effettivamente abilitati per l'app:
+//   - ORDER_STATUS_CHANGE: vendite live (cuore del setup, sostituisce
+//     ORDER_CHANGE che richiede onboarding non posseduto)
+//   - ANY_OFFER_CHANGED: prezzi competitor
+// Esclusi (testati e non autorizzati / non abilitati):
+//   - ORDER_CHANGE (InvalidInput su qualsiasi payload)
+//   - LISTINGS_ITEM_STATUS_CHANGE / LISTINGS_ITEM_ISSUES_CHANGE
+//   - MFN_ORDER_STATUS_CHANGE (richiede ruolo Direct-to-Consumer Shipping)
 const DEFAULT_TYPES = [
-  "ORDER_CHANGE",
+  "ORDER_STATUS_CHANGE",
   "ANY_OFFER_CHANGED",
-  "LISTINGS_ITEM_STATUS_CHANGE",
-  "LISTINGS_ITEM_ISSUES_CHANGE",
 ];
 
 // Marketplace IDs EU (allineati a ordersLiveService.MARKETPLACES).
@@ -40,35 +44,11 @@ const EU_MARKETPLACE_IDS = [
   "A1C3SOZRARQ6R3", // PL
 ];
 
-// processingDirective specifico per tipo. I tipi mancanti non richiedono
-// processingDirective (es. ANY_OFFER_CHANGED).
-function buildProcessingDirective(notificationType, marketplaceIds = EU_MARKETPLACE_IDS) {
-  switch (notificationType) {
-    case "ORDER_CHANGE":
-      return {
-        eventFilter: {
-          eventFilterType: "ORDER_CHANGE",
-          marketplaceIds,
-          orderChangeTypes: ["BuyerRequestedChange", "OrderStatusChange"],
-        },
-      };
-    case "LISTINGS_ITEM_STATUS_CHANGE":
-      return {
-        eventFilter: {
-          eventFilterType: "LISTINGS_ITEM_STATUS_CHANGE",
-          marketplaceIds,
-        },
-      };
-    case "LISTINGS_ITEM_ISSUES_CHANGE":
-      return {
-        eventFilter: {
-          eventFilterType: "LISTINGS_ITEM_ISSUES_CHANGE",
-          marketplaceIds,
-        },
-      };
-    default:
-      return null;
-  }
+// processingDirective specifico per tipo. I tipi default (ORDER_STATUS_CHANGE,
+// ANY_OFFER_CHANGED) non richiedono directive. La funzione resta pronta per
+// futuri tipi che ne avranno bisogno.
+function buildProcessingDirective(_notificationType, _marketplaceIds = EU_MARKETPLACE_IDS) {
+  return null;
 }
 
 async function spapiHeadersGrantless() {
