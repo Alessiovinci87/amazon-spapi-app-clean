@@ -229,13 +229,12 @@ async function enrichOrderWithItems(order, headers, db) {
     }
   }
 
-  // /orderItems serve solo per il breakdown per-item (ASIN, item_price, tax, ship, promo).
-  // Per ordini Pending è quasi sempre vuoto: skippiamo, useremo OrderTotal/NumberOfItems
-  // dal payload /orders (già letti sopra). Quando l'ordine passa a Shipped, il prossimo
-  // ciclo di refresh chiamerà /orderItems normalmente.
+  // /orderItems lo chiamiamo SEMPRE: anche per ordini Pending Amazon ritorna
+  // ASIN/Title/Quantity (solo ItemPrice è null finché il pagamento non è
+  // confermato). Senza ASIN non possiamo aggregare per profittabilità.
   const items = [];
   let getItemsFailed = false;
-  if (status !== "Pending") {
+  {
     let nextToken = null;
     let pages = 0;
     do {
@@ -296,6 +295,21 @@ async function enrichOrderWithItems(order, headers, db) {
   else if (fromItems > 0) revenue = fromItems;
   revenue = Math.round(revenue * 100) / 100;
 
+  // Strategia "alla Shopkeeper" per gli ordini Pending: Amazon non rilascia
+  // ItemPrice/OrderTotal finché il pagamento non è confermato (~30 min).
+  // Stimiamo revenue = prezzo del listing × units e marchiamo isPendingPriced.
+  // Quando l'ordine passa a Shipped, un ciclo successivo sovrascrive con il
+  // valore Amazon-confermato e isPendingPriced torna a 0.
+  let isPendingPriced = false;
+  if (revenue === 0 && firstAsin && units > 0) {
+    const listing = getListingPrice(db, firstAsin, marketplaceId);
+    if (listing && listing.prezzo > 0) {
+      revenue = Math.round(listing.prezzo * units * 100) / 100;
+      isPendingPriced = true;
+      if (listing.currency && !currency) currency = listing.currency;
+    }
+  }
+
   itemPrice = Math.round(itemPrice * 100) / 100;
   itemTax = Math.round(itemTax * 100) / 100;
   shippingPrice = Math.round(shippingPrice * 100) / 100;
@@ -345,7 +359,7 @@ async function enrichOrderWithItems(order, headers, db) {
       units,
       revenue,
       currency || null,
-      isPendingNoPrice ? 1 : 0,
+      isPendingPriced ? 1 : 0,
       itemPrice,
       itemTax,
       shippingPrice,
