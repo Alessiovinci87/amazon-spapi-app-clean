@@ -303,8 +303,8 @@ async function enrichOrderWithItems(order, headers, db) {
   let isPendingPriced = false;
   if (revenue === 0 && firstAsin && units > 0) {
     const listing = getListingPrice(db, firstAsin, marketplaceId);
-    if (listing && listing.prezzo > 0) {
-      revenue = Math.round(listing.prezzo * units * 100) / 100;
+    if (listing && listing.price > 0) {
+      revenue = Math.round(listing.price * units * 100) / 100;
       isPendingPriced = true;
       if (listing.currency && !currency) currency = listing.currency;
     }
