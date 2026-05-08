@@ -241,14 +241,18 @@ function startSyncCrons() {
   // ── OGNI GIORNO alle 7:00: ASIN Daily Sales (ieri, per-ASIN) ──
   cron.schedule("0 7 * * *", () => runSafe("asin-daily", syncAsinDailyCron));
 
-  // ── OGNI 2 MIN tra 08:00 e 23:59: tick aggressivo SOLO "oggi" ──
+  // ── OGNI 3 MIN tra 08:00 e 23:59: tick aggressivo SOLO "oggi" ──
   // Il push SQS via ORDER_STATUS_CHANGE copre solo i CAMBI di stato (es.
   // Pending→Shipped), NON la creazione di un nuovo Pending: per quella
   // servirebbe il tipo NEW_ORDER, che richiede un ruolo SP-API che la nostra
-  // app non ha. Quindi polling aggressivo + push SQS lavorano in parallelo:
+  // app non ha. Polling + push lavorano in parallelo:
   //   - push: aggiornamento status in 2-5s (Pending→Shipped)
-  //   - polling: cattura nuovi Pending entro 2 min
-  cron.schedule("*/2 8-23 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
+  //   - polling: cattura nuovi Pending entro 3 min
+  // 2 min era troppo aggressivo (QuotaExceeded osservato 2026-05-08), perche'
+  // ogni ciclo dura ~3min con il fix enrichOrderWithItems che chiama
+  // /orderItems anche per Pending: cron consecutivi triggeravano lo skip
+  // "gia' in esecuzione". 3 min lascia respiro alla quota.
+  cron.schedule("*/3 8-23 * * *", () => runSafe("orders-live-today", syncOrdersLiveToday), { timezone: "Europe/Rome" });
 
   // ── OGNI 15 MIN tra 08:00 e 23:59: tick "ieri + oggi" ──
   // Pending tardivi che si confermano in Shipped (di solito già coperti
@@ -287,7 +291,7 @@ function startSyncCrons() {
   logger.info("  FBA Fees:        05:00 giornaliero");
   logger.info("  Resi FBA:        05:30 giornaliero");
   logger.info("  ASIN Daily:      07:00 giornaliero");
-  logger.info("  Orders Live today: ogni 2min 08-23 (oggi) + push SQS in parallelo");
+  logger.info("  Orders Live today: ogni 3min 08-23 (oggi) + push SQS in parallelo");
   logger.info("  Orders Live tick: ogni 15min 08-23 (ieri+oggi)");
   logger.info("  Orders Live notte: 03:30 (ieri+oggi)");
   logger.info("  Catalog info:    02:00 domenica");
