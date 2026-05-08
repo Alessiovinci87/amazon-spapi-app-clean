@@ -20,13 +20,56 @@ const DEFAULT_DESTINATION_NAME = "picsnails-spapi";
 
 // Tipi che vogliamo ricevere come push real-time. Ogni tipo va sottoscritto
 // separatamente. Il primo target è ORDER_CHANGE (vendite live).
+// MFN_ORDER_STATUS_CHANGE escluso: richiede ruolo Direct-to-Consumer Shipping.
 const DEFAULT_TYPES = [
   "ORDER_CHANGE",
   "ANY_OFFER_CHANGED",
   "LISTINGS_ITEM_STATUS_CHANGE",
   "LISTINGS_ITEM_ISSUES_CHANGE",
-  "MFN_ORDER_STATUS_CHANGE",
 ];
+
+// Marketplace IDs EU (allineati a ordersLiveService.MARKETPLACES).
+const EU_MARKETPLACE_IDS = [
+  "APJ6JRA9NG5V4",  // IT
+  "A13V1IB3VIYZZH", // FR
+  "A1RKKUPIHCS9HS", // ES
+  "A1PA6795UKMFR9", // DE
+  "A1F83G8C2ARO7P", // UK
+  "A1805IZSGTT6HS", // NL
+  "AMEN7PMS3EDWL",  // BE
+  "A1C3SOZRARQ6R3", // PL
+];
+
+// processingDirective specifico per tipo. I tipi mancanti non richiedono
+// processingDirective (es. ANY_OFFER_CHANGED).
+function buildProcessingDirective(notificationType, marketplaceIds = EU_MARKETPLACE_IDS) {
+  switch (notificationType) {
+    case "ORDER_CHANGE":
+      return {
+        eventFilter: {
+          eventFilterType: "ORDER_CHANGE",
+          marketplaceIds,
+          orderChangeTypes: ["BuyerRequestedChange", "OrderStatusChange"],
+        },
+      };
+    case "LISTINGS_ITEM_STATUS_CHANGE":
+      return {
+        eventFilter: {
+          eventFilterType: "LISTINGS_ITEM_STATUS_CHANGE",
+          marketplaceIds,
+        },
+      };
+    case "LISTINGS_ITEM_ISSUES_CHANGE":
+      return {
+        eventFilter: {
+          eventFilterType: "LISTINGS_ITEM_ISSUES_CHANGE",
+          marketplaceIds,
+        },
+      };
+    default:
+      return null;
+  }
+}
 
 async function spapiHeadersGrantless() {
   const { access_token } = await getGrantlessToken(SCOPE);
@@ -97,6 +140,8 @@ async function getSubscription(notificationType, payloadVersion = "1.0") {
 async function createSubscription(notificationType, destinationId, payloadVersion = "1.0") {
   const headers = await spapiHeadersRegular();
   const body = { payloadVersion, destinationId };
+  const directive = buildProcessingDirective(notificationType);
+  if (directive) body.processingDirective = directive;
   const r = await axios.post(
     `${BASE_URL}/notifications/v1/subscriptions/${notificationType}`,
     body, { headers, timeout: 30_000 }
@@ -148,6 +193,7 @@ async function setupAll({ queueArn, types = DEFAULT_TYPES, destinationName = DEF
 
 module.exports = {
   DEFAULT_TYPES,
+  EU_MARKETPLACE_IDS,
   listDestinations,
   createDestination,
   ensureDestination,
