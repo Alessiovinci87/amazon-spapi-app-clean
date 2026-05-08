@@ -14,6 +14,9 @@ const {
 let _cachedToken = null;
 let _tokenExpiresAt = 0; // timestamp ms
 
+// Cache token grantless per-scope (Notifications API ecc.)
+const _grantlessCache = new Map();
+
 /**
  * 🔑 Restituisce l'access_token Amazon LWA.
  * Lo rinnova solo se mancano meno di 60 secondi alla scadenza.
@@ -57,4 +60,38 @@ async function getAccessToken() {
   }
 }
 
-module.exports = { getAccessToken };
+/**
+ * 🔑 Restituisce un access_token "grantless" per scope SP-API che non richiedono
+ * autorizzazione del seller (es. Notifications API: createDestination).
+ * scope tipico: "sellingpartnerapi::notifications".
+ */
+async function getGrantlessToken(scope) {
+  if (!scope) throw new Error("scope richiesto per grantless token");
+  const now = Date.now();
+  const cached = _grantlessCache.get(scope);
+  if (cached && now < cached.expiresAt) return cached.data;
+
+  if (!LWA_CLIENT_ID || !LWA_CLIENT_SECRET) {
+    throw new Error("Variabili LWA mancanti! Controlla il file .env");
+  }
+
+  const response = await axios.post(
+    LWA_ENDPOINT,
+    new URLSearchParams({
+      grant_type: "client_credentials",
+      scope,
+      client_id: LWA_CLIENT_ID,
+      client_secret: LWA_CLIENT_SECRET,
+    }),
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+  );
+  const data = response.data;
+  _grantlessCache.set(scope, {
+    data,
+    expiresAt: now + (data.expires_in - 60) * 1000,
+  });
+  logger.info({ scope, expires_in: data.expires_in }, "[Auth] grantless token ottenuto");
+  return data;
+}
+
+module.exports = { getAccessToken, getGrantlessToken };
