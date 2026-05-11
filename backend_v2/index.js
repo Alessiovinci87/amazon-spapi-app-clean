@@ -84,6 +84,9 @@ const storicoRouter = require("./routes/storico");
 // --- Bilancio
 const bilancioRouter = require("./routes/bilancio");
 
+// --- COGS (Cost-Of-Goods-Sold per prodotto, ispirato Shopkeeper)
+const cogsRouter = require("./routes/cogs");
+
 
 const configRoutes = require("./routes/config");
 const appAuthRoutes = require("./routes/appAuth");
@@ -340,6 +343,7 @@ async function bootstrap() {
   app.use("/api/v2/topcoat", topcoatRoutes);
   app.use("/api/v2/moduli", moduliCustomRoutes);
   app.use("/api/v2/bilancio", bilancioRouter);
+  app.use("/api/v2/cogs", cogsRouter);
 
   // =========================================================
   // ❌ ERROR HANDLERS

@@ -688,6 +688,15 @@ function runMigrations(db) {
   `).run();
 
   logger.info("Migrazione Europa (image_count / listing_hidden) completata");
+
+  // ===== COGS: custom_title sulla tabella prodotti =====
+  try {
+    const colsProdotti = db.pragma("table_info(prodotti)");
+    if (colsProdotti.length > 0 && !colsProdotti.some(c => c.name === "custom_title")) {
+      db.prepare("ALTER TABLE prodotti ADD COLUMN custom_title TEXT").run();
+      logger.info("Migrazione: aggiunta colonna custom_title a prodotti");
+    }
+  } catch (_) { /* prodotti non esiste: ignora */ }
 }
 
 async function ensureDatabaseReady() {

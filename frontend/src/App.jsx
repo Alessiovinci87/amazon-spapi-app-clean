@@ -37,6 +37,9 @@ import Fornitori from "./pages/Fornitori";
 // ==================== 🏭 GESTIONE BILANCIO ==================== //
 import GestioneBilancio from "./pages/GestioneBilancio";
 
+// ==================== 🚀 LANCIO (COGS) ==================== //
+import CostiUnitari from "./pages/CostiUnitari";
+
 // ==================== 🧩 PRODOTTI E ACCESSORI ==================== //
 import StoricoAccessori from "./pages/StoricoAccessori";
 import Etichette from "./pages/Etichette";
@@ -139,6 +142,7 @@ function App() {
         <Route path="/uffici/top-coat" element={<GestioneTopCoat />} />
         <Route path="/uffici/modulo/:slug" element={<GestioneModuloCustom />} />
         <Route path="/uffici/bilancio" element={<GestioneBilancio />} />
+        <Route path="/uffici/costi-unitari" element={<CostiUnitari />} />
 
         <Route path="/uffici/storici/movimenti" element={<StoricoMovimenti />} />
         <Route path="/uffici/storici/:asin" element={<StoricoProdotto />} />
