@@ -352,6 +352,24 @@ async function startDelivery(planId, shipmentId) {
     .run(planId, res.operationId);
   return res;
 }
+
+// Prepara delivery windows per uno shipment: generate -> wait -> list
+async function prepareDeliveryWindows(planId, shipmentId) {
+  const plan = getPlan(planId);
+  if (!plan.amazon_plan_id) throw new Error("Piano non creato su Amazon");
+  try {
+    const gen = await api.generateDeliveryWindowOptions(plan.amazon_plan_id, shipmentId);
+    await waitForOperation(gen.operationId);
+  } catch (err) {
+    // Se gia' generato in precedenza, Amazon torna "already" o "read-only" → procediamo
+    const msg = (err.message || "") + JSON.stringify(err.details || {});
+    if (!/already|read-only|in_progress/i.test(msg)) {
+      logger.warn({ err: msg }, "[Inbound] generateDeliveryWindowOptions warn");
+    }
+  }
+  const list = await api.listDeliveryWindowOptions(plan.amazon_plan_id, shipmentId);
+  return list?.deliveryWindowOptions || [];
+}
 async function listDeliveryWindowOptions(planId, shipmentId) {
   const plan = getPlan(planId);
   return api.listDeliveryWindowOptions(plan.amazon_plan_id, shipmentId);
@@ -456,6 +474,7 @@ module.exports = {
   listTransportationOptions,
   confirmTransportation,
   startDelivery,
+  prepareDeliveryWindows,
   listDeliveryWindowOptions,
   confirmDelivery,
   getPlanSummary,

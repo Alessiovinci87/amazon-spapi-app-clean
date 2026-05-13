@@ -513,65 +513,141 @@ function TransportStep({ plan, reload }) {
   );
 }
 
-// Step Delivery: si applica per ogni shipment generato
+// Step Delivery: scelta manuale della finestra di consegna per ogni shipment
 function DeliveryStep({ plan, reload }) {
   const [shipments, setShipments] = useState([]);
+  const [windowsByShipment, setWindowsByShipment] = useState({}); // shipmentId -> options[]
+  const [selectedByShipment, setSelectedByShipment] = useState({}); // shipmentId -> deliveryWindowOptionId
   const [loading, setLoading] = useState(true);
-  const [confirmingId, setConfirmingId] = useState(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/v2/inbound/plans/${plan.id}/summary`)
-      .then((r) => r.json())
-      .then((d) => { setShipments(d?.inboundPlan?.shipments || []); setLoading(false); })
-      .catch(() => setLoading(false));
+    (async () => {
+      try {
+        const r = await fetch(`/api/v2/inbound/plans/${plan.id}/summary`);
+        const data = await r.json();
+        const ships = data?.shipments || data?.inboundPlan?.shipments || [];
+        setShipments(ships);
+
+        // Per ogni shipment, prepara finestre (in parallelo)
+        const winMap = {};
+        await Promise.all(ships.map(async (s) => {
+          try {
+            const pr = await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/prepare`, { method: "POST" });
+            const opts = await pr.json();
+            winMap[s.shipmentId] = Array.isArray(opts) ? opts : (opts.deliveryWindowOptions || []);
+          } catch (e) {
+            winMap[s.shipmentId] = [];
+          }
+        }));
+        setWindowsByShipment(winMap);
+      } catch (e) { toast.error("Errore caricamento finestre: " + e.message); }
+      setLoading(false);
+    })();
   }, [plan.id]);
 
-  const confirmAll = async () => {
-    // Per ogni shipment: start + (skippiamo lista per MVP, ne scegliamo la prima)
-    for (const s of shipments) {
-      setConfirmingId(s.shipmentId);
-      try {
-        await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/start`, { method: "POST" });
-        // attesa polling: per MVP semplifichiamo non gestendolo qui
-        const r = await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/options`);
-        const d = await r.json();
-        const first = d?.deliveryWindowOptions?.[0];
-        if (first) {
-          await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/confirm`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deliveryWindowOptionId: first.deliveryWindowOptionId }),
-          });
-        }
-      } catch (e) { toast.error(`Shipment ${s.shipmentId}: ${e.message}`); }
-    }
-    setConfirmingId(null);
-    toast.success("Finestre di consegna confermate");
-    reload();
+  const selectWindow = (shipmentId, optId) => {
+    setSelectedByShipment((prev) => ({ ...prev, [shipmentId]: optId }));
   };
 
-  if (loading) return <Loader2 className="w-6 h-6 animate-spin text-blue-400" />;
-  return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-4">
-      <h3 className="text-sm font-semibold text-white">Finestre di consegna</h3>
-      <p className="text-xs text-slate-400">
-        Amazon richiede una finestra di consegna per ogni shipment. Nel MVP prendiamo la prima disponibile per ogni shipment.
-      </p>
-      <div className="space-y-2">
-        {shipments.map((s) => (
-          <div key={s.shipmentId} className="flex items-center justify-between p-3 rounded border border-slate-800 bg-slate-900/50">
-            <div className="text-xs">
-              <div className="font-mono text-white">{s.shipmentId}</div>
-              <div className="text-slate-500 mt-1">{s.destination?.address?.city || "—"} · {s.status}</div>
-            </div>
-            {confirmingId === s.shipmentId && <Loader2 className="w-4 h-4 animate-spin text-blue-400" />}
-          </div>
-        ))}
+  const confirmAll = async () => {
+    const missing = shipments.filter((s) => !selectedByShipment[s.shipmentId]);
+    if (missing.length > 0) return toast.error(`Seleziona una finestra per ogni shipment (${missing.length} mancante/i)`);
+    setConfirming(true);
+    try {
+      for (const s of shipments) {
+        const r = await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deliveryWindowOptionId: selectedByShipment[s.shipmentId] }),
+        });
+        if (!r.ok) {
+          const e = await r.json().catch(() => ({}));
+          throw new Error(`${s.shipmentId}: ${e.error || "Errore"}`);
+        }
+      }
+      toast.success("Finestre di consegna confermate");
+      reload();
+    } catch (e) { toast.error(e.message); }
+    finally { setConfirming(false); }
+  };
+
+  const fmtDate = (iso) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("it-IT", { weekday: "short", day: "2-digit", month: "short" });
+  };
+  const fmtRange = (opt) => {
+    const start = fmtDate(opt.startDate || opt.window?.start);
+    const end = fmtDate(opt.endDate || opt.window?.end);
+    return start === end ? start : `${start} → ${end}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-8 text-center">
+        <Loader2 className="w-10 h-10 text-blue-400 animate-spin mx-auto mb-3" />
+        <p className="text-sm text-blue-200">Caricamento finestre di consegna disponibili…</p>
       </div>
-      <button onClick={confirmAll}
-        className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
-        Conferma prime finestre disponibili
-      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6">
+        <h3 className="text-sm font-semibold text-white mb-2">Finestre di consegna</h3>
+        <p className="text-xs text-slate-400">
+          Amazon offre per ogni shipment una serie di finestre temporali in cui il centro logistico è pronto a ricevere i tuoi cartoni.
+          Scegli la più comoda in base al ritiro del tuo corriere.
+        </p>
+      </div>
+
+      {shipments.map((s) => {
+        const opts = windowsByShipment[s.shipmentId] || [];
+        return (
+          <div key={s.shipmentId} className="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-xs font-mono text-white">{s.shipmentId}</div>
+                <div className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">
+                  {s.destination?.address?.city || "—"} · {s.status}
+                </div>
+              </div>
+              <span className="text-[10px] text-slate-500">{opts.length} finestre</span>
+            </div>
+
+            {opts.length === 0 ? (
+              <div className="text-xs text-amber-400 bg-amber-500/5 border border-amber-500/30 rounded p-3">
+                Nessuna finestra disponibile per ora. Amazon le calcola entro pochi minuti dalla conferma del trasporto — torna tra 2-5 minuti.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {opts.map((opt) => {
+                  const sel = selectedByShipment[s.shipmentId] === opt.deliveryWindowOptionId;
+                  return (
+                    <button key={opt.deliveryWindowOptionId} type="button"
+                      onClick={() => selectWindow(s.shipmentId, opt.deliveryWindowOptionId)}
+                      className={`text-left p-3 rounded-md border transition-colors ${sel ? "bg-emerald-500/15 border-emerald-500/60" : "bg-slate-900/40 border-slate-800 hover:border-slate-700"}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-semibold text-white">{fmtRange(opt)}</div>
+                        {sel && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-1">{opt.status || "AVAILABLE"}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div className="flex justify-end">
+        <button onClick={confirmAll} disabled={confirming || shipments.length === 0}
+          className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 disabled:opacity-50">
+          {confirming && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Conferma finestre selezionate
+        </button>
+      </div>
     </div>
   );
 }
