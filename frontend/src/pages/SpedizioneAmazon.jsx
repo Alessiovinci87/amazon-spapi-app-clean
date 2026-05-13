@@ -205,7 +205,7 @@ function CreatePlanModal({ onClose, onCreated }) {
   const [name, setName] = useState("");
   const [marketplaceId, setMarketplaceId] = useState(MARKETPLACES[0].id);
   const [source, setSource] = useState(DEFAULT_SOURCE);
-  const [items, setItems] = useState([{ _id: newItemId(), msku: "", asin: "", quantity: 1 }]);
+  const [items, setItems] = useState([{ _id: newItemId(), msku: "", asin: "", quantity: 1, expiration: "" }]);
   const [submitting, setSubmitting] = useState(false);
 
   // Catalogo prodotti per autocomplete
@@ -218,7 +218,7 @@ function CreatePlanModal({ onClose, onCreated }) {
   }, []);
 
   const addRow = () =>
-    setItems((prev) => [...prev, { _id: newItemId(), msku: "", asin: "", quantity: 1 }]);
+    setItems((prev) => [...prev, { _id: newItemId(), msku: "", asin: "", quantity: 1, expiration: "" }]);
   const removeRow = (id) => setItems((prev) => prev.filter((it) => it._id !== id));
   const updateRow = (id, patch) =>
     setItems((prev) => prev.map((it) => (it._id === id ? { ...it, ...patch } : it)));
@@ -227,7 +227,12 @@ function CreatePlanModal({ onClose, onCreated }) {
     e.preventDefault();
     const cleanItems = items
       .filter((it) => it.msku && it.quantity > 0)
-      .map((it) => ({ asin: it.asin || null, msku: it.msku, quantity: Number(it.quantity) }));
+      .map((it) => ({
+        asin: it.asin || null,
+        msku: it.msku,
+        quantity: Number(it.quantity),
+        expiration: it.expiration || null,
+      }));
     if (cleanItems.length === 0) return toast.error("Aggiungi almeno una riga valida (SKU + qta)");
     if (!source.addressLine1 || !source.city) return toast.error("Indirizzo origine incompleto");
     if (!source.phoneNumber || source.phoneNumber.trim().length < 6) return toast.error("Telefono mittente obbligatorio (formato +39…)");
@@ -455,7 +460,7 @@ function ItemRow({ item, prodotti, onChange, onRemove, canRemove }) {
 
   return (
     <div className="grid grid-cols-12 gap-2 items-start">
-      <div className="col-span-7 relative">
+      <div className="col-span-6 relative">
         <div className="relative">
           <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -493,7 +498,7 @@ function ItemRow({ item, prodotti, onChange, onRemove, canRemove }) {
           <div className="text-[10px] text-slate-500 mt-1 font-mono">ASIN: {item.asin}</div>
         )}
       </div>
-      <div className="col-span-3">
+      <div className="col-span-2">
         <input
           type="number"
           min="1"
@@ -503,7 +508,17 @@ function ItemRow({ item, prodotti, onChange, onRemove, canRemove }) {
           onChange={(e) => onChange({ quantity: e.target.value })}
         />
       </div>
-      <div className="col-span-2 flex justify-end">
+      <div className="col-span-3">
+        <input
+          type="date"
+          className={inputCls}
+          title="Data scadenza (obbligatoria per cosmetici/alimentari)"
+          value={item.expiration || ""}
+          onChange={(e) => onChange({ expiration: e.target.value })}
+        />
+        <div className="text-[9px] text-slate-500 mt-1">Scadenza (cosmetici)</div>
+      </div>
+      <div className="col-span-1 flex justify-end">
         {canRemove && (
           <button
             type="button"
