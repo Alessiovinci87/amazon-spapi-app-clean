@@ -98,7 +98,11 @@ export default function SpedizioneAmazonWizard() {
                   const r = await fetch(`/api/v2/inbound/plans/${plan.id}/sync`, { method: "POST" });
                   const d = await r.json();
                   if (!r.ok) throw new Error(d.error || "Errore sync");
-                  toast.success(`Sincronizzato: step ${d.current_step} (${d.shipments} shipment)`);
+                  if (d.errored) {
+                    toast.error("Piano in ERRORE su Amazon", { description: d.reason, duration: 12000 });
+                  } else {
+                    toast.success(`Sincronizzato: step ${d.current_step} (${d.shipments} shipment)`);
+                  }
                   load();
                 } catch (e) { toast.error(e.message); }
               }}
@@ -152,6 +156,25 @@ export default function SpedizioneAmazonWizard() {
               <span className="text-amber-300 font-semibold uppercase tracking-wider">Modalità Test</span>
               <span className="text-amber-200/80 ml-2">Le chiamate ad Amazon sono mock — nulla viene realmente inviato.</span>
             </div>
+          </div>
+        )}
+        {plan.status === "VOIDED" && (
+          <div className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-4">
+            <div className="flex items-center gap-3 mb-2">
+              <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+              <span className="text-rose-300 font-semibold uppercase tracking-wider text-xs">Piano non recuperabile</span>
+            </div>
+            <p className="text-xs text-rose-200/90 ml-8">
+              Amazon ha marcato questo piano come <span className="font-mono">ERRORED</span>. Cause tipiche: MSKU non
+              corrispondente a un listing attivo del seller, marketplace sbagliato, ASIN non vendibile sul tuo account.
+              Non e' possibile proseguire qui — torna alla lista, elimina questo piano e creane uno nuovo con MSKU validi.
+            </p>
+            <button
+              onClick={() => navigate("/uffici/spedizione-amazon")}
+              className="mt-3 ml-8 px-3 py-1.5 text-xs bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded text-rose-200"
+            >
+              Torna alla lista
+            </button>
           </div>
         )}
         <StepContent plan={plan} reload={load} />

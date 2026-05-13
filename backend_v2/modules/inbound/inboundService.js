@@ -277,6 +277,14 @@ async function syncWithAmazon(planId) {
   const ip = summary?.inboundPlan || summary || {};
   const shipments = ip.shipments || [];
 
+  // Piano marcato ERRORED da Amazon -> non recuperabile, lo segnaliamo
+  if (ip.status === "ERRORED") {
+    getDb()
+      .prepare(`UPDATE inbound_plans SET status = 'VOIDED' WHERE id = ?`)
+      .run(planId);
+    return { errored: true, amazonStatus: "ERRORED", reason: "Amazon ha rifiutato questo piano (status ERRORED). Causa piu' comune: MSKU non corrispondente a un listing attivo del seller. Crea un nuovo piano con MSKU valido." };
+  }
+
   // Prova a leggere placement options gia' esistenti (se ce ne sono, placement e' fatto)
   let placementsExist = false;
   try {
