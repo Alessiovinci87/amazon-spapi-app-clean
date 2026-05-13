@@ -42,7 +42,6 @@ if (process.env.PUPPETEER_EXECUTABLE_PATH) {
 
 // Percorso ai template
 const templatePath = path.join(__dirname, "../ddt/templates/ddtGenericoTemplate.html");
-const templatePicsNailsPath = path.join(__dirname, "../ddt/templates/ddtPicsNailsTemplate.html");
 
 // PDF options comuni
 const PDF_OPTIONS = { format: "A4", margin: { top: 20, bottom: 20, left: 15, right: 15 } };
@@ -235,18 +234,21 @@ router.post("/pics-nails/pdf", validate({ body: picsNailsPdfSchema }), async (re
     } = req.body;
 
     const logoPath = logoToDataUri("/static/images/logo-ddt.png");
+    const intestazione = "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com";
     const dataFormattata = data ? new Date(data).toLocaleDateString("it-IT") : "";
 
-    let template = fs.readFileSync(templatePicsNailsPath, "utf8");
-    const { righeHtml, totUnita, totColli } = compilaRighe(righe, false);
+    let template = fs.readFileSync(templatePath, "utf8");
+    const { righeHtml, totUnita, totColli } = compilaRighe(righe, true);
 
     const fields = { numeroDDT, numeroAmazon, data, paese, centro, trasportatore, tracking };
 
     template = replacePlaceholder(template, "LOGO_PATH", logoPath);
+    template = replacePlaceholder(template, "INTESTAZIONE", intestazione);
     template = replacePlaceholder(template, "NUMERO_DDT", esc(numeroDDT));
     template = replacePlaceholder(template, "NUMERO_AMAZON", esc(numeroAmazon) || "-");
     template = replacePlaceholder(template, "DATA", dataFormattata);
-    template = replacePlaceholder(template, "PAESE", esc(paese));
+    template = replacePlaceholder(template, "IMPORTATORE_REGISTRATO", `Pics Srl – ${escMultiline(centro)}`);
+    template = replacePlaceholder(template, "INDIRIZZO_DESTINATARIO", esc(paese));
     template = replacePlaceholder(template, "CENTRO_LOGISTICO", escMultiline(centro));
     template = replacePlaceholder(template, "RIGHE", righeHtml);
     template = replacePlaceholder(template, "TOT_UNITA", totUnita);
