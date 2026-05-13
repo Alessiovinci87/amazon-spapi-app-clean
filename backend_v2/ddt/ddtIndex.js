@@ -119,7 +119,7 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
     const templatePath = path.join(__dirname, "templates", "ddtTemplate.html");
     let html = fs.readFileSync(templatePath, "utf8");
 
-    const logoUrl = logoToDataUri("/static/images/logo.png");
+    const logoUrl = logoToDataUri("/static/images/logo-ddt.png");
 
     const dataIT = new Date(data).toLocaleDateString("it-IT");
 

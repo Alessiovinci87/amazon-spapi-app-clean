@@ -175,7 +175,7 @@ router.post("/generico/pdf", validate({ body: ddtPdfSchema }), async (req, res) 
           "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com",
       },
       pics: {
-        logo: "/static/images/logo.png",
+        logo: "/static/images/logo-ddt.png",
         intestazione:
           "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com",
       },
@@ -234,7 +234,7 @@ router.post("/pics-nails/pdf", validate({ body: picsNailsPdfSchema }), async (re
       spedizioneProgressivo,
     } = req.body;
 
-    const logoPath = logoToDataUri("/static/images/logo.png");
+    const logoPath = logoToDataUri("/static/images/logo-ddt.png");
     const dataFormattata = data ? new Date(data).toLocaleDateString("it-IT") : "";
 
     let template = fs.readFileSync(templatePicsNailsPath, "utf8");
