@@ -135,55 +135,103 @@ router.get("/operations/:opId", async (req, res) => {
   }
 });
 
-// PDF mock: 100x150 mm (formato etichetta termica standard Amazon FBA)
+// PDF mock: layout fedele all'etichetta FBA reale Amazon (10x15 cm termica)
 router.get("/mock-labels/:shipmentId.pdf", (req, res) => {
   const PDFDocument = require("pdfkit");
   const mm = (n) => n * 2.83465;
   const W = mm(100), H = mm(150);
-  const doc = new PDFDocument({ size: [W, H], margin: mm(4) });
+  const M = mm(4);
+  const doc = new PDFDocument({ size: [W, H], margin: M });
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename=mock-labels-${req.params.shipmentId}.pdf`);
   doc.pipe(res);
 
-  // Banner MOCK
-  doc.fontSize(14).fillColor("#dc2626").text("MOCK LABEL", { align: "center" });
-  doc.fontSize(8).fillColor("#888").text("Etichetta dimostrativa - Modalita' Test", { align: "center" });
-  doc.moveDown(0.6);
+  const shipId = req.params.shipmentId;
+  const boxId = `${shipId}U000001`;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("it-IT") + " " + now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
 
-  // Cornice separatoria
-  doc.strokeColor("#000").lineWidth(0.8).moveTo(mm(4), doc.y).lineTo(W - mm(4), doc.y).stroke();
-  doc.moveDown(0.5);
+  // ────── Header: "Logística de Amazon" + Pacco info ──────
+  doc.font("Helvetica-Bold").fontSize(13).fillColor("#000").text("Logística de", M, M);
+  doc.text("Amazon", M, M + 14);
+  doc.font("Helvetica-Bold").fontSize(11).text("Pacco n°1 di 1 - 5kg", M, M + 4, { width: W - 2 * M, align: "right" });
 
-  // Dati shipment
-  doc.fontSize(10).fillColor("#000").text("Shipment ID:", { continued: true })
-    .fillColor("#000").text(` ${req.params.shipmentId}`);
-  doc.moveDown(0.2);
-  doc.fontSize(8).fillColor("#444").text("Destinazione: Amazon FBA (mock)");
-  doc.text("Tipo: Box Label / FNSKU");
-  doc.moveDown(0.6);
+  let y = M + 32;
 
-  // Codice a barre stilizzato
-  const startX = mm(8), startY = doc.y, barH = mm(30), areaW = W - mm(16);
-  let x = startX;
+  // ────── MITTENTE / DESTINATARIO (2 colonne) ──────
+  const colW = (W - 2 * M) / 2 - mm(2);
+  const leftX = M, rightX = M + colW + mm(4);
+
+  doc.font("Helvetica-Bold").fontSize(7).text("MITTENTE:", leftX, y);
+  doc.font("Helvetica").fontSize(8).text("Pics srl", leftX, y + 9);
+  doc.fontSize(7).text("via dei fabbri, sn", leftX, y + 18);
+  doc.text("07041 Alghero Italia/ SS/ Sardegna", leftX, y + 26);
+  doc.text("Italia", leftX, y + 34);
+
+  doc.font("Helvetica-Bold").fontSize(7).text("DESTINATARIO:", rightX, y);
+  doc.font("Helvetica").fontSize(7).text(" Declarante: Dissimile srl", rightX, y + 9);
+  doc.text("Amazon - ZAZ1", rightX, y + 17);
+  doc.text("Polígono – Plataforma Logística de Zaragoza", rightX, y + 25, { width: colW });
+  doc.text("Parcelas: ALI-28 y ALI-2", rightX, y + 38);
+  doc.text("Zaragoza Aragon 50197", rightX, y + 46);
+  doc.text("Spagna", rightX, y + 54);
+
+  y += 68;
+
+  // ────── Banner scuro con FBA STA / Creada ──────
+  doc.rect(M, y, W - 2 * M, mm(4)).fill("#000");
+  doc.fillColor("#fff").font("Helvetica-Bold").fontSize(7)
+    .text(`FBA STA (${dateStr})-MOCK`, M + mm(1), y + 2);
+  doc.text(`Creada: ${dateStr} CEST (+02)`, M, y + 2, { width: W - 2 * M - mm(1), align: "right" });
+
+  y += mm(5) + 2;
+
+  // ────── Codice a barre stilizzato (Code128-like) ──────
+  const barAreaW = W - 2 * M - mm(2);
+  const barH = mm(20);
+  let bx = M + mm(1);
+
+  // Genera larghezze pseudo-random ma deterministiche dal shipId
+  const seed = Array.from(shipId).reduce((a, c) => a + c.charCodeAt(0), 0);
+  let rng = seed;
+  const next = () => { rng = (rng * 1103515245 + 12345) & 0x7fffffff; return rng; };
   const widths = [];
-  let total = 0;
-  for (let i = 0; i < 80; i++) {
-    const w = ((i * 13) % 5 === 0) ? 1.6 : ((i % 2 === 0) ? 1 : 0.6);
+  let totalW = 0;
+  for (let i = 0; i < 120; i++) {
+    const t = next() % 4;
+    const w = [0.45, 0.7, 0.95, 1.2][t];
     widths.push(w);
-    total += w + 0.6;
+    totalW += w;
   }
-  const scale = areaW / total;
+  const scale = barAreaW / totalW;
   for (let i = 0; i < widths.length; i++) {
     const w = widths[i] * scale;
-    if (i % 2 === 0) doc.rect(x, startY, w, barH).fill("#000");
-    x += w + 0.6 * scale;
+    if (i % 2 === 0) doc.rect(bx, y, w, barH).fill("#000");
+    bx += w;
   }
-  doc.fillColor("#000").fontSize(9).text(`X${req.params.shipmentId}`, mm(4), startY + barH + 4, { width: W - mm(8), align: "center" });
 
-  // Footer disclaimer
-  doc.fontSize(6).fillColor("#999")
-    .text("Etichetta generata in modalita' Test - nessuna spedizione reale e' stata creata su Amazon.",
-      mm(4), H - mm(15), { width: W - mm(8), align: "center" });
+  doc.fillColor("#000").font("Helvetica").fontSize(9).text(boxId, M, y + barH + 2, { width: W - 2 * M, align: "center" });
+
+  y += barH + 14;
+  doc.strokeColor("#000").lineWidth(0.5).moveTo(M, y).lineTo(W - M, y).stroke();
+  y += 4;
+
+  // ────── Info SKU/Q.tà/Scad/Posizione ──────
+  doc.font("Helvetica").fontSize(7).fillColor("#000").text("SKU único", M, y, { width: W - 2 * M, align: "right" });
+  doc.font("Helvetica-Bold").fontSize(9).text("5C-3SRI-FQFZ", M, y + 9, { width: W - 2 * M, align: "right" });
+  doc.font("Helvetica-Bold").fontSize(8).text("Q.tà 50    Scad. 12 mag 2029", M, y + 22, { width: W - 2 * M, align: "right" });
+  doc.font("Helvetica-Bold").fontSize(9).text("P1 - B1", M, y + 34, { width: W - 2 * M, align: "right" });
+
+  // ────── Footer: MANTIENI VISIBILE ──────
+  doc.font("Helvetica-Bold").fontSize(8).fillColor("#000")
+    .text("MANTIENI VISIBILE QUESTA ETICHETTA", M, H - mm(10), { width: W - 2 * M, align: "center" });
+
+  // ────── Watermark MOCK (semi-trasparente) ──────
+  doc.save();
+  doc.fillColor("#dc2626").opacity(0.18).font("Helvetica-Bold").fontSize(46);
+  doc.rotate(-25, { origin: [W / 2, H / 2] });
+  doc.text("MOCK", 0, H / 2 - 24, { width: W, align: "center" });
+  doc.restore();
 
   doc.end();
 });
