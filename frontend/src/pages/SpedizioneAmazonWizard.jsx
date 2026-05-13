@@ -899,7 +899,7 @@ function BoxingStep({ plan, reload }) {
         shipmentId: s.shipmentId,
         boxes: boxes.map((b) => ({
           weight: { value: Number(b.weight), unit: "KG" },
-          dimensions: { length: Number(b.length), width: Number(b.width), height: Number(b.height), unit: "CENTIMETERS" },
+          dimensions: { length: Number(b.length), width: Number(b.width), height: Number(b.height), unitOfMeasurement: "CM" },
           quantity: Number(b.quantity) || 1,
           contentInformationSource: "BOX_CONTENT_PROVIDED",
           items: [
