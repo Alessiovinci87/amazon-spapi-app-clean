@@ -117,27 +117,44 @@ export default function SpedizioneAmazonWizard() {
         </div>
       </header>
 
-      {/* Stepper */}
+      {/* Stepper cliccabile */}
       <div className="px-6 sm:px-10 lg:px-16 py-6 border-b border-slate-800">
         <div className="flex items-center gap-1 overflow-x-auto">
           {STEPS.map((s, idx) => {
             const Icon = s.icon;
             const done = idx < currentIdx;
             const active = idx === currentIdx;
+            const clickable = idx <= currentIdx; // puoi tornare a step gia' visti
+            const goToStep = async () => {
+              if (!clickable || active) return;
+              try {
+                const r = await fetch(`/api/v2/inbound/plans/${plan.id}/goto-step`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ step: s.id }),
+                });
+                if (!r.ok) throw new Error("Errore navigazione");
+                load();
+              } catch (e) { toast.error(e.message); }
+            };
             return (
               <div key={s.id} className="flex items-center gap-1 flex-shrink-0">
-                <div
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs ${
+                <button
+                  type="button"
+                  onClick={goToStep}
+                  disabled={!clickable}
+                  title={clickable && !active ? `Vai a step ${s.label}` : active ? "Step corrente" : "Non ancora raggiunto"}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md border text-xs transition-colors ${
                     done
-                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300"
+                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 cursor-pointer"
                       : active
-                      ? "bg-blue-500/15 border-blue-500/50 text-blue-200 font-semibold"
-                      : "bg-slate-900 border-slate-800 text-slate-500"
+                      ? "bg-blue-500/15 border-blue-500/50 text-blue-200 font-semibold cursor-default"
+                      : "bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
                   {s.label}
-                </div>
+                </button>
                 {idx < STEPS.length - 1 && (
                   <div
                     className={`h-px w-6 ${done ? "bg-emerald-500/40" : "bg-slate-800"}`}
@@ -147,6 +164,9 @@ export default function SpedizioneAmazonWizard() {
             );
           })}
         </div>
+        <p className="text-[10px] text-slate-500 mt-2">
+          💡 Click su uno step già completato (verde) per tornare indietro a rivederlo. Gli step futuri (grigi) si sbloccano in ordine.
+        </p>
       </div>
 
       <main className="px-6 sm:px-10 lg:px-16 py-8 space-y-6">

@@ -146,6 +146,16 @@ router.post("/plans/:id/mark-done", (req, res) => {
   res.json({ ok: true });
 });
 
+// Naviga manualmente a uno step (solo locale, non chiama Amazon)
+router.post("/plans/:id/goto-step", (req, res) => {
+  const { step } = req.body;
+  const allowed = ["items", "packing", "placement", "boxing", "transport", "delivery", "labels", "done"];
+  if (!allowed.includes(step)) return res.status(400).json({ error: "Step non valido" });
+  const { getDb } = require("../../db/database");
+  getDb().prepare(`UPDATE inbound_plans SET current_step = ? WHERE id = ?`).run(step, req.params.id);
+  res.json({ ok: true, current_step: step });
+});
+
 router.get("/operations/:opId", async (req, res) => {
   try {
     res.json(await svc.pollOperation(req.params.opId));
