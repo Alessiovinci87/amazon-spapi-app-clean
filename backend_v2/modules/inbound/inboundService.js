@@ -187,8 +187,17 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
   const shipments = summary.shipments || [];
   if (shipments.length === 0) throw new Error("Nessuno shipment nel piano");
 
-  // ISO 8601 con orario obbligatorio (Amazon vuole "yyyy-MM-dd'T'HH:mm:ss'Z'")
-  const readyIso = `${readyToShipDate}T08:00:00Z`;
+  // ISO 8601 con orario futuro: se la data e' oggi, usa now+2h; altrimenti 08:00 UTC del giorno scelto
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  let readyIso;
+  if (readyToShipDate === todayStr) {
+    const future = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    readyIso = future.toISOString().split(".")[0] + "Z";
+  } else {
+    readyIso = `${readyToShipDate}T08:00:00Z`;
+  }
+  logger.info({ readyToShipDate, readyIso }, "[Inbound] readyToShipWindow calcolato");
 
   const configurations = shipments.map(s => ({
     shipmentId: s.shipmentId,
