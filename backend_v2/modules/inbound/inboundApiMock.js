@@ -113,13 +113,13 @@ async function getOperationStatus(operationId) {
 async function getLabels(shipmentId, _query) {
   return {
     documentDownloads: [
-      { downloadURL: `https://example.invalid/mock-labels-${shipmentId}.pdf`, expiration: new Date(Date.now()+3600000).toISOString() },
+      { downloadURL: `/api/v2/inbound/mock-labels/${shipmentId}.pdf`, expiration: new Date(Date.now()+3600000).toISOString() },
     ],
   };
 }
 
 async function getBillOfLading(shipmentId) {
-  return { documentDownloads: [{ downloadURL: `https://example.invalid/mock-bol-${shipmentId}.pdf` }] };
+  return { documentDownloads: [{ downloadURL: `/api/v2/inbound/mock-labels/${shipmentId}.pdf` }] };
 }
 
 module.exports = {

@@ -135,6 +135,44 @@ router.get("/operations/:opId", async (req, res) => {
   }
 });
 
+// PDF mock: generato al volo in modalita' test, per simulare un download labels reale
+router.get("/mock-labels/:shipmentId.pdf", (req, res) => {
+  const PDFDocument = require("pdfkit");
+  const doc = new PDFDocument({ size: "A4", margin: 40 });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `inline; filename=mock-labels-${req.params.shipmentId}.pdf`);
+  doc.pipe(res);
+
+  doc.fontSize(22).fillColor("#dc2626").text("MOCK LABEL", { align: "center" });
+  doc.moveDown(0.3);
+  doc.fontSize(11).fillColor("#666").text("Etichetta dimostrativa - Modalita' Test", { align: "center" });
+  doc.moveDown(2);
+
+  doc.fontSize(14).fillColor("#000").text(`Shipment ID: ${req.params.shipmentId}`);
+  doc.moveDown(0.3);
+  doc.fontSize(11).fillColor("#444").text("Centro destinazione: Amazon FBA (mock)");
+  doc.text("Tipo etichetta: Box Label / FNSKU");
+  doc.moveDown(1.5);
+
+  // Codice a barre finto (rettangoli alternati)
+  const startX = 80, startY = doc.y, barH = 70;
+  let x = startX;
+  for (let i = 0; i < 60; i++) {
+    const w = (i % 3 === 0) ? 5 : 2;
+    if (i % 2 === 0) doc.rect(x, startY, w, barH).fill("#000");
+    x += w + 1;
+  }
+  doc.fillColor("#000").fontSize(10).text(`X${req.params.shipmentId}`, startX, startY + barH + 8);
+
+  doc.moveDown(4);
+  doc.fontSize(9).fillColor("#999")
+    .text("Questa e' un'etichetta dimostrativa generata in modalita' Test.", { align: "center" })
+    .text("Nessuna spedizione reale e' stata creata su Amazon.", { align: "center" })
+    .text("Per attivare il flusso reale: rimuovere INBOUND_TEST_MODE dall'env del server.", { align: "center" });
+
+  doc.end();
+});
+
 router.get("/shipments/:shipmentId/labels", async (req, res) => {
   try {
     const planId = req.query.planId;
