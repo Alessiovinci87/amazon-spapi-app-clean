@@ -135,40 +135,55 @@ router.get("/operations/:opId", async (req, res) => {
   }
 });
 
-// PDF mock: generato al volo in modalita' test, per simulare un download labels reale
+// PDF mock: 100x150 mm (formato etichetta termica standard Amazon FBA)
 router.get("/mock-labels/:shipmentId.pdf", (req, res) => {
   const PDFDocument = require("pdfkit");
-  const doc = new PDFDocument({ size: "A4", margin: 40 });
+  const mm = (n) => n * 2.83465;
+  const W = mm(100), H = mm(150);
+  const doc = new PDFDocument({ size: [W, H], margin: mm(4) });
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename=mock-labels-${req.params.shipmentId}.pdf`);
   doc.pipe(res);
 
-  doc.fontSize(22).fillColor("#dc2626").text("MOCK LABEL", { align: "center" });
-  doc.moveDown(0.3);
-  doc.fontSize(11).fillColor("#666").text("Etichetta dimostrativa - Modalita' Test", { align: "center" });
-  doc.moveDown(2);
+  // Banner MOCK
+  doc.fontSize(14).fillColor("#dc2626").text("MOCK LABEL", { align: "center" });
+  doc.fontSize(8).fillColor("#888").text("Etichetta dimostrativa - Modalita' Test", { align: "center" });
+  doc.moveDown(0.6);
 
-  doc.fontSize(14).fillColor("#000").text(`Shipment ID: ${req.params.shipmentId}`);
-  doc.moveDown(0.3);
-  doc.fontSize(11).fillColor("#444").text("Centro destinazione: Amazon FBA (mock)");
-  doc.text("Tipo etichetta: Box Label / FNSKU");
-  doc.moveDown(1.5);
+  // Cornice separatoria
+  doc.strokeColor("#000").lineWidth(0.8).moveTo(mm(4), doc.y).lineTo(W - mm(4), doc.y).stroke();
+  doc.moveDown(0.5);
 
-  // Codice a barre finto (rettangoli alternati)
-  const startX = 80, startY = doc.y, barH = 70;
+  // Dati shipment
+  doc.fontSize(10).fillColor("#000").text("Shipment ID:", { continued: true })
+    .fillColor("#000").text(` ${req.params.shipmentId}`);
+  doc.moveDown(0.2);
+  doc.fontSize(8).fillColor("#444").text("Destinazione: Amazon FBA (mock)");
+  doc.text("Tipo: Box Label / FNSKU");
+  doc.moveDown(0.6);
+
+  // Codice a barre stilizzato
+  const startX = mm(8), startY = doc.y, barH = mm(30), areaW = W - mm(16);
   let x = startX;
-  for (let i = 0; i < 60; i++) {
-    const w = (i % 3 === 0) ? 5 : 2;
-    if (i % 2 === 0) doc.rect(x, startY, w, barH).fill("#000");
-    x += w + 1;
+  const widths = [];
+  let total = 0;
+  for (let i = 0; i < 80; i++) {
+    const w = ((i * 13) % 5 === 0) ? 1.6 : ((i % 2 === 0) ? 1 : 0.6);
+    widths.push(w);
+    total += w + 0.6;
   }
-  doc.fillColor("#000").fontSize(10).text(`X${req.params.shipmentId}`, startX, startY + barH + 8);
+  const scale = areaW / total;
+  for (let i = 0; i < widths.length; i++) {
+    const w = widths[i] * scale;
+    if (i % 2 === 0) doc.rect(x, startY, w, barH).fill("#000");
+    x += w + 0.6 * scale;
+  }
+  doc.fillColor("#000").fontSize(9).text(`X${req.params.shipmentId}`, mm(4), startY + barH + 4, { width: W - mm(8), align: "center" });
 
-  doc.moveDown(4);
-  doc.fontSize(9).fillColor("#999")
-    .text("Questa e' un'etichetta dimostrativa generata in modalita' Test.", { align: "center" })
-    .text("Nessuna spedizione reale e' stata creata su Amazon.", { align: "center" })
-    .text("Per attivare il flusso reale: rimuovere INBOUND_TEST_MODE dall'env del server.", { align: "center" });
+  // Footer disclaimer
+  doc.fontSize(6).fillColor("#999")
+    .text("Etichetta generata in modalita' Test - nessuna spedizione reale e' stata creata su Amazon.",
+      mm(4), H - mm(15), { width: W - mm(8), align: "center" });
 
   doc.end();
 });

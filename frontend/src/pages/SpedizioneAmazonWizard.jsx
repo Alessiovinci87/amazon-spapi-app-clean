@@ -458,7 +458,7 @@ function LabelsStep({ plan, reload }) {
 
   const download = async (shipmentId) => {
     try {
-      const r = await fetch(`/api/v2/inbound/shipments/${shipmentId}/labels?planId=${plan.id}&pageType=PackageLabel_A4_4&labelType=BARCODE_2D`);
+      const r = await fetch(`/api/v2/inbound/shipments/${shipmentId}/labels?planId=${plan.id}&pageType=PackageLabel_Thermal&labelType=BARCODE_2D`);
       const d = await r.json();
       if (d.documentDownloads && d.documentDownloads[0]?.downloadURL) {
         window.open(d.documentDownloads[0].downloadURL, "_blank");

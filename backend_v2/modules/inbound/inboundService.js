@@ -139,7 +139,7 @@ async function pollOperation(operationId) {
 
 async function downloadLabels(planId, shipmentId, opts = {}) {
   return api.getLabels(shipmentId, {
-    pageType: opts.pageType || "PackageLabel_Letter_6",
+    pageType: opts.pageType || "PackageLabel_Thermal",   // 10x15 cm termica
     labelType: opts.labelType || "BARCODE_2D",
   });
 }
