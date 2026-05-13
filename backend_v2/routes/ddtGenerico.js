@@ -169,7 +169,7 @@ router.post("/generico/pdf", validate({ body: ddtPdfSchema }), async (req, res) 
           "Dissimile Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02963100900 – info@lookink.net",
       },
       cside: {
-        logo: "/static/images/C-Side-Logo.png",
+        logo: "/static/images/C-Side-logo.png",
         intestazione:
           "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com",
       },

@@ -151,7 +151,7 @@ router.get("/storico/:id/pdf", async (req, res) => {
 
     const brandConfig = {
       lookink: { logo: "/static/images/LOOKINK-Logo.png", intestazione: "Dissimile Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02963100900 – info@lookink.net" },
-      cside:   { logo: "/static/images/C-Side-Logo.png",  intestazione: "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com" },
+      cside:   { logo: "/static/images/C-Side-logo.png",  intestazione: "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com" },
       pics:    { logo: "/static/images/logo.png",          intestazione: "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com" },
     };
     const brandData = brandConfig[ddt.brand] || brandConfig["pics"];
