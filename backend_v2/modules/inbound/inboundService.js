@@ -226,18 +226,19 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
   const options = listRes.transportationOptions || [];
 
   // Per ogni shipment prendi la prima opzione disponibile
-  const pickedIds = shipments
+  const selections = shipments
     .map(s => {
       const found = options.find(o => o.shipmentId === s.shipmentId);
-      return found?.transportationOptionId;
+      if (!found) return null;
+      return { shipmentId: s.shipmentId, transportationOptionId: found.transportationOptionId };
     })
     .filter(Boolean);
 
-  if (pickedIds.length === 0) throw new Error(`Nessuna transportationOption generata per gli shipment (opzioni totali: ${options.length}).`);
+  if (selections.length === 0) throw new Error(`Nessuna transportationOption generata per gli shipment (opzioni totali: ${options.length}).`);
 
-  // Confirm
+  logger.info({ selections }, "[Inbound] confermo transportationSelections");
   const confRes = await api.confirmTransportationOptions(plan.amazon_plan_id, {
-    transportationOptionIds: pickedIds,
+    transportationSelections: selections,
   });
   await waitForOperation(confRes.operationId);
 
@@ -245,7 +246,7 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
     .prepare(`UPDATE inbound_plans SET status='TRANSPORT_CONFIRMED', current_step='delivery' WHERE id = ?`)
     .run(planId);
 
-  return { transportationOptionIds: pickedIds, shipments: shipments.length };
+  return { transportationSelections: selections, shipments: shipments.length };
 }
 
 // Helper: rileva errori "workflow gia' avanzato lato Amazon" e segnala auto-skip
