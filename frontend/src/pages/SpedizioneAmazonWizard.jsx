@@ -503,7 +503,22 @@ function LabelsStep({ plan, reload }) {
   );
 }
 
-function ItemsRecap({ plan }) {
+function ItemsRecap({ plan, reload }) {
+  const [sending, setSending] = useState(false);
+  const isDraft = !plan.amazon_plan_id;
+
+  const createOnAmazon = async () => {
+    setSending(true);
+    try {
+      const r = await fetch(`/api/v2/inbound/plans/${plan.id}/create-on-amazon`, { method: "POST" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Errore");
+      toast.success(`Piano creato su Amazon (${d.amazonPlanId})`);
+      reload();
+    } catch (e) { toast.error(e.message); }
+    finally { setSending(false); }
+  };
+
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6">
       <h3 className="text-sm font-semibold text-white mb-4">Articoli del piano</h3>
@@ -525,8 +540,23 @@ function ItemsRecap({ plan }) {
           ))}
         </tbody>
       </table>
-      <div className="mt-5 text-xs text-slate-500">
-        Il piano è stato creato su Amazon. Procedi allo step <span className="text-blue-300">Pacchi</span> per generare le opzioni di packing.
+
+      <div className="mt-6 pt-5 border-t border-slate-800 flex items-center justify-between">
+        <div className="text-xs">
+          {isDraft ? (
+            <span className="text-amber-300">⚠ Piano in bozza locale — non ancora inviato ad Amazon</span>
+          ) : (
+            <span className="text-emerald-300">✓ Piano registrato su Amazon ({plan.amazon_plan_id})</span>
+          )}
+        </div>
+        <button
+          onClick={createOnAmazon}
+          disabled={sending || !isDraft}
+          className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {sending && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          {isDraft ? "Crea piano su Amazon e procedi" : "Procedi a Pacchi →"}
+        </button>
       </div>
     </div>
   );

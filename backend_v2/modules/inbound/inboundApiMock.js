@@ -2,13 +2,13 @@
 // ma risposte sintetiche realistiche. Permette di testare il wizard
 // senza inviare nulla ad Amazon. Le operazioni sono "instant" (gia' SUCCESS).
 
-let _planSeq = 9000;
 let _opSeq = 0;
 let _shipSeq = 0;
 
+function rand() { return Math.random().toString(36).slice(2, 8); }
 function makeOpId() { _opSeq += 1; return `MOCK-OP-${Date.now()}-${_opSeq}`; }
-function makePlanId() { _planSeq += 1; return `MOCK-PLAN-${_planSeq}`; }
-function makeShipmentId() { _shipSeq += 1; return `FBA${15000000 + _shipSeq}`; }
+function makePlanId() { return `MOCK-PLAN-${Date.now()}-${rand()}`; }
+function makeShipmentId() { _shipSeq += 1; return `FBA${Date.now().toString().slice(-7)}${_shipSeq}`; }
 
 // Stato in-memory per simulare consistenza tra le chiamate
 const _state = new Map(); // planId -> { items, packingOptions, placementOptions, shipments, ... }
