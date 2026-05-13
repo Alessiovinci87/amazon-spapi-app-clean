@@ -247,6 +247,11 @@ function AsyncOptionsStep({
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Errore avvio");
+      if (d.skipped) {
+        toast.info(d.reason || "Step saltato automaticamente da Amazon");
+        reload();
+        return;
+      }
       setOpId(d.operationId);
       toast.info("Operazione avviata su Amazon…");
     } catch (e) { toast.error(e.message); }

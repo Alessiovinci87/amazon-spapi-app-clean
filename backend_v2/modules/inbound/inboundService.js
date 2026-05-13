@@ -108,13 +108,29 @@ async function startPacking(planId) {
   const plan = getPlan(planId);
   if (!plan.amazon_plan_id) throw new Error("Piano non ancora creato su Amazon");
 
-  const res = await api.generatePackingOptions(plan.amazon_plan_id);
-  getDb()
-    .prepare(
-      `INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generatePackingOptions')`
-    )
-    .run(planId, res.operationId);
-  return res;
+  try {
+    const res = await api.generatePackingOptions(plan.amazon_plan_id);
+    getDb()
+      .prepare(
+        `INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generatePackingOptions')`
+      )
+      .run(planId, res.operationId);
+    return { ...res, skipped: false };
+  } catch (err) {
+    // Alcuni piani (1 SKU semplice, no prep) non supportano packingOptions:
+    // Amazon li tratta come gia' packed di default. In tal caso saltiamo lo step.
+    const msg = (err.message || "") + JSON.stringify(err.details || {});
+    if (/does not support packing/i.test(msg) || /OPERATION_NOT_SUPPORTED/i.test(msg)) {
+      logger.warn({ planId }, "[Inbound] piano non supporta packing options, salto a placement");
+      getDb()
+        .prepare(
+          `UPDATE inbound_plans SET status='PACKING_CONFIRMED', current_step='placement' WHERE id = ?`
+        )
+        .run(planId);
+      return { skipped: true, reason: "Piano semplice: Amazon ha gia' definito il packing automaticamente." };
+    }
+    throw err;
+  }
 }
 
 async function listPackingOptions(planId) {
