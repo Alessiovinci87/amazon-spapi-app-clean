@@ -397,6 +397,17 @@ function CreatePlanModal({ onClose, onCreated }) {
                 Aggiungi riga
               </button>
             </div>
+
+            {/* Info hazmat */}
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-3 mb-3 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+              <div className="text-[11px] text-blue-200/90">
+                <span className="font-semibold">Merci pericolose (hazmat)</span> — Amazon rileva automaticamente i prodotti
+                classificati come hazardous (liquidi infiammabili, batterie, aerosol, ecc.) tramite l'ASIN e li instrada
+                ai centri logistici specializzati. Non devi dichiarare nulla qui — se uno dei tuoi prodotti è hazmat,
+                Amazon te lo segnalerà al passo Centro (potrebbe proporti un placement specifico con fee diverse o richiedere prep aggiuntiva).
+              </div>
+            </div>
             <div className="space-y-2">
               {items.map((it) => (
                 <ItemRow

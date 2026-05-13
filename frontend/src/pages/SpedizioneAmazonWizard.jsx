@@ -422,7 +422,19 @@ function TransportStep({ plan, reload }) {
   const [contactName, setContactName] = useState("Pics Srl");
   const [contactPhone, setContactPhone] = useState("0799731078");
   const [contactEmail, setContactEmail] = useState("info@picsnails.com");
+  const [carrierCode, setCarrierCode] = useState("UPS");
   const [submitting, setSubmitting] = useState(false);
+
+  const CARRIERS = [
+    { code: "UPS",    label: "UPS" },
+    { code: "DHL",    label: "DHL" },
+    { code: "FEDEX",  label: "FedEx" },
+    { code: "GLS",    label: "GLS" },
+    { code: "BRT",    label: "BRT — Bartolini" },
+    { code: "TNT",    label: "TNT" },
+    { code: "SDA",    label: "SDA / Poste Italiane" },
+    { code: "OTHER",  label: "Altro corriere" },
+  ];
 
   const submit = async () => {
     if (!readyDate) return toast.error("Data ready-to-ship obbligatoria");
@@ -435,6 +447,7 @@ function TransportStep({ plan, reload }) {
         body: JSON.stringify({
           readyToShipDate: readyDate,
           contactName, contactPhone, contactEmail,
+          carrierCode: carrierCode === "OTHER" ? null : carrierCode,
         }),
       });
       const d = await r.json();
@@ -466,6 +479,13 @@ function TransportStep({ plan, reload }) {
             className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
         </div>
         <div>
+          <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Corriere</label>
+          <select value={carrierCode} onChange={(e) => setCarrierCode(e.target.value)}
+            className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white">
+            {CARRIERS.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+          </select>
+        </div>
+        <div>
           <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Nome contatto</label>
           <input type="text" value={contactName} onChange={(e) => setContactName(e.target.value)}
             className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
@@ -475,7 +495,7 @@ function TransportStep({ plan, reload }) {
           <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)}
             className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
         </div>
-        <div>
+        <div className="md:col-span-2">
           <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Email</label>
           <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)}
             className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />

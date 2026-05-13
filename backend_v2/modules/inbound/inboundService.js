@@ -177,7 +177,7 @@ async function waitForOperation(operationId, { maxAttempts = 30, intervalMs = 20
 }
 
 // Configura trasporto USE_YOUR_OWN_CARRIER end-to-end (generate -> wait -> list -> confirm -> wait)
-async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName, contactPhone, contactEmail }) {
+async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName, contactPhone, contactEmail, carrierCode }) {
   const plan = getPlan(planId);
   if (!plan.amazon_plan_id) throw new Error("Piano non creato su Amazon");
   if (!plan.selected_placement_id) throw new Error("Placement non confermato");
@@ -200,6 +200,7 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
     readyToShipWindow: { start: readyIso },
     shippingSolution: "USE_YOUR_OWN_CARRIER",
     shippingMode: "GROUND_SMALL_PARCEL",
+    ...(carrierCode ? { carrier: { alphaCode: carrierCode } } : {}),
   }));
 
   // Generate
