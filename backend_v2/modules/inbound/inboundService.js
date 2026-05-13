@@ -160,14 +160,37 @@ async function downloadLabels(planId, shipmentId, opts = {}) {
   });
 }
 
+// Helper: rileva errori "workflow gia' avanzato lato Amazon" e segnala auto-skip
+function isAlreadyDoneError(err) {
+  const msg = (err.message || "") + JSON.stringify(err.details || {});
+  return (
+    /does not support/i.test(msg) ||
+    /OPERATION_NOT_SUPPORTED/i.test(msg) ||
+    /read-only/i.test(msg) ||
+    /cannot be modified/i.test(msg) ||
+    /already (confirmed|completed)/i.test(msg)
+  );
+}
+
 // ─── Placement ───────────────────────────────────────────────
 async function startPlacement(planId) {
   const plan = getPlan(planId);
-  const res = await api.generatePlacementOptions(plan.amazon_plan_id);
-  getDb()
-    .prepare(`INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generatePlacementOptions')`)
-    .run(planId, res.operationId);
-  return res;
+  try {
+    const res = await api.generatePlacementOptions(plan.amazon_plan_id);
+    getDb()
+      .prepare(`INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generatePlacementOptions')`)
+      .run(planId, res.operationId);
+    return { ...res, skipped: false };
+  } catch (err) {
+    if (isAlreadyDoneError(err)) {
+      logger.warn({ planId }, "[Inbound] placement gia' definito lato Amazon, salto a transport");
+      getDb()
+        .prepare(`UPDATE inbound_plans SET status='PLACEMENT_CONFIRMED', current_step='transport' WHERE id = ?`)
+        .run(planId);
+      return { skipped: true, reason: "Amazon ha gia' definito il placement per questo piano." };
+    }
+    throw err;
+  }
 }
 async function listPlacementOptions(planId) {
   const plan = getPlan(planId);
@@ -185,11 +208,22 @@ async function confirmPlacement(planId, placementOptionId) {
 // ─── Transportation ──────────────────────────────────────────
 async function startTransportation(planId, body) {
   const plan = getPlan(planId);
-  const res = await api.generateTransportationOptions(plan.amazon_plan_id, body);
-  getDb()
-    .prepare(`INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generateTransportationOptions')`)
-    .run(planId, res.operationId);
-  return res;
+  try {
+    const res = await api.generateTransportationOptions(plan.amazon_plan_id, body);
+    getDb()
+      .prepare(`INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generateTransportationOptions')`)
+      .run(planId, res.operationId);
+    return { ...res, skipped: false };
+  } catch (err) {
+    if (isAlreadyDoneError(err)) {
+      logger.warn({ planId }, "[Inbound] transport gia' definito lato Amazon, salto a delivery");
+      getDb()
+        .prepare(`UPDATE inbound_plans SET status='TRANSPORT_CONFIRMED', current_step='delivery' WHERE id = ?`)
+        .run(planId);
+      return { skipped: true, reason: "Amazon ha gia' definito il trasporto." };
+    }
+    throw err;
+  }
 }
 async function listTransportationOptions(planId, query) {
   const plan = getPlan(planId);
