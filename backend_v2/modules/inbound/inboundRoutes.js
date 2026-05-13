@@ -122,6 +122,11 @@ router.get("/plans/:id/summary", async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+router.post("/plans/:id/sync", async (req, res) => {
+  try { res.json(await svc.syncWithAmazon(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.post("/plans/:id/mark-done", (req, res) => {
   svc.markDone(req.params.id);
   res.json({ ok: true });

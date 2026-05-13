@@ -232,6 +232,44 @@ async function getPlanSummary(planId) {
   return api.getInboundPlan(plan.amazon_plan_id);
 }
 
+// Legge stato reale Amazon e ricalcola current_step locale
+async function syncWithAmazon(planId) {
+  const plan = getPlan(planId);
+  if (!plan.amazon_plan_id) throw new Error("Piano non ancora creato su Amazon");
+
+  const summary = await api.getInboundPlan(plan.amazon_plan_id);
+  const ip = summary?.inboundPlan || summary || {};
+  const shipments = ip.shipments || [];
+
+  let newStep = plan.current_step;
+  let newStatus = plan.status;
+
+  // Logica: piu' avanti e' Amazon, piu' alto e' il nostro step locale
+  const allConfirmed = shipments.length > 0 && shipments.every(s => s.status && s.status !== "WORKING");
+  const hasShipments = shipments.length > 0;
+  const allHaveDelivery = shipments.length > 0 && shipments.every(s => s.deliveryWindow || s.placementOptionId);
+
+  if (allConfirmed) {
+    newStep = "labels";
+    newStatus = "DELIVERY_CONFIRMED";
+  } else if (allHaveDelivery) {
+    newStep = "labels";
+    newStatus = "DELIVERY_CONFIRMED";
+  } else if (hasShipments) {
+    // Placement gia' confermato lato Amazon (shipment esistono)
+    if (newStep === "items" || newStep === "packing" || newStep === "placement") {
+      newStep = "transport";
+      newStatus = "PLACEMENT_CONFIRMED";
+    }
+  }
+
+  getDb()
+    .prepare(`UPDATE inbound_plans SET current_step = ?, status = ? WHERE id = ?`)
+    .run(newStep, newStatus, planId);
+
+  return { current_step: newStep, status: newStatus, shipments: shipments.length };
+}
+
 function markDone(planId) {
   getDb()
     .prepare(`UPDATE inbound_plans SET status = 'DELIVERY_CONFIRMED', current_step = 'done' WHERE id = ?`)
@@ -262,6 +300,7 @@ module.exports = {
   listDeliveryWindowOptions,
   confirmDelivery,
   getPlanSummary,
+  syncWithAmazon,
   markDone,
   pollOperation,
   downloadLabels,

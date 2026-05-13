@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Send, Loader2, CheckCircle2, AlertCircle, Package, MapPin, Truck, Calendar, FileText, Play,
+  ArrowLeft, Send, Loader2, CheckCircle2, AlertCircle, Package, MapPin, Truck, Calendar, FileText, Play, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useOperationPolling } from "../hooks/useOperationPolling";
@@ -91,6 +91,24 @@ export default function SpedizioneAmazonWizard() {
               </div>
             </div>
           </div>
+          {plan.amazon_plan_id && (
+            <button
+              onClick={async () => {
+                try {
+                  const r = await fetch(`/api/v2/inbound/plans/${plan.id}/sync`, { method: "POST" });
+                  const d = await r.json();
+                  if (!r.ok) throw new Error(d.error || "Errore sync");
+                  toast.success(`Sincronizzato: step ${d.current_step} (${d.shipments} shipment)`);
+                  load();
+                } catch (e) { toast.error(e.message); }
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-md text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+              title="Legge lo stato reale da Amazon e allinea il wizard locale"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Sincronizza con Amazon
+            </button>
+          )}
         </div>
       </header>
 
