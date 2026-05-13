@@ -210,10 +210,14 @@ async function bootstrap() {
     "/api/v2/auth-app/login",
     "/api/v2/health",
   ]);
+  const PUBLIC_API_PREFIXES = [
+    "/api/v2/inbound/mock-labels/",   // PDF dimostrativi etichette in modalita' test
+  ];
 
   app.use((req, res, next) => {
     if (!req.path.startsWith("/api/")) return next();
     if (PUBLIC_API_PATHS.has(req.path)) return next();
+    if (PUBLIC_API_PREFIXES.some((p) => req.path.startsWith(p))) return next();
     return requireAuth(req, res, next);
   });
 
