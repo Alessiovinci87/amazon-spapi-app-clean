@@ -28,6 +28,7 @@ import {
   Percent,
   Truck,
   Coins,
+  Send,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -49,6 +50,7 @@ const MENU = [
   { to: "/uffici/spedizioni",  label: "Gestione spedizioni",  icon: Package },
   { to: "/uffici/ddt",         label: "Genera DDT",           icon: FileText },
   { to: "/uffici/tracking17",  label: "Tracking 17TRACK",     icon: Truck },
+  { to: "/uffici/spedizione-amazon", label: "Spedizione Amazon FBA", icon: Send },
 
   { divider: true, label: "Lancio" },
   { to: "/uffici/costi-unitari", label: "Costi Unitari",      icon: Coins },

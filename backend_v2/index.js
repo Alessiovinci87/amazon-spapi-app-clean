@@ -319,6 +319,7 @@ async function bootstrap() {
   // 🚚 TRACKING 17TRACK (stato spedizioni multicorriere)
   // =========================================================
   app.use("/api/v2/tracking17", require("./modules/tracking17/tracking17Routes"));
+  app.use("/api/v2/inbound", require("./modules/inbound/inboundRoutes"));
 
   // =========================================================
   // 🧭 STATIC FILES + HEALTHCHECK
