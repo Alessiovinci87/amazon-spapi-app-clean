@@ -43,7 +43,7 @@ const DEFAULT_SOURCE = {
   postalCode: "07041",
   countryCode: "IT",
   email: "info@picsnails.com",
-  phoneNumber: "",
+  phoneNumber: "+390791234567",
   companyName: "Pics Srl",
 };
 
@@ -230,6 +230,7 @@ function CreatePlanModal({ onClose, onCreated }) {
       .map((it) => ({ asin: it.asin || null, msku: it.msku, quantity: Number(it.quantity) }));
     if (cleanItems.length === 0) return toast.error("Aggiungi almeno una riga valida (SKU + qta)");
     if (!source.addressLine1 || !source.city) return toast.error("Indirizzo origine incompleto");
+    if (!source.phoneNumber || source.phoneNumber.trim().length < 6) return toast.error("Telefono mittente obbligatorio (formato +39…)");
 
     setSubmitting(true);
     try {
@@ -363,6 +364,16 @@ function CreatePlanModal({ onClose, onCreated }) {
                   className={inputCls}
                   value={source.email}
                   onChange={(e) => setSource({ ...source, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Telefono (obbligatorio)</label>
+                <input
+                  type="tel"
+                  className={inputCls}
+                  value={source.phoneNumber}
+                  onChange={(e) => setSource({ ...source, phoneNumber: e.target.value })}
+                  placeholder="+39 079 1234567"
                 />
               </div>
             </div>
