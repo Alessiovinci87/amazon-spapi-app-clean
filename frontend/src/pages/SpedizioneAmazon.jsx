@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Send, Plus, RefreshCw, Trash2, ChevronRight, AlertCircle, Package, X, Search, Loader2,
 } from "lucide-react";
@@ -55,6 +56,7 @@ function newItemId() {
 }
 
 export default function SpedizioneAmazon() {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -143,7 +145,7 @@ export default function SpedizioneAmazon() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => toast.info(`Wizard step '${p.current_step}' in arrivo`)}
+                          onClick={() => navigate(`/uffici/spedizione-amazon/${p.id}`)}
                           className="text-emerald-400 hover:text-emerald-300 inline-flex items-center gap-1 text-xs"
                         >
                           Apri <ChevronRight className="w-3 h-3" />

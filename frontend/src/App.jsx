@@ -82,6 +82,7 @@ import PlMensile from "./pages/PlMensile";
 import CommissioniAmazon from "./pages/CommissioniAmazon";
 import Tracking17 from "./pages/Tracking17";
 import SpedizioneAmazon from "./pages/SpedizioneAmazon";
+import SpedizioneAmazonWizard from "./pages/SpedizioneAmazonWizard";
 
 function App() {
   return (
@@ -115,6 +116,7 @@ function App() {
         <Route path="/uffici/spedizioni/storico" element={<StoricoSpedizioni />} />
         <Route path="/uffici/tracking17" element={<Tracking17 />} />
         <Route path="/uffici/spedizione-amazon" element={<SpedizioneAmazon />} />
+        <Route path="/uffici/spedizione-amazon/:planId" element={<SpedizioneAmazonWizard />} />
 
         {/* DDT Uffici */}
         <Route path="/uffici/ddt" element={<DDTIndex />} />
