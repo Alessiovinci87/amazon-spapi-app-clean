@@ -266,7 +266,9 @@ async function getPlanSummary(planId) {
   return api.getInboundPlan(plan.amazon_plan_id);
 }
 
-// Legge stato reale Amazon e ricalcola current_step locale
+// Legge stato reale Amazon e ricalcola current_step locale.
+// Tenta anche di leggere placement options esistenti: se Amazon le ha gia',
+// significa che il workflow e' avanti rispetto a noi.
 async function syncWithAmazon(planId) {
   const plan = getPlan(planId);
   if (!plan.amazon_plan_id) throw new Error("Piano non ancora creato su Amazon");
@@ -275,25 +277,35 @@ async function syncWithAmazon(planId) {
   const ip = summary?.inboundPlan || summary || {};
   const shipments = ip.shipments || [];
 
+  // Prova a leggere placement options gia' esistenti (se ce ne sono, placement e' fatto)
+  let placementsExist = false;
+  try {
+    const placement = await api.listPlacementOptions(plan.amazon_plan_id);
+    placementsExist = (placement?.placementOptions || []).length > 0;
+  } catch { /* ignore */ }
+
   let newStep = plan.current_step;
   let newStatus = plan.status;
 
-  // Logica: piu' avanti e' Amazon, piu' alto e' il nostro step locale
-  const allConfirmed = shipments.length > 0 && shipments.every(s => s.status && s.status !== "WORKING");
   const hasShipments = shipments.length > 0;
-  const allHaveDelivery = shipments.length > 0 && shipments.every(s => s.deliveryWindow || s.placementOptionId);
+  const allConfirmed = hasShipments && shipments.every(s => s.status && !["WORKING", "READY_TO_SHIP"].includes(s.status));
 
+  // Se gli shipments sono in stato avanzato → labels o oltre
   if (allConfirmed) {
     newStep = "labels";
     newStatus = "DELIVERY_CONFIRMED";
-  } else if (allHaveDelivery) {
-    newStep = "labels";
-    newStatus = "DELIVERY_CONFIRMED";
   } else if (hasShipments) {
-    // Placement gia' confermato lato Amazon (shipment esistono)
-    if (newStep === "items" || newStep === "packing" || newStep === "placement") {
+    // Ci sono shipments → placement fatto. Puo' essere in transport o delivery.
+    // Se shipments hanno destination valida → siamo almeno a transport
+    if (["items", "packing", "placement"].includes(newStep)) {
       newStep = "transport";
       newStatus = "PLACEMENT_CONFIRMED";
+    }
+  } else if (placementsExist) {
+    // Ci sono placement options ma non shipments confermati → siamo a placement (mostriamo opzioni)
+    if (["items", "packing"].includes(newStep)) {
+      newStep = "placement";
+      newStatus = "PACKING_CONFIRMED";
     }
   }
 
@@ -301,7 +313,7 @@ async function syncWithAmazon(planId) {
     .prepare(`UPDATE inbound_plans SET current_step = ?, status = ? WHERE id = ?`)
     .run(newStep, newStatus, planId);
 
-  return { current_step: newStep, status: newStatus, shipments: shipments.length };
+  return { current_step: newStep, status: newStatus, shipments: shipments.length, placementsExist };
 }
 
 function markDone(planId) {

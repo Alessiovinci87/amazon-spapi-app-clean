@@ -316,6 +316,37 @@ function AsyncOptionsStep({
     );
   }
   if (status === "FAILED" || error) {
+    // Auto-skip: se Amazon dice che lo step e' gia' fatto, sincronizziamo e avanziamo
+    const msg = (error || "").toLowerCase();
+    const isAlreadyDone = /read-only|cannot be modified|does not support|already (confirmed|completed)/i.test(msg);
+
+    if (isAlreadyDone) {
+      return (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-6">
+          <AlertCircle className="w-6 h-6 text-amber-400 mb-2" />
+          <h3 className="text-sm font-semibold text-amber-300">Step gia' completato lato Amazon</h3>
+          <p className="text-xs text-amber-200/80 mt-1">{error}</p>
+          <p className="text-xs text-amber-200/60 mt-2">
+            Amazon ha gia' definito questo step automaticamente. Clicca per sincronizzare e procedere.
+          </p>
+          <button
+            onClick={async () => {
+              try {
+                const r = await fetch(`/api/v2/inbound/plans/${plan.id}/sync`, { method: "POST" });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error || "Errore sync");
+                toast.success(`Sincronizzato: step ${d.current_step}`);
+                reload();
+              } catch (e) { toast.error(e.message); }
+            }}
+            className="mt-4 px-3 py-1.5 text-xs bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded text-emerald-300"
+          >
+            Sincronizza e avanza
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-6">
         <AlertCircle className="w-6 h-6 text-rose-400 mb-2" />
