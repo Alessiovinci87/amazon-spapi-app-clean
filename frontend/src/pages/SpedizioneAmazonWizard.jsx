@@ -690,18 +690,40 @@ function DeliveryStep({ plan, reload }) {
 function LabelsStep({ plan, reload }) {
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadShipments = async () => {
+    try {
+      const r = await fetch(`/api/v2/inbound/plans/${plan.id}/summary`);
+      const d = await r.json();
+      setShipments(d?.shipments || d?.inboundPlan?.shipments || []);
+    } catch {}
+  };
 
   useEffect(() => {
-    fetch(`/api/v2/inbound/plans/${plan.id}/summary`)
-      .then((r) => r.json())
-      .then((d) => { setShipments(d?.inboundPlan?.shipments || []); setLoading(false); })
-      .catch(() => setLoading(false));
+    (async () => { await loadShipments(); setLoading(false); })();
   }, [plan.id]);
 
-  const download = async (shipmentId) => {
+  const refresh = async () => {
+    setRefreshing(true);
+    await loadShipments();
+    setRefreshing(false);
+    toast.info("Stato shipment aggiornato");
+  };
+
+  const download = async (shipmentId, shipmentStatus) => {
+    if (shipmentStatus === "WORKING") {
+      return toast.error("Lo shipment è ancora in elaborazione lato Amazon. Riprova fra qualche minuto.");
+    }
     try {
       const r = await fetch(`/api/v2/inbound/shipments/${shipmentId}/labels?planId=${plan.id}&pageType=PackageLabel_Thermal&labelType=BARCODE_2D`);
       const d = await r.json();
+      if (!r.ok) {
+        if (/Unauthorized|denied|403/i.test(JSON.stringify(d))) {
+          return toast.error("Etichette non ancora disponibili. Amazon le rende disponibili quando lo shipment passa da WORKING a READY_TO_SHIP.", { duration: 10000 });
+        }
+        throw new Error(d.error || "Errore download");
+      }
       if (d.documentDownloads && d.documentDownloads[0]?.downloadURL) {
         window.open(d.documentDownloads[0].downloadURL, "_blank");
       } else {
@@ -717,9 +739,32 @@ function LabelsStep({ plan, reload }) {
   };
 
   if (loading) return <Loader2 className="w-6 h-6 animate-spin text-blue-400" />;
+
+  const allWorking = shipments.length > 0 && shipments.every((s) => s.status === "WORKING");
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-4">
-      <h3 className="text-sm font-semibold text-white">Etichette spedizione</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white">Etichette spedizione</h3>
+        <button onClick={refresh} disabled={refreshing}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 disabled:opacity-50">
+          <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+          Aggiorna stato
+        </button>
+      </div>
+
+      {allWorking && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <AlertCircle className="w-4 h-4 text-amber-400" />
+            <h4 className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Shipment ancora in elaborazione</h4>
+          </div>
+          <p className="text-[11px] text-amber-200/90 ml-6">
+            Amazon ha ricevuto il piano confermato ma sta ancora processando lo shipment lato suo (status <span className="font-mono">WORKING</span>).
+            Le etichette saranno disponibili quando lo stato passa a <span className="font-mono">READY_TO_SHIP</span> — solitamente entro 10-60 minuti dalla conferma del delivery window.
+            Clicca <span className="font-semibold">"Aggiorna stato"</span> per ricontrollare.
+          </p>
+        </div>
+      )}
 
       {/* Istruzioni di stampa */}
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
@@ -738,18 +783,31 @@ function LabelsStep({ plan, reload }) {
 
       <p className="text-xs text-slate-400">Scarica le etichette PDF di ogni shipment. Verranno aperte in una nuova scheda.</p>
       <div className="space-y-2">
-        {shipments.map((s) => (
-          <div key={s.shipmentId} className="flex items-center justify-between p-3 rounded border border-slate-800 bg-slate-900/50">
-            <div className="text-xs">
-              <div className="font-mono text-white">{s.shipmentId}</div>
-              <div className="text-slate-500 mt-1">{s.destination?.address?.city || "—"}</div>
+        {shipments.map((s) => {
+          const ready = s.status !== "WORKING";
+          return (
+            <div key={s.shipmentId} className="flex items-center justify-between p-3 rounded border border-slate-800 bg-slate-900/50">
+              <div className="text-xs">
+                <div className="font-mono text-white">{s.shipmentId}</div>
+                <div className="text-slate-500 mt-1 flex items-center gap-2">
+                  {s.destination?.address?.city || "—"} ·
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+                    ready ? "bg-emerald-500/15 text-emerald-300" : "bg-amber-500/15 text-amber-300"
+                  }`}>{s.status}</span>
+                </div>
+              </div>
+              <button onClick={() => download(s.shipmentId, s.status)} disabled={!ready}
+                title={ready ? "Scarica etichette PDF" : "Disponibili quando lo shipment passa a READY_TO_SHIP"}
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded border ${
+                  ready
+                    ? "bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border-blue-500/40"
+                    : "bg-slate-800 text-slate-500 border-slate-700 cursor-not-allowed"
+                }`}>
+                <FileText className="w-3.5 h-3.5" /> Scarica labels
+              </button>
             </div>
-            <button onClick={() => download(s.shipmentId)}
-              className="flex items-center gap-2 px-3 py-1.5 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 rounded">
-              <FileText className="w-3.5 h-3.5" /> Scarica labels
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
       <div className="flex justify-end pt-2 border-t border-slate-800">
         <button onClick={finalize}
