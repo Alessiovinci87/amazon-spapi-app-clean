@@ -68,6 +68,7 @@ export default function SpedizioneAmazonWizard() {
   }
 
   const currentIdx = STEPS.findIndex((s) => s.id === plan.current_step);
+  const furthestIdx = Math.max(currentIdx, STEPS.findIndex((s) => s.id === (plan.furthest_step || plan.current_step)));
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -124,7 +125,8 @@ export default function SpedizioneAmazonWizard() {
             const Icon = s.icon;
             const done = idx < currentIdx;
             const active = idx === currentIdx;
-            const clickable = idx <= currentIdx; // puoi tornare a step gia' visti
+            const reached = idx <= furthestIdx; // step gia' raggiunto in passato
+            const clickable = reached; // navigabile sia avanti che indietro entro il furthest
             const goToStep = async () => {
               if (!clickable || active) return;
               try {
@@ -149,6 +151,8 @@ export default function SpedizioneAmazonWizard() {
                       ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 cursor-pointer"
                       : active
                       ? "bg-blue-500/15 border-blue-500/50 text-blue-200 font-semibold cursor-default"
+                      : reached
+                      ? "bg-slate-800/70 border-slate-700 text-slate-300 hover:bg-slate-800 cursor-pointer"
                       : "bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed"
                   }`}
                 >
@@ -165,7 +169,7 @@ export default function SpedizioneAmazonWizard() {
           })}
         </div>
         <p className="text-[10px] text-slate-500 mt-2">
-          💡 Click su uno step già completato (verde) per tornare indietro a rivederlo. Gli step futuri (grigi) si sbloccano in ordine.
+          💡 Step verdi/grigio-chiari: già raggiunti, cliccabili per navigare avanti/indietro senza rifare azioni Amazon. Grigi scuri: non ancora raggiunti.
         </p>
       </div>
 

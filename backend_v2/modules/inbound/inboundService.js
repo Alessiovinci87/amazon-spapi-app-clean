@@ -4,6 +4,22 @@ const { getDb } = require("../../db/database");
 const logger = require("../../utils/logger");
 const api = require("./inboundApi");
 
+const STEP_ORDER = ["items", "packing", "placement", "boxing", "transport", "delivery", "labels", "done"];
+
+function maxStep(a, b) {
+  const ia = STEP_ORDER.indexOf(a);
+  const ib = STEP_ORDER.indexOf(b);
+  return ia >= ib ? a : b;
+}
+
+// Memorizza il piu' avanzato step raggiunto (mai retrocede)
+function advanceFurthest(planId, newStep) {
+  const db = getDb();
+  const cur = db.prepare(`SELECT furthest_step FROM inbound_plans WHERE id = ?`).get(planId);
+  const newFurthest = cur?.furthest_step ? maxStep(cur.furthest_step, newStep) : newStep;
+  db.prepare(`UPDATE inbound_plans SET furthest_step = ? WHERE id = ?`).run(newFurthest, planId);
+}
+
 const STEP = {
   ITEMS: "items",
   PACKING: "packing",
@@ -95,6 +111,7 @@ async function createPlanOnAmazon(planId) {
   db.prepare(
     `UPDATE inbound_plans SET amazon_plan_id = ?, status = 'PLAN_CREATED', current_step = 'packing' WHERE id = ?`
   ).run(res.inboundPlanId, planId);
+  advanceFurthest(planId, "packing");
 
   if (res.operationId) {
     db.prepare(
@@ -147,6 +164,7 @@ async function confirmPacking(planId, packingOptionId) {
       `UPDATE inbound_plans SET selected_packing_group_id = ?, status = 'PACKING_CONFIRMED', current_step = 'placement' WHERE id = ?`
     )
     .run(packingOptionId, planId);
+  advanceFurthest(planId, "placement");
   return res;
 }
 
@@ -245,6 +263,7 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
   getDb()
     .prepare(`UPDATE inbound_plans SET status='TRANSPORT_CONFIRMED', current_step='delivery' WHERE id = ?`)
     .run(planId);
+  advanceFurthest(planId, "delivery");
 
   return { transportationSelections: selections, shipments: shipments.length };
 }
@@ -291,6 +310,7 @@ async function confirmPlacement(planId, placementOptionId) {
   getDb()
     .prepare(`UPDATE inbound_plans SET selected_placement_id = ?, status = 'PLACEMENT_CONFIRMED', current_step = 'boxing' WHERE id = ?`)
     .run(placementOptionId, planId);
+  advanceFurthest(planId, "boxing");
   return res;
 }
 
@@ -306,6 +326,7 @@ async function configureBoxing(planId, { shippingMode, packageGroupings }) {
   getDb()
     .prepare(`UPDATE inbound_plans SET current_step = 'transport' WHERE id = ?`)
     .run(planId);
+  advanceFurthest(planId, "transport");
 
   return { ok: true, shippingMode };
 }
@@ -380,6 +401,7 @@ async function confirmDelivery(planId, shipmentId, deliveryWindowOptionId) {
   getDb()
     .prepare(`UPDATE inbound_plans SET status = 'DELIVERY_CONFIRMED', current_step = 'labels' WHERE id = ?`)
     .run(planId);
+  advanceFurthest(planId, "labels");
   return res;
 }
 
@@ -443,6 +465,7 @@ async function syncWithAmazon(planId) {
   getDb()
     .prepare(`UPDATE inbound_plans SET current_step = ?, status = ? WHERE id = ?`)
     .run(newStep, newStatus, planId);
+  advanceFurthest(planId, newStep);
 
   return { current_step: newStep, status: newStatus, shipments: shipments.length, placementsExist };
 }
@@ -451,6 +474,7 @@ function markDone(planId) {
   getDb()
     .prepare(`UPDATE inbound_plans SET status = 'DELIVERY_CONFIRMED', current_step = 'done' WHERE id = ?`)
     .run(planId);
+  advanceFurthest(planId, "done");
 }
 
 function deletePlan(planId) {
