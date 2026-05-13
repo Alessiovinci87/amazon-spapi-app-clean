@@ -478,6 +478,22 @@ function LabelsStep({ plan, reload }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-4">
       <h3 className="text-sm font-semibold text-white">Etichette spedizione</h3>
+
+      {/* Istruzioni di stampa */}
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+          <h4 className="text-xs font-semibold text-amber-300 uppercase tracking-wider">Istruzioni di stampa</h4>
+        </div>
+        <ul className="text-[11px] text-amber-200/90 space-y-1 ml-6 list-disc">
+          <li>Stampa su <span className="font-semibold">stampante termica 10×15 cm</span> (Zebra, Brother QL, equivalenti)</li>
+          <li>Imposta dimensione pagina <span className="font-semibold">100×150 mm</span> (formato termico)</li>
+          <li><span className="font-semibold">NON usare "Adatta alla pagina" / "Fit to page"</span> — stampa <span className="font-semibold">al 100% / "Actual size"</span></li>
+          <li>Non riconvertire il PDF (no salva-come-immagine, no screenshot): manda il PDF direttamente alla stampante</li>
+          <li>Verifica che il codice a barre sia nitido e leggibile prima di chiudere il cartone</li>
+        </ul>
+      </div>
+
       <p className="text-xs text-slate-400">Scarica le etichette PDF di ogni shipment. Verranno aperte in una nuova scheda.</p>
       <div className="space-y-2">
         {shipments.map((s) => (
