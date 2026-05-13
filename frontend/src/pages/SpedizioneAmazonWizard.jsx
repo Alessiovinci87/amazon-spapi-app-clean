@@ -412,7 +412,8 @@ function AsyncOptionsStep({
 // Step Transport: "Use Your Own Carrier" - tu prenoti DHL/UPS a parte
 function TransportStep({ plan, reload }) {
   const today = new Date();
-  const defaultReady = new Date(today.getTime() + 3 * 86400000).toISOString().slice(0, 10);
+  const todayStr = today.toISOString().slice(0, 10);
+  const defaultReady = new Date(today.getTime() + 2 * 86400000).toISOString().slice(0, 10);
 
   const [readyDate, setReadyDate] = useState(defaultReady);
   const [contactName, setContactName] = useState("Pics Srl");
@@ -457,7 +458,7 @@ function TransportStep({ plan, reload }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
           <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Data pronta-spedizione</label>
-          <input type="date" min={defaultReady} value={readyDate}
+          <input type="date" min={todayStr} value={readyDate}
             onChange={(e) => setReadyDate(e.target.value)}
             className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
         </div>

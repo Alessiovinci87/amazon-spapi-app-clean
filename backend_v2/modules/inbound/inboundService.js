@@ -186,6 +186,9 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
   const shipments = summary.shipments || [];
   if (shipments.length === 0) throw new Error("Nessuno shipment nel piano");
 
+  // ISO 8601 con orario obbligatorio (Amazon vuole "yyyy-MM-dd'T'HH:mm:ss'Z'")
+  const readyIso = `${readyToShipDate}T08:00:00Z`;
+
   const configurations = shipments.map(s => ({
     shipmentId: s.shipmentId,
     contactInformation: {
@@ -193,9 +196,7 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
       phoneNumber: contactPhone,
       email: contactEmail,
     },
-    readyToShipWindow: {
-      readyToShipDate, // YYYY-MM-DD
-    },
+    readyToShipWindow: { start: readyIso },
     shippingSolution: "USE_YOUR_OWN_CARRIER",
     shippingMode: "GROUND_SMALL_PARCEL",
   }));
@@ -207,17 +208,21 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
   });
   await waitForOperation(genRes.operationId);
 
-  // List + pick the first USE_YOUR_OWN_CARRIER option per shipment
-  const listRes = await api.listTransportationOptions(plan.amazon_plan_id);
+  // List richiede placementOptionId (o shipmentId) come query
+  const listRes = await api.listTransportationOptions(plan.amazon_plan_id, {
+    placementOptionId: plan.selected_placement_id,
+  });
   const options = listRes.transportationOptions || [];
+
+  // Per ogni shipment prendi la prima opzione disponibile
   const pickedIds = shipments
     .map(s => {
-      const found = options.find(o => o.shipmentId === s.shipmentId && (o.carrier?.alphaCode === "USE_YOUR_OWN_CARRIER" || o.carrier?.name === "USE_YOUR_OWN_CARRIER" || !o.carrier));
+      const found = options.find(o => o.shipmentId === s.shipmentId);
       return found?.transportationOptionId;
     })
     .filter(Boolean);
 
-  if (pickedIds.length === 0) throw new Error("Nessuna transportationOption USE_YOUR_OWN_CARRIER trovata");
+  if (pickedIds.length === 0) throw new Error(`Nessuna transportationOption generata per gli shipment (opzioni totali: ${options.length}).`);
 
   // Confirm
   const confRes = await api.confirmTransportationOptions(plan.amazon_plan_id, {
