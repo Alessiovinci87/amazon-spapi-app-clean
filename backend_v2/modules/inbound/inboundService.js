@@ -2,7 +2,7 @@
 // e persiste lo stato in inbound_plans / inbound_shipments / inbound_operations.
 const { getDb } = require("../../db/database");
 const logger = require("../../utils/logger");
-const api = require("./inboundApiClient");
+const api = require("./inboundApi");
 
 const STEP = {
   ITEMS: "items",
@@ -144,6 +144,84 @@ async function downloadLabels(planId, shipmentId, opts = {}) {
   });
 }
 
+// ─── Placement ───────────────────────────────────────────────
+async function startPlacement(planId) {
+  const plan = getPlan(planId);
+  const res = await api.generatePlacementOptions(plan.amazon_plan_id);
+  getDb()
+    .prepare(`INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generatePlacementOptions')`)
+    .run(planId, res.operationId);
+  return res;
+}
+async function listPlacementOptions(planId) {
+  const plan = getPlan(planId);
+  return api.listPlacementOptions(plan.amazon_plan_id);
+}
+async function confirmPlacement(planId, placementOptionId) {
+  const plan = getPlan(planId);
+  const res = await api.confirmPlacementOption(plan.amazon_plan_id, placementOptionId);
+  getDb()
+    .prepare(`UPDATE inbound_plans SET selected_placement_id = ?, status = 'PLACEMENT_CONFIRMED', current_step = 'transport' WHERE id = ?`)
+    .run(placementOptionId, planId);
+  return res;
+}
+
+// ─── Transportation ──────────────────────────────────────────
+async function startTransportation(planId, body) {
+  const plan = getPlan(planId);
+  const res = await api.generateTransportationOptions(plan.amazon_plan_id, body);
+  getDb()
+    .prepare(`INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generateTransportationOptions')`)
+    .run(planId, res.operationId);
+  return res;
+}
+async function listTransportationOptions(planId, query) {
+  const plan = getPlan(planId);
+  return api.listTransportationOptions(plan.amazon_plan_id, query);
+}
+async function confirmTransportation(planId, body) {
+  const plan = getPlan(planId);
+  const res = await api.confirmTransportationOptions(plan.amazon_plan_id, body);
+  getDb()
+    .prepare(`UPDATE inbound_plans SET status = 'TRANSPORT_CONFIRMED', current_step = 'delivery' WHERE id = ?`)
+    .run(planId);
+  return res;
+}
+
+// ─── Delivery Window ────────────────────────────────────────
+async function startDelivery(planId, shipmentId) {
+  const plan = getPlan(planId);
+  const res = await api.generateDeliveryWindowOptions(plan.amazon_plan_id, shipmentId);
+  getDb()
+    .prepare(`INSERT INTO inbound_operations (plan_id, operation_id, operation_type) VALUES (?, ?, 'generateDeliveryWindowOptions')`)
+    .run(planId, res.operationId);
+  return res;
+}
+async function listDeliveryWindowOptions(planId, shipmentId) {
+  const plan = getPlan(planId);
+  return api.listDeliveryWindowOptions(plan.amazon_plan_id, shipmentId);
+}
+async function confirmDelivery(planId, shipmentId, deliveryWindowOptionId) {
+  const plan = getPlan(planId);
+  const res = await api.confirmDeliveryWindowOption(plan.amazon_plan_id, shipmentId, deliveryWindowOptionId);
+  getDb()
+    .prepare(`UPDATE inbound_plans SET status = 'DELIVERY_CONFIRMED', current_step = 'labels' WHERE id = ?`)
+    .run(planId);
+  return res;
+}
+
+// ─── Plan summary (per leggere shipments dopo placement) ─────
+async function getPlanSummary(planId) {
+  const plan = getPlan(planId);
+  return api.getInboundPlan(plan.amazon_plan_id);
+}
+
+function markDone(planId) {
+  getDb()
+    .prepare(`UPDATE inbound_plans SET status = 'DELIVERY_CONFIRMED', current_step = 'done' WHERE id = ?`)
+    .run(planId);
+}
+
 function deletePlan(planId) {
   return getDb().prepare("DELETE FROM inbound_plans WHERE id = ?").run(planId);
 }
@@ -158,6 +236,17 @@ module.exports = {
   startPacking,
   listPackingOptions,
   confirmPacking,
+  startPlacement,
+  listPlacementOptions,
+  confirmPlacement,
+  startTransportation,
+  listTransportationOptions,
+  confirmTransportation,
+  startDelivery,
+  listDeliveryWindowOptions,
+  confirmDelivery,
+  getPlanSummary,
+  markDone,
   pollOperation,
   downloadLabels,
   deletePlan,

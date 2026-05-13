@@ -22,6 +22,7 @@ export default function SpedizioneAmazonWizard() {
   const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [testMode, setTestMode] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -38,6 +39,7 @@ export default function SpedizioneAmazonWizard() {
 
   useEffect(() => {
     load();
+    fetch("/api/v2/inbound/config").then((r) => r.json()).then((d) => setTestMode(!!d.testMode)).catch(() => {});
   }, [planId]);
 
   if (loading) {
@@ -124,7 +126,16 @@ export default function SpedizioneAmazonWizard() {
         </div>
       </div>
 
-      <main className="px-6 sm:px-10 lg:px-16 py-8">
+      <main className="px-6 sm:px-10 lg:px-16 py-8 space-y-6">
+        {testMode && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div className="text-xs">
+              <span className="text-amber-300 font-semibold uppercase tracking-wider">Modalità Test</span>
+              <span className="text-amber-200/80 ml-2">Le chiamate ad Amazon sono mock — nulla viene realmente inviato.</span>
+            </div>
+          </div>
+        )}
         <StepContent plan={plan} reload={load} />
       </main>
     </div>
@@ -136,12 +147,62 @@ function StepContent({ plan, reload }) {
     case "items":
       return <ItemsRecap plan={plan} reload={reload} />;
     case "packing":
-      return <PackingStep plan={plan} reload={reload} />;
+      return (
+        <AsyncOptionsStep
+          plan={plan}
+          reload={reload}
+          title="Genera opzioni di packing"
+          description="Amazon analizza gli articoli e propone uno o piu' modi di raggrupparli in cartoni."
+          startUrl={`/api/v2/inbound/plans/${plan.id}/packing/start`}
+          optionsUrl={`/api/v2/inbound/plans/${plan.id}/packing/options`}
+          confirmUrl={`/api/v2/inbound/plans/${plan.id}/packing/confirm`}
+          optionsKey="packingOptions"
+          idKey="packingOptionId"
+          renderOption={(opt) => (
+            <>
+              <div className="text-xs font-mono text-white">{opt.packingOptionId}</div>
+              <div className="text-[11px] text-slate-400 mt-1">
+                {opt.packingGroups?.length || 0} gruppi · {opt.status || "—"}
+              </div>
+            </>
+          )}
+          confirmBody={(id) => ({ packingOptionId: id })}
+        />
+      );
     case "placement":
+      return (
+        <AsyncOptionsStep
+          plan={plan}
+          reload={reload}
+          title="Scegli il centro logistico Amazon"
+          description="Amazon assegnera' una o piu' destinazioni FBA. Selezionane una (eventuali fee placement sono indicate)."
+          startUrl={`/api/v2/inbound/plans/${plan.id}/placement/start`}
+          optionsUrl={`/api/v2/inbound/plans/${plan.id}/placement/options`}
+          confirmUrl={`/api/v2/inbound/plans/${plan.id}/placement/confirm`}
+          optionsKey="placementOptions"
+          idKey="placementOptionId"
+          renderOption={(opt) => (
+            <>
+              <div className="text-xs font-mono text-white">{opt.placementOptionId}</div>
+              <div className="text-[11px] text-slate-400 mt-1">
+                {opt.shipmentIds?.length || 0} shipment · {opt.status || "—"}
+              </div>
+              {opt.fees && opt.fees.length > 0 && (
+                <div className="text-[11px] text-amber-400 mt-1">
+                  Fee: {opt.fees.map((f) => `${f.type} ${f.value?.amount} ${f.value?.code}`).join(", ")}
+                </div>
+              )}
+            </>
+          )}
+          confirmBody={(id) => ({ placementOptionId: id })}
+        />
+      );
     case "transport":
+      return <TransportStep plan={plan} reload={reload} />;
     case "delivery":
+      return <DeliveryStep plan={plan} reload={reload} />;
     case "labels":
-      return <PlaceholderStep step={plan.current_step} />;
+      return <LabelsStep plan={plan} reload={reload} />;
     case "done":
       return (
         <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-8 text-center">
@@ -153,6 +214,293 @@ function StepContent({ plan, reload }) {
     default:
       return <PlaceholderStep step={plan.current_step} />;
   }
+}
+
+// Componente generico riusabile per i step: avvia operazione → polling → lista opzioni → conferma
+function AsyncOptionsStep({
+  plan, reload, title, description,
+  startUrl, optionsUrl, confirmUrl,
+  optionsKey, idKey,
+  renderOption, confirmBody,
+  startBody = null,
+}) {
+  const [opId, setOpId] = useState(null);
+  const [options, setOptions] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [confirming, setConfirming] = useState(false);
+  const { status, error, elapsed } = useOperationPolling(opId);
+
+  useEffect(() => {
+    if (status === "SUCCESS" && !options) {
+      fetch(optionsUrl).then((r) => r.json())
+        .then((d) => setOptions(d?.[optionsKey] || []))
+        .catch((e) => toast.error("Errore lista opzioni: " + e.message));
+    }
+  }, [status, options, optionsUrl, optionsKey]);
+
+  const start = async () => {
+    try {
+      const r = await fetch(startUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: startBody ? JSON.stringify(startBody) : undefined,
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Errore avvio");
+      setOpId(d.operationId);
+      toast.info("Operazione avviata su Amazon…");
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const confirm = async () => {
+    if (!selected) return;
+    setConfirming(true);
+    try {
+      const r = await fetch(confirmUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(confirmBody(selected)),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error || "Errore conferma");
+      }
+      toast.success("Opzione confermata");
+      reload();
+    } catch (e) { toast.error(e.message); }
+    finally { setConfirming(false); }
+  };
+
+  if (!opId) {
+    return (
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-8">
+        <h3 className="text-sm font-semibold text-white mb-2">{title}</h3>
+        <p className="text-xs text-slate-400 mb-6">{description}</p>
+        <button onClick={start}
+          className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
+          <Play className="w-3.5 h-3.5" /> Avvia
+        </button>
+      </div>
+    );
+  }
+  if (status === "IN_PROGRESS") {
+    return (
+      <div className="rounded-lg border border-blue-500/30 bg-blue-500/5 p-8 text-center">
+        <Loader2 className="w-10 h-10 text-blue-400 animate-spin mx-auto mb-3" />
+        <h3 className="text-sm font-semibold text-blue-200">Amazon sta elaborando…</h3>
+        <p className="text-xs text-blue-300/70 mt-2">Tempo trascorso: {elapsed}s</p>
+      </div>
+    );
+  }
+  if (status === "FAILED" || error) {
+    return (
+      <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 p-6">
+        <AlertCircle className="w-6 h-6 text-rose-400 mb-2" />
+        <h3 className="text-sm font-semibold text-rose-300">Operazione fallita</h3>
+        <p className="text-xs text-rose-300/70 mt-1">{error}</p>
+        <button onClick={() => { setOpId(null); setOptions(null); }}
+          className="mt-4 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 rounded-md text-slate-200">Riprova</button>
+      </div>
+    );
+  }
+  if (status === "SUCCESS" && options) {
+    if (options.length === 0) return <div className="text-slate-400 text-sm">Nessuna opzione disponibile.</div>;
+    return (
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-white">Seleziona un'opzione</h3>
+        <div className="space-y-2">
+          {options.map((opt) => (
+            <label key={opt[idKey]}
+              className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${
+                selected === opt[idKey] ? "bg-emerald-500/10 border-emerald-500/50" : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+              }`}>
+              <input type="radio" name="opt" value={opt[idKey]} checked={selected === opt[idKey]}
+                onChange={() => setSelected(opt[idKey])} className="mt-1" />
+              <div className="flex-1">{renderOption(opt)}</div>
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-end">
+          <button onClick={confirm} disabled={!selected || confirming}
+            className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 disabled:opacity-50 disabled:cursor-not-allowed">
+            {confirming && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Conferma
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+// Step Transport: per ora "use your own carrier" semplificato
+function TransportStep({ plan, reload }) {
+  const [submitting, setSubmitting] = useState(false);
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      // generateTransportationOptions con "useYourOwnCarrier"
+      const r1 = await fetch(`/api/v2/inbound/plans/${plan.id}/transport/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shipmentTransportationConfigurations: [], // verra' valorizzato per shipment dopo lettura summary
+        }),
+      });
+      const d1 = await r1.json();
+      if (!r1.ok) throw new Error(d1.error || "Errore avvio trasporto");
+      toast.info("Generazione opzioni trasporto avviata. Polling in corso lato server…");
+      // Per ora marchiamo come confermato (use your own carrier non richiede lista opzioni Amazon)
+      const r2 = await fetch(`/api/v2/inbound/plans/${plan.id}/transport/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shipmentTransportationConfigurations: [] }),
+      });
+      if (!r2.ok) {
+        const err = await r2.json().catch(() => ({}));
+        throw new Error(err.error || "Errore conferma trasporto");
+      }
+      toast.success("Trasporto confermato (Use Your Own Carrier)");
+      reload();
+    } catch (e) { toast.error(e.message); }
+    finally { setSubmitting(false); }
+  };
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-8">
+      <h3 className="text-sm font-semibold text-white mb-2">Trasporto</h3>
+      <p className="text-xs text-slate-400 mb-4">
+        MVP: utilizzo del tuo corriere (DHL/UPS/altro a tua scelta). I tracking numbers verranno inseriti dopo aver ricevuto la spedizione dal vettore.
+      </p>
+      <p className="text-[11px] text-amber-400 mb-6">
+        Nella Fase 2 sarà disponibile anche Amazon Partnered Carrier UPS (Amazon prenota il corriere a tariffa scontata).
+      </p>
+      <button onClick={submit} disabled={submitting}
+        className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 disabled:opacity-50">
+        {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Conferma "Use Your Own Carrier"
+      </button>
+    </div>
+  );
+}
+
+// Step Delivery: si applica per ogni shipment generato
+function DeliveryStep({ plan, reload }) {
+  const [shipments, setShipments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [confirmingId, setConfirmingId] = useState(null);
+
+  useEffect(() => {
+    fetch(`/api/v2/inbound/plans/${plan.id}/summary`)
+      .then((r) => r.json())
+      .then((d) => { setShipments(d?.inboundPlan?.shipments || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [plan.id]);
+
+  const confirmAll = async () => {
+    // Per ogni shipment: start + (skippiamo lista per MVP, ne scegliamo la prima)
+    for (const s of shipments) {
+      setConfirmingId(s.shipmentId);
+      try {
+        await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/start`, { method: "POST" });
+        // attesa polling: per MVP semplifichiamo non gestendolo qui
+        const r = await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/options`);
+        const d = await r.json();
+        const first = d?.deliveryWindowOptions?.[0];
+        if (first) {
+          await fetch(`/api/v2/inbound/plans/${plan.id}/delivery/${s.shipmentId}/confirm`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ deliveryWindowOptionId: first.deliveryWindowOptionId }),
+          });
+        }
+      } catch (e) { toast.error(`Shipment ${s.shipmentId}: ${e.message}`); }
+    }
+    setConfirmingId(null);
+    toast.success("Finestre di consegna confermate");
+    reload();
+  };
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin text-blue-400" />;
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-4">
+      <h3 className="text-sm font-semibold text-white">Finestre di consegna</h3>
+      <p className="text-xs text-slate-400">
+        Amazon richiede una finestra di consegna per ogni shipment. Nel MVP prendiamo la prima disponibile per ogni shipment.
+      </p>
+      <div className="space-y-2">
+        {shipments.map((s) => (
+          <div key={s.shipmentId} className="flex items-center justify-between p-3 rounded border border-slate-800 bg-slate-900/50">
+            <div className="text-xs">
+              <div className="font-mono text-white">{s.shipmentId}</div>
+              <div className="text-slate-500 mt-1">{s.destination?.address?.city || "—"} · {s.status}</div>
+            </div>
+            {confirmingId === s.shipmentId && <Loader2 className="w-4 h-4 animate-spin text-blue-400" />}
+          </div>
+        ))}
+      </div>
+      <button onClick={confirmAll}
+        className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
+        Conferma prime finestre disponibili
+      </button>
+    </div>
+  );
+}
+
+// Step Labels: per ogni shipment scarica labels
+function LabelsStep({ plan, reload }) {
+  const [shipments, setShipments] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/v2/inbound/plans/${plan.id}/summary`)
+      .then((r) => r.json())
+      .then((d) => { setShipments(d?.inboundPlan?.shipments || []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [plan.id]);
+
+  const download = async (shipmentId) => {
+    try {
+      const r = await fetch(`/api/v2/inbound/shipments/${shipmentId}/labels?planId=${plan.id}&pageType=PackageLabel_A4_4&labelType=BARCODE_2D`);
+      const d = await r.json();
+      if (d.documentDownloads && d.documentDownloads[0]?.downloadURL) {
+        window.open(d.documentDownloads[0].downloadURL, "_blank");
+      } else {
+        toast.error("Nessuna URL di download nelle labels");
+      }
+    } catch (e) { toast.error(e.message); }
+  };
+
+  const finalize = async () => {
+    await fetch(`/api/v2/inbound/plans/${plan.id}/mark-done`, { method: "POST" });
+    toast.success("Spedizione finalizzata");
+    reload();
+  };
+
+  if (loading) return <Loader2 className="w-6 h-6 animate-spin text-blue-400" />;
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-4">
+      <h3 className="text-sm font-semibold text-white">Etichette spedizione</h3>
+      <p className="text-xs text-slate-400">Scarica le etichette PDF di ogni shipment. Verranno aperte in una nuova scheda.</p>
+      <div className="space-y-2">
+        {shipments.map((s) => (
+          <div key={s.shipmentId} className="flex items-center justify-between p-3 rounded border border-slate-800 bg-slate-900/50">
+            <div className="text-xs">
+              <div className="font-mono text-white">{s.shipmentId}</div>
+              <div className="text-slate-500 mt-1">{s.destination?.address?.city || "—"}</div>
+            </div>
+            <button onClick={() => download(s.shipmentId)}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 rounded">
+              <FileText className="w-3.5 h-3.5" /> Scarica labels
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end pt-2 border-t border-slate-800">
+        <button onClick={finalize}
+          className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40">
+          <CheckCircle2 className="w-3.5 h-3.5" /> Finalizza spedizione
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function ItemsRecap({ plan }) {

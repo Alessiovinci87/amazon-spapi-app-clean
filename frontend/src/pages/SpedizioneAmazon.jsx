@@ -60,6 +60,7 @@ export default function SpedizioneAmazon() {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [testMode, setTestMode] = useState(false);
 
   const loadPlans = async () => {
     setLoading(true);
@@ -75,6 +76,10 @@ export default function SpedizioneAmazon() {
 
   useEffect(() => {
     loadPlans();
+    fetch("/api/v2/inbound/config")
+      .then((r) => r.json())
+      .then((d) => setTestMode(!!d.testMode))
+      .catch(() => {});
   }, []);
 
   return (
@@ -82,6 +87,16 @@ export default function SpedizioneAmazon() {
       <PageTopBar icon={Send} iconAccent="emerald" eyebrow="Operazioni" title="Spedizione ad Amazon FBA" />
 
       <main className="px-6 sm:px-10 lg:px-16 py-8 space-y-6">
+        {testMode && (
+          <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div className="text-xs">
+              <span className="text-amber-300 font-semibold uppercase tracking-wider">Modalità Test attiva</span>
+              <span className="text-amber-200/80 ml-2">Nessuna chiamata reale ad Amazon. Le risposte sono mock per test UI.</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-sm uppercase tracking-[0.16em] text-slate-400">Piani spedizione</h2>
           <div className="flex gap-2">

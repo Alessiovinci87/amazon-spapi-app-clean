@@ -1,8 +1,13 @@
 const express = require("express");
 const logger = require("../../utils/logger");
 const svc = require("./inboundService");
+const api = require("./inboundApi");
 
 const router = express.Router();
+
+router.get("/config", (_req, res) => {
+  res.json({ testMode: api.isMockEnabled() });
+});
 
 router.get("/plans", (_req, res) => {
   res.json(svc.listPlans());
@@ -67,6 +72,59 @@ router.post("/plans/:id/packing/confirm", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Placement
+router.post("/plans/:id/placement/start", async (req, res) => {
+  try { res.json(await svc.startPlacement(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.get("/plans/:id/placement/options", async (req, res) => {
+  try { res.json(await svc.listPlacementOptions(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post("/plans/:id/placement/confirm", async (req, res) => {
+  try { res.json(await svc.confirmPlacement(req.params.id, req.body.placementOptionId)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Transportation
+router.post("/plans/:id/transport/start", async (req, res) => {
+  try { res.json(await svc.startTransportation(req.params.id, req.body)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.get("/plans/:id/transport/options", async (req, res) => {
+  try { res.json(await svc.listTransportationOptions(req.params.id, req.query)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post("/plans/:id/transport/confirm", async (req, res) => {
+  try { res.json(await svc.confirmTransportation(req.params.id, req.body)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Delivery Window (per shipment)
+router.post("/plans/:id/delivery/:shipmentId/start", async (req, res) => {
+  try { res.json(await svc.startDelivery(req.params.id, req.params.shipmentId)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.get("/plans/:id/delivery/:shipmentId/options", async (req, res) => {
+  try { res.json(await svc.listDeliveryWindowOptions(req.params.id, req.params.shipmentId)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.post("/plans/:id/delivery/:shipmentId/confirm", async (req, res) => {
+  try { res.json(await svc.confirmDelivery(req.params.id, req.params.shipmentId, req.body.deliveryWindowOptionId)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Plan summary (per leggere shipments dopo placement)
+router.get("/plans/:id/summary", async (req, res) => {
+  try { res.json(await svc.getPlanSummary(req.params.id)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+router.post("/plans/:id/mark-done", (req, res) => {
+  svc.markDone(req.params.id);
+  res.json({ ok: true });
 });
 
 router.get("/operations/:opId", async (req, res) => {
