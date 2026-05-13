@@ -5,6 +5,7 @@ const path = require("path");
 const pdf = require("html-pdf-node");
 const { getDb } = require("../db/database");
 const logger = require("../utils/logger");
+const { logoToDataUri } = require("../utils/logoUtils");
 
 const router = express.Router();
 
@@ -155,11 +156,10 @@ router.get("/storico/:id/pdf", async (req, res) => {
       pics:    { logo: "/static/images/logo.png",          intestazione: "Pics Srl – Via dei Fabbri, snc – Alghero, 07041, SS, Italia P.I. IT02603050903 – info@picsnails.com" },
     };
     const brandData = brandConfig[ddt.brand] || brandConfig["pics"];
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:3005";
 
     let template = fs.readFileSync(templatePath, "utf8");
 
-    template = replacePlaceholder(template, "LOGO_PATH", `${backendUrl}${brandData.logo}`);
+    template = replacePlaceholder(template, "LOGO_PATH", logoToDataUri(brandData.logo));
     template = replacePlaceholder(template, "INTESTAZIONE", brandData.intestazione);
     template = replacePlaceholder(template, "NUMERO_DDT", esc(ddt.numeroDDT));
     template = replacePlaceholder(template, "NUMERO_AMAZON", esc(ddt.numeroAmazon));

@@ -2,6 +2,7 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const logger = require("../utils/logger");
+const { logoToDataUri } = require("../utils/logoUtils");
 let puppeteer;
 
 try {
@@ -118,8 +119,7 @@ router.post("/pdf/:idSpedizione", async (req, res) => {
     const templatePath = path.join(__dirname, "templates", "ddtTemplate.html");
     let html = fs.readFileSync(templatePath, "utf8");
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:3005";
-    const logoUrl = `${backendUrl}/static/images/logo.png`;
+    const logoUrl = logoToDataUri("/static/images/logo.png");
 
     const dataIT = new Date(data).toLocaleDateString("it-IT");
 

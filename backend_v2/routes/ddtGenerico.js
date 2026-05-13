@@ -6,6 +6,7 @@ const { getDb } = require("../db/database");
 const { z } = require("zod");
 const { validate } = require("../middleware/validate");
 const logger = require("../utils/logger");
+const { logoToDataUri } = require("../utils/logoUtils");
 
 const router = express.Router();
 
@@ -181,14 +182,13 @@ router.post("/generico/pdf", validate({ body: ddtPdfSchema }), async (req, res) 
     };
 
     const brandData = brandConfig[brand] || brandConfig["pics"];
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:3005";
 
     let template = fs.readFileSync(templatePath, "utf8");
     const { righeHtml, totUnita, totColli } = compilaRighe(righe, true);
 
     const fields = { numeroDDT, numeroAmazon, data, paese, centro, trasportatore, tracking };
 
-    template = replacePlaceholder(template, "LOGO_PATH", `${backendUrl}${brandData.logo}`);
+    template = replacePlaceholder(template, "LOGO_PATH", logoToDataUri(brandData.logo));
     template = replacePlaceholder(template, "INTESTAZIONE", brandData.intestazione);
     template = replacePlaceholder(template, "NUMERO_DDT", esc(numeroDDT));
     template = replacePlaceholder(template, "NUMERO_AMAZON", esc(numeroAmazon));
@@ -234,8 +234,7 @@ router.post("/pics-nails/pdf", validate({ body: picsNailsPdfSchema }), async (re
       spedizioneProgressivo,
     } = req.body;
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:3005";
-    const logoPath = `${backendUrl}/static/images/logo.png`;
+    const logoPath = logoToDataUri("/static/images/logo.png");
     const dataFormattata = data ? new Date(data).toLocaleDateString("it-IT") : "";
 
     let template = fs.readFileSync(templatePicsNailsPath, "utf8");
