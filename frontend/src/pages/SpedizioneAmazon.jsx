@@ -43,7 +43,7 @@ const DEFAULT_SOURCE = {
   postalCode: "07041",
   countryCode: "IT",
   email: "info@picsnails.com",
-  phoneNumber: "+390791234567",
+  phoneNumber: "0799731078",
   companyName: "Pics Srl",
 };
 
@@ -373,7 +373,7 @@ function CreatePlanModal({ onClose, onCreated }) {
                   className={inputCls}
                   value={source.phoneNumber}
                   onChange={(e) => setSource({ ...source, phoneNumber: e.target.value })}
-                  placeholder="+39 079 1234567"
+                  placeholder="0799731078"
                 />
               </div>
             </div>
