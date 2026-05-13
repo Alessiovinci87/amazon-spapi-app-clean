@@ -67,8 +67,18 @@ export default function SpedizioneAmazonWizard() {
     );
   }
 
+  const STATUS_TO_STEP = {
+    DRAFT: "items",
+    PLAN_CREATED: "packing",
+    PACKING_CONFIRMED: "placement",
+    PLACEMENT_CONFIRMED: "boxing",
+    TRANSPORT_CONFIRMED: "delivery",
+    DELIVERY_CONFIRMED: "labels",
+  };
   const currentIdx = STEPS.findIndex((s) => s.id === plan.current_step);
-  const furthestIdx = Math.max(currentIdx, STEPS.findIndex((s) => s.id === (plan.furthest_step || plan.current_step)));
+  const idxFurthestDb = STEPS.findIndex((s) => s.id === (plan.furthest_step || plan.current_step));
+  const idxFromStatus = STEPS.findIndex((s) => s.id === (STATUS_TO_STEP[plan.status] || "items"));
+  const furthestIdx = Math.max(currentIdx, idxFurthestDb, idxFromStatus);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
