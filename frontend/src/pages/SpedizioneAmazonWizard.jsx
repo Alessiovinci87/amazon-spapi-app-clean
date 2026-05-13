@@ -409,51 +409,82 @@ function AsyncOptionsStep({
   return null;
 }
 
-// Step Transport: per ora "use your own carrier" semplificato
+// Step Transport: "Use Your Own Carrier" - tu prenoti DHL/UPS a parte
 function TransportStep({ plan, reload }) {
+  const today = new Date();
+  const defaultReady = new Date(today.getTime() + 3 * 86400000).toISOString().slice(0, 10);
+
+  const [readyDate, setReadyDate] = useState(defaultReady);
+  const [contactName, setContactName] = useState("Pics Srl");
+  const [contactPhone, setContactPhone] = useState("0799731078");
+  const [contactEmail, setContactEmail] = useState("info@picsnails.com");
   const [submitting, setSubmitting] = useState(false);
+
   const submit = async () => {
+    if (!readyDate) return toast.error("Data ready-to-ship obbligatoria");
+    if (!contactName || !contactPhone || !contactEmail) return toast.error("Compila tutti i contatti");
     setSubmitting(true);
     try {
-      // generateTransportationOptions con "useYourOwnCarrier"
-      const r1 = await fetch(`/api/v2/inbound/plans/${plan.id}/transport/start`, {
+      const r = await fetch(`/api/v2/inbound/plans/${plan.id}/transport/use-your-own-carrier`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          shipmentTransportationConfigurations: [], // verra' valorizzato per shipment dopo lettura summary
+          readyToShipDate: readyDate,
+          contactName, contactPhone, contactEmail,
         }),
       });
-      const d1 = await r1.json();
-      if (!r1.ok) throw new Error(d1.error || "Errore avvio trasporto");
-      toast.info("Generazione opzioni trasporto avviata. Polling in corso lato server…");
-      // Per ora marchiamo come confermato (use your own carrier non richiede lista opzioni Amazon)
-      const r2 = await fetch(`/api/v2/inbound/plans/${plan.id}/transport/confirm`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shipmentTransportationConfigurations: [] }),
-      });
-      if (!r2.ok) {
-        const err = await r2.json().catch(() => ({}));
-        throw new Error(err.error || "Errore conferma trasporto");
-      }
-      toast.success("Trasporto confermato (Use Your Own Carrier)");
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Errore configurazione trasporto");
+      toast.success(`Trasporto confermato per ${d.shipments} shipment`);
       reload();
     } catch (e) { toast.error(e.message); }
     finally { setSubmitting(false); }
   };
+
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-8">
-      <h3 className="text-sm font-semibold text-white mb-2">Trasporto</h3>
-      <p className="text-xs text-slate-400 mb-4">
-        MVP: utilizzo del tuo corriere (DHL/UPS/altro a tua scelta). I tracking numbers verranno inseriti dopo aver ricevuto la spedizione dal vettore.
-      </p>
-      <p className="text-[11px] text-amber-400 mb-6">
-        Nella Fase 2 sarà disponibile anche Amazon Partnered Carrier UPS (Amazon prenota il corriere a tariffa scontata).
-      </p>
-      <button onClick={submit} disabled={submitting}
-        className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 disabled:opacity-50">
-        {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Conferma "Use Your Own Carrier"
-      </button>
+    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6 space-y-5">
+      <div>
+        <h3 className="text-sm font-semibold text-white mb-1">Trasporto — Use Your Own Carrier</h3>
+        <p className="text-xs text-slate-400">
+          Sei tu che prenoti il corriere (DHL, UPS, GLS, ecc.) — Amazon ti chiede solo data pronta-spedizione e contatti per il pickup.
+          Inserirai i tracking numbers dopo aver ricevuto la spedizione dal vettore.
+        </p>
+        <p className="text-[11px] text-amber-400 mt-2">
+          ⚙ Fase 2 prevede anche Amazon Partnered Carrier UPS (Amazon prenota a tariffa scontata).
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Data pronta-spedizione</label>
+          <input type="date" min={defaultReady} value={readyDate}
+            onChange={(e) => setReadyDate(e.target.value)}
+            className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Nome contatto</label>
+          <input type="text" value={contactName} onChange={(e) => setContactName(e.target.value)}
+            className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Telefono</label>
+          <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)}
+            className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
+        </div>
+        <div>
+          <label className="text-[10px] uppercase tracking-[0.14em] text-slate-500 block mb-1.5">Email</label>
+          <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)}
+            className="w-full bg-slate-800/60 border border-slate-700 rounded-md px-3 py-2 text-sm text-white" />
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-3 border-t border-slate-800">
+        <button onClick={submit} disabled={submitting}
+          className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 disabled:opacity-50">
+          {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Configura trasporto (può richiedere 10-30 secondi)
+        </button>
+      </div>
     </div>
   );
 }

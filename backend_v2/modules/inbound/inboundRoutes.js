@@ -101,6 +101,10 @@ router.post("/plans/:id/transport/confirm", async (req, res) => {
   try { res.json(await svc.confirmTransportation(req.params.id, req.body)); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
+router.post("/plans/:id/transport/use-your-own-carrier", async (req, res) => {
+  try { res.json(await svc.configureUseYourOwnCarrier(req.params.id, req.body)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // Delivery Window (per shipment)
 router.post("/plans/:id/delivery/:shipmentId/start", async (req, res) => {

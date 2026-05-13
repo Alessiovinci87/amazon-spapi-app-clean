@@ -160,6 +160,78 @@ async function downloadLabels(planId, shipmentId, opts = {}) {
   });
 }
 
+// Polla un operationId fino a SUCCESS/FAILED (utility riusabile)
+async function waitForOperation(operationId, { maxAttempts = 30, intervalMs = 2000 } = {}) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const res = await api.getOperationStatus(operationId);
+    if (res.operationStatus === "SUCCESS") return res;
+    if (res.operationStatus === "FAILED") {
+      const err = new Error(res.operationProblems?.[0]?.message || "Operazione fallita");
+      err.details = res.operationProblems;
+      throw err;
+    }
+    await new Promise(r => setTimeout(r, intervalMs));
+  }
+  throw new Error(`Timeout dopo ${maxAttempts * intervalMs}ms`);
+}
+
+// Configura trasporto USE_YOUR_OWN_CARRIER end-to-end (generate -> wait -> list -> confirm -> wait)
+async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName, contactPhone, contactEmail }) {
+  const plan = getPlan(planId);
+  if (!plan.amazon_plan_id) throw new Error("Piano non creato su Amazon");
+  if (!plan.selected_placement_id) throw new Error("Placement non confermato");
+
+  // Recupera shipments
+  const summary = await api.getInboundPlan(plan.amazon_plan_id);
+  const shipments = summary.shipments || [];
+  if (shipments.length === 0) throw new Error("Nessuno shipment nel piano");
+
+  const configurations = shipments.map(s => ({
+    shipmentId: s.shipmentId,
+    contactInformation: {
+      name: contactName,
+      phoneNumber: contactPhone,
+      email: contactEmail,
+    },
+    readyToShipWindow: {
+      readyToShipDate, // YYYY-MM-DD
+    },
+    shippingSolution: "USE_YOUR_OWN_CARRIER",
+    shippingMode: "GROUND_SMALL_PARCEL",
+  }));
+
+  // Generate
+  const genRes = await api.generateTransportationOptions(plan.amazon_plan_id, {
+    placementOptionId: plan.selected_placement_id,
+    shipmentTransportationConfigurations: configurations,
+  });
+  await waitForOperation(genRes.operationId);
+
+  // List + pick the first USE_YOUR_OWN_CARRIER option per shipment
+  const listRes = await api.listTransportationOptions(plan.amazon_plan_id);
+  const options = listRes.transportationOptions || [];
+  const pickedIds = shipments
+    .map(s => {
+      const found = options.find(o => o.shipmentId === s.shipmentId && (o.carrier?.alphaCode === "USE_YOUR_OWN_CARRIER" || o.carrier?.name === "USE_YOUR_OWN_CARRIER" || !o.carrier));
+      return found?.transportationOptionId;
+    })
+    .filter(Boolean);
+
+  if (pickedIds.length === 0) throw new Error("Nessuna transportationOption USE_YOUR_OWN_CARRIER trovata");
+
+  // Confirm
+  const confRes = await api.confirmTransportationOptions(plan.amazon_plan_id, {
+    transportationOptionIds: pickedIds,
+  });
+  await waitForOperation(confRes.operationId);
+
+  getDb()
+    .prepare(`UPDATE inbound_plans SET status='TRANSPORT_CONFIRMED', current_step='delivery' WHERE id = ?`)
+    .run(planId);
+
+  return { transportationOptionIds: pickedIds, shipments: shipments.length };
+}
+
 // Helper: rileva errori "workflow gia' avanzato lato Amazon" e segnala auto-skip
 function isAlreadyDoneError(err) {
   const msg = (err.message || "") + JSON.stringify(err.details || {});
@@ -355,6 +427,7 @@ module.exports = {
   confirmDelivery,
   getPlanSummary,
   syncWithAmazon,
+  configureUseYourOwnCarrier,
   markDone,
   pollOperation,
   downloadLabels,
