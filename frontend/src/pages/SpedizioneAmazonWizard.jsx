@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Send, Loader2, CheckCircle2, AlertCircle, Package, MapPin, Truck, Calendar, FileText, Play, RefreshCw,
+  ArrowLeft, Send, Loader2, CheckCircle2, AlertCircle, Package, MapPin, Truck, Calendar, FileText, Play, RefreshCw, Box, Plus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useOperationPolling } from "../hooks/useOperationPolling";
 
 const STEPS = [
-  { id: "items",     label: "Articoli",   icon: Package },
-  { id: "packing",   label: "Pacchi",     icon: Package },
-  { id: "placement", label: "Centro",     icon: MapPin },
-  { id: "transport", label: "Trasporto",  icon: Truck },
-  { id: "delivery",  label: "Consegna",   icon: Calendar },
-  { id: "labels",    label: "Etichette",  icon: FileText },
-  { id: "done",      label: "Spedita",    icon: CheckCircle2 },
+  { id: "items",     label: "Articoli",     icon: Package },
+  { id: "packing",   label: "Pre-packing",  icon: Package },
+  { id: "placement", label: "Centro",       icon: MapPin },
+  { id: "boxing",    label: "Imballaggio",  icon: Box },
+  { id: "transport", label: "Trasporto",    icon: Truck },
+  { id: "delivery",  label: "Consegna",     icon: Calendar },
+  { id: "labels",    label: "Etichette",    icon: FileText },
+  { id: "done",      label: "Spedita",      icon: CheckCircle2 },
 ];
 
 export default function SpedizioneAmazonWizard() {
@@ -238,6 +239,8 @@ function StepContent({ plan, reload }) {
           confirmBody={(id) => ({ placementOptionId: id })}
         />
       );
+    case "boxing":
+      return <BoxingStep plan={plan} reload={reload} />;
     case "transport":
       return <TransportStep plan={plan} reload={reload} />;
     case "delivery":
@@ -840,6 +843,180 @@ function PackingStep({ plan, reload }) {
   }
 
   return null;
+}
+
+// Step Imballaggio: dichiara dimensioni/peso cartoni + tipo spedizione
+function BoxingStep({ plan, reload }) {
+  const [shippingMode, setShippingMode] = useState("GROUND_SMALL_PARCEL");
+  const [shipments, setShipments] = useState([]);
+  const [loadingShipments, setLoadingShipments] = useState(true);
+  const [boxes, setBoxes] = useState([
+    { _id: Math.random().toString(36).slice(2), length: 30, width: 20, height: 15, weight: 5, quantity: 1, msku: plan.items?.[0]?.msku || "", itemQty: plan.items?.[0]?.quantity || 1, expiration: plan.items?.[0]?.expiration || "" },
+  ]);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/v2/inbound/plans/${plan.id}/summary`)
+      .then((r) => r.json())
+      .then((d) => { setShipments(d?.shipments || d?.inboundPlan?.shipments || []); setLoadingShipments(false); })
+      .catch(() => setLoadingShipments(false));
+  }, [plan.id]);
+
+  const addBox = () => setBoxes((prev) => [...prev, { ...prev[prev.length - 1], _id: Math.random().toString(36).slice(2) }]);
+  const removeBox = (id) => setBoxes((prev) => prev.length > 1 ? prev.filter((b) => b._id !== id) : prev);
+  const updateBox = (id, patch) => setBoxes((prev) => prev.map((b) => (b._id === id ? { ...b, ...patch } : b)));
+
+  const totalUnits = boxes.reduce((tot, b) => tot + (Number(b.quantity) || 1) * (Number(b.itemQty) || 0), 0);
+
+  const submit = async () => {
+    if (shipments.length === 0) return toast.error("Nessuno shipment trovato");
+    if (boxes.length === 0) return toast.error("Aggiungi almeno un cartone");
+    if (boxes.some((b) => !b.msku || !b.itemQty)) return toast.error("Compila SKU e quantità per ogni cartone");
+
+    setSubmitting(true);
+    try {
+      const packageGroupings = shipments.map((s) => ({
+        shipmentId: s.shipmentId,
+        boxes: boxes.map((b) => ({
+          weight: { value: Number(b.weight), unit: "KG" },
+          dimensions: { length: Number(b.length), width: Number(b.width), height: Number(b.height), unit: "CENTIMETERS" },
+          quantity: Number(b.quantity) || 1,
+          contentInformationSource: "BOX_CONTENT_PROVIDED",
+          items: [
+            {
+              msku: b.msku,
+              quantity: Number(b.itemQty),
+              prepOwner: "SELLER",
+              labelOwner: "SELLER",
+              ...(b.expiration ? { expiration: b.expiration } : {}),
+            },
+          ],
+        })),
+      }));
+
+      const r = await fetch(`/api/v2/inbound/plans/${plan.id}/boxing/configure`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shippingMode, packageGroupings }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Errore configurazione imballaggio");
+      toast.success("Imballaggio dichiarato — passo a Trasporto");
+      reload();
+    } catch (e) { toast.error(e.message); }
+    finally { setSubmitting(false); }
+  };
+
+  if (loadingShipments) return <Loader2 className="w-6 h-6 animate-spin text-blue-400" />;
+
+  const inp = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-2.5 py-1.5 text-sm text-white";
+  const lbl = "text-[9px] uppercase tracking-[0.14em] text-slate-500 block mb-1";
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6">
+        <h3 className="text-sm font-semibold text-white mb-2">Tipo di spedizione</h3>
+        <p className="text-xs text-slate-400 mb-4">Scegli come arriveranno i tuoi cartoni al centro Amazon. Influenza le opzioni di trasporto disponibili.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${shippingMode === "GROUND_SMALL_PARCEL" ? "bg-emerald-500/10 border-emerald-500/50" : "bg-slate-900/60 border-slate-800 hover:border-slate-700"}`}>
+            <input type="radio" name="mode" value="GROUND_SMALL_PARCEL" checked={shippingMode === "GROUND_SMALL_PARCEL"} onChange={(e) => setShippingMode(e.target.value)} className="mt-1" />
+            <div>
+              <div className="text-sm font-semibold text-white">Piccoli colli (SPD)</div>
+              <div className="text-[11px] text-slate-400 mt-1">Cartoni singoli (max ~22 kg, max ~63 cm lato). Tipico per DHL/UPS/GLS Express.</div>
+            </div>
+          </label>
+          <label className={`flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors ${shippingMode === "LESS_THAN_TRUCKLOAD" ? "bg-emerald-500/10 border-emerald-500/50" : "bg-slate-900/60 border-slate-800 hover:border-slate-700"}`}>
+            <input type="radio" name="mode" value="LESS_THAN_TRUCKLOAD" checked={shippingMode === "LESS_THAN_TRUCKLOAD"} onChange={(e) => setShippingMode(e.target.value)} className="mt-1" />
+            <div>
+              <div className="text-sm font-semibold text-white">Carico completo (LTL)</div>
+              <div className="text-[11px] text-slate-400 mt-1">Pallet o gruppi di cartoni pesanti. Tipico per spedizioni a peso elevato. Richiede info pallet (Fase 2).</div>
+              {shippingMode === "LESS_THAN_TRUCKLOAD" && (
+                <div className="text-[10px] text-amber-400 mt-2">⚠ MVP: dichiari comunque i cartoni qui sotto. Pallet info non ancora supportata.</div>
+              )}
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-semibold text-white">Cartoni</h3>
+            <p className="text-[11px] text-slate-500 mt-1">Dichiara peso, dimensioni e contenuto di ogni cartone. Totale unità: <span className="text-emerald-400 font-mono">{totalUnits}</span></p>
+          </div>
+          <button onClick={addBox} className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300">
+            <Plus className="w-3.5 h-3.5" /> Aggiungi cartone
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {boxes.map((b, idx) => (
+            <div key={b._id} className="border border-slate-800 rounded-lg p-3 bg-slate-900/40">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-slate-300">Cartone {idx + 1}</span>
+                {boxes.length > 1 && (
+                  <button onClick={() => removeBox(b._id)} className="p-1 text-rose-400 hover:text-rose-300">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-12 gap-2">
+                <div className="col-span-2">
+                  <label className={lbl}>Lung. cm</label>
+                  <input type="number" min="1" className={inp} value={b.length} onChange={(e) => updateBox(b._id, { length: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <label className={lbl}>Largh. cm</label>
+                  <input type="number" min="1" className={inp} value={b.width} onChange={(e) => updateBox(b._id, { width: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <label className={lbl}>Alt. cm</label>
+                  <input type="number" min="1" className={inp} value={b.height} onChange={(e) => updateBox(b._id, { height: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <label className={lbl}>Peso kg</label>
+                  <input type="number" min="0.1" step="0.1" className={inp} value={b.weight} onChange={(e) => updateBox(b._id, { weight: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <label className={lbl}>N° cartoni uguali</label>
+                  <input type="number" min="1" className={inp} value={b.quantity} onChange={(e) => updateBox(b._id, { quantity: e.target.value })} />
+                </div>
+                <div className="col-span-2">
+                  <label className={lbl}>Q.tà per cartone</label>
+                  <input type="number" min="1" className={inp} value={b.itemQty} onChange={(e) => updateBox(b._id, { itemQty: e.target.value })} />
+                </div>
+                <div className="col-span-7">
+                  <label className={lbl}>SKU contenuto</label>
+                  <select className={inp} value={b.msku} onChange={(e) => {
+                    const it = (plan.items || []).find((x) => x.msku === e.target.value);
+                    updateBox(b._id, { msku: e.target.value, expiration: it?.expiration || b.expiration });
+                  }}>
+                    <option value="">— scegli —</option>
+                    {(plan.items || []).map((it) => (
+                      <option key={it.id} value={it.msku}>{it.msku} {it.asin ? `(${it.asin})` : ""} — disp. {it.quantity}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-5">
+                  <label className={lbl}>Scadenza lotto</label>
+                  <input type="date" className={inp} value={b.expiration || ""} onChange={(e) => updateBox(b._id, { expiration: e.target.value })} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={submit} disabled={submitting}
+          className="flex items-center gap-2 px-4 py-2 rounded-md text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 disabled:opacity-50">
+          {submitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+          Salva imballaggio e passa a Trasporto
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function PlaceholderStep({ step }) {

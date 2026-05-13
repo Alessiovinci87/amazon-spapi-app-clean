@@ -71,6 +71,10 @@ async function confirmPlacementOption(_planId, _id) {
   return { operationId: makeOpId() };
 }
 
+async function setPackingInformation(_planId, _body) {
+  return { operationId: makeOpId() };
+}
+
 async function generateTransportationOptions(_planId, _body) {
   return { operationId: makeOpId() };
 }
@@ -126,6 +130,7 @@ module.exports = {
   createInboundPlan, getInboundPlan,
   generatePackingOptions, listPackingOptions, confirmPackingOption,
   generatePlacementOptions, listPlacementOptions, confirmPlacementOption,
+  setPackingInformation,
   generateTransportationOptions, listTransportationOptions, confirmTransportationOptions,
   generateDeliveryWindowOptions, listDeliveryWindowOptions, confirmDeliveryWindowOption,
   getOperationStatus, getLabels, getBillOfLading,

@@ -8,6 +8,7 @@ const STEP = {
   ITEMS: "items",
   PACKING: "packing",
   PLACEMENT: "placement",
+  BOXING: "boxing",
   TRANSPORT: "transport",
   DELIVERY: "delivery",
   LABELS: "labels",
@@ -277,9 +278,25 @@ async function confirmPlacement(planId, placementOptionId) {
   const plan = getPlan(planId);
   const res = await api.confirmPlacementOption(plan.amazon_plan_id, placementOptionId);
   getDb()
-    .prepare(`UPDATE inbound_plans SET selected_placement_id = ?, status = 'PLACEMENT_CONFIRMED', current_step = 'transport' WHERE id = ?`)
+    .prepare(`UPDATE inbound_plans SET selected_placement_id = ?, status = 'PLACEMENT_CONFIRMED', current_step = 'boxing' WHERE id = ?`)
     .run(placementOptionId, planId);
   return res;
+}
+
+// Imballaggio: dichiara dimensioni/peso cartoni + tipo spedizione
+async function configureBoxing(planId, { shippingMode, packageGroupings }) {
+  const plan = getPlan(planId);
+  if (!plan.amazon_plan_id) throw new Error("Piano non creato su Amazon");
+  if (!packageGroupings || packageGroupings.length === 0) throw new Error("Dichiara almeno un cartone");
+
+  const res = await api.setPackingInformation(plan.amazon_plan_id, { packageGroupings });
+  await waitForOperation(res.operationId);
+
+  getDb()
+    .prepare(`UPDATE inbound_plans SET current_step = 'transport' WHERE id = ?`)
+    .run(planId);
+
+  return { ok: true, shippingMode };
 }
 
 // ─── Transportation ──────────────────────────────────────────
@@ -432,6 +449,7 @@ module.exports = {
   confirmDelivery,
   getPlanSummary,
   syncWithAmazon,
+  configureBoxing,
   configureUseYourOwnCarrier,
   markDone,
   pollOperation,

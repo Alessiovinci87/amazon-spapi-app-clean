@@ -96,6 +96,10 @@ function confirmPlacementOption(planId, placementOptionId) {
   return callInboundApi("POST", `/inboundPlans/${planId}/placementOptions/${placementOptionId}/confirmation`);
 }
 
+function setPackingInformation(planId, body) {
+  return callInboundApi("POST", `/inboundPlans/${planId}/packingInformation`, { body });
+}
+
 function generateTransportationOptions(planId, body) {
   return callInboundApi("POST", `/inboundPlans/${planId}/transportationOptions`, { body });
 }
@@ -144,6 +148,7 @@ module.exports = {
   generatePlacementOptions,
   listPlacementOptions,
   confirmPlacementOption,
+  setPackingInformation,
   generateTransportationOptions,
   listTransportationOptions,
   confirmTransportationOptions,

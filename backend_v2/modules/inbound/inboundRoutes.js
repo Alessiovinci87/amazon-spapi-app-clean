@@ -88,6 +88,12 @@ router.post("/plans/:id/placement/confirm", async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Boxing (setPackingInformation)
+router.post("/plans/:id/boxing/configure", async (req, res) => {
+  try { res.json(await svc.configureBoxing(req.params.id, req.body)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Transportation
 router.post("/plans/:id/transport/start", async (req, res) => {
   try { res.json(await svc.startTransportation(req.params.id, req.body)); }
