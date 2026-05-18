@@ -26,7 +26,12 @@ async function createInboundPlan(body) {
 
 async function getInboundPlan(planId) {
   const st = getState(planId);
-  return { inboundPlan: { inboundPlanId: planId, status: "ACTIVE", shipments: st.shipments } };
+  return { inboundPlan: { inboundPlanId: planId, status: "ACTIVE" } };
+}
+
+async function listInboundPlanShipments(planId, _query = {}) {
+  const st = getState(planId);
+  return { shipments: st.shipments };
 }
 
 async function generatePackingOptions(_planId) {
@@ -127,7 +132,7 @@ async function getBillOfLading(shipmentId) {
 }
 
 module.exports = {
-  createInboundPlan, getInboundPlan,
+  createInboundPlan, getInboundPlan, listInboundPlanShipments,
   generatePackingOptions, listPackingOptions, confirmPackingOption,
   generatePlacementOptions, listPlacementOptions, confirmPlacementOption,
   setPackingInformation,

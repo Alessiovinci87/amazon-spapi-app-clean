@@ -200,10 +200,10 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
   if (!plan.amazon_plan_id) throw new Error("Piano non creato su Amazon");
   if (!plan.selected_placement_id) throw new Error("Placement non confermato");
 
-  // Recupera shipments
-  const summary = await api.getInboundPlan(plan.amazon_plan_id);
-  const shipments = summary.shipments || [];
-  if (shipments.length === 0) throw new Error("Nessuno shipment nel piano");
+  // Recupera shipments dall'endpoint dedicato
+  const shipRes = await api.listInboundPlanShipments(plan.amazon_plan_id);
+  const shipments = shipRes?.shipments || [];
+  if (shipments.length === 0) throw new Error("Nessuno shipment nel piano (placement non ancora confermato?)");
 
   // ISO 8601 con orario futuro: se la data e' oggi, usa now+2h; altrimenti 08:00 UTC del giorno scelto
   const now = new Date();
@@ -413,7 +413,14 @@ async function confirmDelivery(planId, shipmentId, deliveryWindowOptionId) {
 // ─── Plan summary (per leggere shipments dopo placement) ─────
 async function getPlanSummary(planId) {
   const plan = getPlan(planId);
-  return api.getInboundPlan(plan.amazon_plan_id);
+  // Amazon richiede 2 chiamate distinte: il piano (metadati) e l'elenco shipments
+  const [summary, shipRes] = await Promise.all([
+    api.getInboundPlan(plan.amazon_plan_id),
+    api.listInboundPlanShipments(plan.amazon_plan_id).catch(() => ({ shipments: [] })),
+  ]);
+  const inboundPlan = summary?.inboundPlan || summary || {};
+  const shipments = shipRes?.shipments || [];
+  return { inboundPlan, shipments };
 }
 
 // Legge stato reale Amazon e ricalcola current_step locale.
@@ -423,9 +430,12 @@ async function syncWithAmazon(planId) {
   const plan = getPlan(planId);
   if (!plan.amazon_plan_id) throw new Error("Piano non ancora creato su Amazon");
 
-  const summary = await api.getInboundPlan(plan.amazon_plan_id);
+  const [summary, shipRes] = await Promise.all([
+    api.getInboundPlan(plan.amazon_plan_id),
+    api.listInboundPlanShipments(plan.amazon_plan_id).catch(() => ({ shipments: [] })),
+  ]);
   const ip = summary?.inboundPlan || summary || {};
-  const shipments = ip.shipments || [];
+  const shipments = shipRes?.shipments || [];
 
   // Piano marcato ERRORED da Amazon -> non recuperabile, lo segnaliamo
   if (ip.status === "ERRORED") {

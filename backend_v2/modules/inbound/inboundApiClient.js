@@ -72,6 +72,10 @@ function getInboundPlan(planId) {
   return callInboundApi("GET", `/inboundPlans/${planId}`);
 }
 
+function listInboundPlanShipments(planId, query = {}) {
+  return callInboundApi("GET", `/inboundPlans/${planId}/shipments`, { query });
+}
+
 function generatePackingOptions(planId) {
   return callInboundApi("POST", `/inboundPlans/${planId}/packingOptions`);
 }
@@ -142,6 +146,7 @@ function getBillOfLading(shipmentId) {
 module.exports = {
   createInboundPlan,
   getInboundPlan,
+  listInboundPlanShipments,
   generatePackingOptions,
   listPackingOptions,
   confirmPackingOption,
