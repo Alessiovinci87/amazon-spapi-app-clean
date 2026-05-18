@@ -217,6 +217,9 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
   }
   logger.info({ readyToShipDate, readyIso }, "[Inbound] readyToShipWindow calcolato");
 
+  const shippingMode = plan.shipping_mode === "LESS_THAN_TRUCKLOAD" ? "LESS_THAN_TRUCKLOAD" : "GROUND_SMALL_PARCEL";
+  logger.info({ planId, shippingMode }, "[Inbound] configureUseYourOwnCarrier - shippingMode da plan");
+
   const configurations = shipments.map(s => ({
     shipmentId: s.shipmentId,
     contactInformation: {
@@ -226,7 +229,7 @@ async function configureUseYourOwnCarrier(planId, { readyToShipDate, contactName
     },
     readyToShipWindow: { start: readyIso },
     shippingSolution: "USE_YOUR_OWN_CARRIER",
-    shippingMode: "GROUND_SMALL_PARCEL",
+    shippingMode,
     ...(carrierCode ? { carrier: { alphaCode: carrierCode } } : {}),
   }));
 
@@ -320,15 +323,17 @@ async function configureBoxing(planId, { shippingMode, packageGroupings }) {
   if (!plan.amazon_plan_id) throw new Error("Piano non creato su Amazon");
   if (!packageGroupings || packageGroupings.length === 0) throw new Error("Dichiara almeno un cartone");
 
+  const mode = shippingMode === "LESS_THAN_TRUCKLOAD" ? "LESS_THAN_TRUCKLOAD" : "GROUND_SMALL_PARCEL";
+
   const res = await api.setPackingInformation(plan.amazon_plan_id, { packageGroupings });
   await waitForOperation(res.operationId);
 
   getDb()
-    .prepare(`UPDATE inbound_plans SET current_step = 'transport' WHERE id = ?`)
-    .run(planId);
+    .prepare(`UPDATE inbound_plans SET current_step = 'transport', shipping_mode = ? WHERE id = ?`)
+    .run(mode, planId);
   advanceFurthest(planId, "transport");
 
-  return { ok: true, shippingMode };
+  return { ok: true, shippingMode: mode };
 }
 
 // ─── Transportation ──────────────────────────────────────────

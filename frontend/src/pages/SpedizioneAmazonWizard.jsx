@@ -193,7 +193,7 @@ export default function SpedizioneAmazonWizard() {
             </div>
           </div>
         )}
-        {plan.status === "VOIDED" && (
+        {plan.status === "VOIDED" ? (
           <div className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-4">
             <div className="flex items-center gap-3 mb-2">
               <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
@@ -202,17 +202,38 @@ export default function SpedizioneAmazonWizard() {
             <p className="text-xs text-rose-200/90 ml-8">
               Amazon ha marcato questo piano come <span className="font-mono">ERRORED</span>. Cause tipiche: MSKU non
               corrispondente a un listing attivo del seller, marketplace sbagliato, ASIN non vendibile sul tuo account.
-              Non e' possibile proseguire qui — torna alla lista, elimina questo piano e creane uno nuovo con MSKU validi.
+              Non e' possibile proseguire qui — elimina questo piano e creane uno nuovo con MSKU validi.
             </p>
-            <button
-              onClick={() => navigate("/uffici/spedizione-amazon")}
-              className="mt-3 ml-8 px-3 py-1.5 text-xs bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded text-rose-200"
-            >
-              Torna alla lista
-            </button>
+            <div className="mt-3 ml-8 flex items-center gap-2">
+              <button
+                onClick={() => navigate("/uffici/spedizione-amazon")}
+                className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-200"
+              >
+                <ArrowLeft className="w-3 h-3 inline mr-1" />
+                Torna alla lista
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Eliminare definitivamente il piano #${plan.id}?\n\nIl piano è già in ERRORE su Amazon, l'eliminazione rimuove solo i record locali.`)) return;
+                  try {
+                    const r = await fetch(`/api/v2/inbound/plans/${plan.id}`, { method: "DELETE" });
+                    if (!r.ok) throw new Error("Errore eliminazione");
+                    toast.success(`Piano #${plan.id} eliminato`);
+                    navigate("/uffici/spedizione-amazon");
+                  } catch (e) {
+                    toast.error(e.message);
+                  }
+                }}
+                className="px-3 py-1.5 text-xs bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded text-rose-200 inline-flex items-center gap-1"
+              >
+                <Trash2 className="w-3 h-3" />
+                Elimina piano
+              </button>
+            </div>
           </div>
+        ) : (
+          <StepContent plan={plan} reload={load} />
         )}
-        <StepContent plan={plan} reload={load} />
       </main>
     </div>
   );
@@ -1035,7 +1056,7 @@ function PackingStep({ plan, reload }) {
 
 // Step Imballaggio: dichiara dimensioni/peso cartoni + tipo spedizione
 function BoxingStep({ plan, reload }) {
-  const [shippingMode, setShippingMode] = useState("GROUND_SMALL_PARCEL");
+  const [shippingMode, setShippingMode] = useState(plan.shipping_mode || "GROUND_SMALL_PARCEL");
   const [shipments, setShipments] = useState([]);
   const [loadingShipments, setLoadingShipments] = useState(true);
   const [boxes, setBoxes] = useState([

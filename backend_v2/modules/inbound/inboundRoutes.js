@@ -34,8 +34,13 @@ router.post("/plans", (req, res) => {
 });
 
 router.delete("/plans/:id", (req, res) => {
-  svc.deletePlan(req.params.id);
-  res.json({ ok: true });
+  try {
+    svc.deletePlan(req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[Inbound] deletePlan");
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post("/plans/:id/create-on-amazon", async (req, res) => {

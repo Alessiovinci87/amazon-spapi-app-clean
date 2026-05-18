@@ -165,19 +165,27 @@ export default function SpedizioneAmazon() {
                         >
                           Apri <ChevronRight className="w-3 h-3" />
                         </button>
-                        {p.status === "DRAFT" && (
-                          <button
-                            onClick={async () => {
-                              if (!confirm(`Eliminare piano #${p.id}?`)) return;
-                              await fetch(`/api/v2/inbound/plans/${p.id}`, { method: "DELETE" });
+                        <button
+                          onClick={async () => {
+                            const isAdvanced = !["DRAFT", "VOIDED"].includes(p.status);
+                            const msg = isAdvanced
+                              ? `Eliminare piano #${p.id} in stato ${p.status}?\n\nATTENZIONE: il piano è già stato registrato su Amazon (ID: ${p.amazon_plan_id || "—"}). L'eliminazione rimuove i record locali ma NON annulla la spedizione su Amazon: per quello devi usare Seller Central.\n\nProcedere?`
+                              : `Eliminare piano #${p.id}?`;
+                            if (!confirm(msg)) return;
+                            try {
+                              const r = await fetch(`/api/v2/inbound/plans/${p.id}`, { method: "DELETE" });
+                              if (!r.ok) throw new Error("Errore eliminazione");
+                              toast.success(`Piano #${p.id} eliminato`);
                               loadPlans();
-                            }}
-                            className="text-rose-400 hover:text-rose-300 p-1"
-                            title="Elimina bozza"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
+                            } catch (e) {
+                              toast.error(e.message);
+                            }
+                          }}
+                          className="text-rose-400 hover:text-rose-300 p-1"
+                          title={p.status === "DRAFT" ? "Elimina bozza" : "Elimina piano locale (non annulla su Amazon)"}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </td>
                   </tr>
