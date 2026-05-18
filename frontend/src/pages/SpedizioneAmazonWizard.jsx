@@ -1060,7 +1060,7 @@ function BoxingStep({ plan, reload }) {
   const [shipments, setShipments] = useState([]);
   const [loadingShipments, setLoadingShipments] = useState(true);
   const [boxes, setBoxes] = useState([
-    { _id: Math.random().toString(36).slice(2), length: 30, width: 20, height: 15, weight: 5, quantity: 1, msku: plan.items?.[0]?.msku || "", itemQty: plan.items?.[0]?.quantity || 1, expiration: plan.items?.[0]?.expiration || "" },
+    { _id: Math.random().toString(36).slice(2), length: 30, width: 30, height: 30, weight: 5, quantity: 1, msku: plan.items?.[0]?.msku || "", itemQty: plan.items?.[0]?.quantity || 1, expiration: plan.items?.[0]?.expiration || "" },
   ]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -1117,6 +1117,61 @@ function BoxingStep({ plan, reload }) {
   };
 
   if (loadingShipments) return <Loader2 className="w-6 h-6 animate-spin text-blue-400" />;
+
+  if (shipments.length === 0) {
+    return (
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-6">
+        <div className="flex items-center gap-2 mb-2">
+          <AlertCircle className="w-5 h-5 text-amber-400" />
+          <h3 className="text-sm font-semibold text-amber-300 uppercase tracking-wider">Shipment non ancora disponibili</h3>
+        </div>
+        <p className="text-xs text-amber-200/90 mb-3">
+          Amazon non ha ancora creato gli shipment per questo piano. Cause possibili:
+        </p>
+        <ul className="text-[11px] text-amber-200/80 space-y-1 ml-4 list-disc mb-4">
+          <li>Il <span className="font-semibold">placement</span> non è ancora confermato lato Amazon</li>
+          <li>Amazon sta ancora processando la conferma (può richiedere alcuni minuti dopo lo step Centro)</li>
+          <li>Il piano è stato creato con uno stato anomalo (sync necessario)</li>
+        </ul>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              try {
+                const r = await fetch(`/api/v2/inbound/plans/${plan.id}/sync`, { method: "POST" });
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.error || "Errore sync");
+                if (d.errored) {
+                  toast.error("Piano in ERRORE su Amazon", { description: d.reason, duration: 12000 });
+                } else {
+                  toast.success(`Sincronizzato: ${d.shipments} shipment, step ${d.current_step}`);
+                }
+                reload();
+              } catch (e) { toast.error(e.message); }
+            }}
+            className="px-3 py-1.5 text-xs bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 rounded text-emerald-300 inline-flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Sincronizza con Amazon
+          </button>
+          <button
+            onClick={async () => {
+              setLoadingShipments(true);
+              try {
+                const r = await fetch(`/api/v2/inbound/plans/${plan.id}/summary`);
+                const d = await r.json();
+                setShipments(d?.shipments || d?.inboundPlan?.shipments || []);
+                toast.info(`Trovati ${(d?.shipments || []).length} shipment`);
+              } catch (e) { toast.error(e.message); }
+              setLoadingShipments(false);
+            }}
+            className="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-slate-200"
+          >
+            Ricarica summary
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const inp = "w-full bg-slate-800/60 border border-slate-700 rounded-md px-2.5 py-1.5 text-sm text-white";
   const lbl = "text-[9px] uppercase tracking-[0.14em] text-slate-500 block mb-1";

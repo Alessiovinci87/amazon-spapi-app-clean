@@ -415,11 +415,18 @@ async function getPlanSummary(planId) {
   const plan = getPlan(planId);
   // Amazon richiede 2 chiamate distinte: il piano (metadati) e l'elenco shipments
   const [summary, shipRes] = await Promise.all([
-    api.getInboundPlan(plan.amazon_plan_id),
-    api.listInboundPlanShipments(plan.amazon_plan_id).catch(() => ({ shipments: [] })),
+    api.getInboundPlan(plan.amazon_plan_id).catch((e) => {
+      logger.error({ err: e.message, planId, amazonPlanId: plan.amazon_plan_id }, "[Inbound] getInboundPlan failed");
+      return null;
+    }),
+    api.listInboundPlanShipments(plan.amazon_plan_id).catch((e) => {
+      logger.error({ err: e.message, planId, amazonPlanId: plan.amazon_plan_id }, "[Inbound] listInboundPlanShipments failed");
+      return { shipments: [] };
+    }),
   ]);
   const inboundPlan = summary?.inboundPlan || summary || {};
   const shipments = shipRes?.shipments || [];
+  logger.info({ planId, amazonPlanId: plan.amazon_plan_id, planStatus: inboundPlan.status, shipmentsCount: shipments.length }, "[Inbound] getPlanSummary");
   return { inboundPlan, shipments };
 }
 
