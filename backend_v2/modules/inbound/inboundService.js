@@ -310,6 +310,15 @@ async function listPlacementOptions(planId) {
 async function confirmPlacement(planId, placementOptionId) {
   const plan = getPlan(planId);
   const res = await api.confirmPlacementOption(plan.amazon_plan_id, placementOptionId);
+  // Amazon crea gli shipments asincronamente: dobbiamo attendere la SUCCESS
+  // dell'operation prima di avanzare, altrimenti BoxingStep vedrebbe 0 shipments.
+  if (res?.operationId) {
+    try {
+      await waitForOperation(res.operationId, { maxAttempts: 30, intervalMs: 2000 });
+    } catch (e) {
+      logger.warn({ planId, err: e.message }, "[Inbound] confirmPlacement: operation non SUCCESS entro timeout (proseguo lo stesso)");
+    }
+  }
   getDb()
     .prepare(`UPDATE inbound_plans SET selected_placement_id = ?, status = 'PLACEMENT_CONFIRMED', current_step = 'boxing' WHERE id = ?`)
     .run(placementOptionId, planId);
@@ -413,6 +422,7 @@ async function confirmDelivery(planId, shipmentId, deliveryWindowOptionId) {
 // ─── Plan summary (per leggere shipments dopo placement) ─────
 async function getPlanSummary(planId) {
   const plan = getPlan(planId);
+  let shipmentsError = null;
   // Amazon richiede 2 chiamate distinte: il piano (metadati) e l'elenco shipments
   const [summary, shipRes] = await Promise.all([
     api.getInboundPlan(plan.amazon_plan_id).catch((e) => {
@@ -420,14 +430,15 @@ async function getPlanSummary(planId) {
       return null;
     }),
     api.listInboundPlanShipments(plan.amazon_plan_id).catch((e) => {
-      logger.error({ err: e.message, planId, amazonPlanId: plan.amazon_plan_id }, "[Inbound] listInboundPlanShipments failed");
+      logger.error({ err: e.message, status: e.status, planId, amazonPlanId: plan.amazon_plan_id }, "[Inbound] listInboundPlanShipments failed");
+      shipmentsError = { status: e.status, message: e.message };
       return { shipments: [] };
     }),
   ]);
   const inboundPlan = summary?.inboundPlan || summary || {};
   const shipments = shipRes?.shipments || [];
-  logger.info({ planId, amazonPlanId: plan.amazon_plan_id, planStatus: inboundPlan.status, shipmentsCount: shipments.length }, "[Inbound] getPlanSummary");
-  return { inboundPlan, shipments };
+  logger.info({ planId, amazonPlanId: plan.amazon_plan_id, planStatus: inboundPlan.status, shipmentsCount: shipments.length, shipmentsError }, "[Inbound] getPlanSummary");
+  return { inboundPlan, shipments, shipmentsError };
 }
 
 // Legge stato reale Amazon e ricalcola current_step locale.
